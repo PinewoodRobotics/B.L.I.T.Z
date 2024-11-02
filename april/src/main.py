@@ -1,13 +1,13 @@
 import os
+import threading
+import time
 import cv2
-from flask import Flask, request
+import zmq
 import pyapriltags
-import requests
 import toml
-from colorama import Fore, Style, init
-
+from colorama import Fore, Style
 from config import Config
-from message.DetectTag import DetectImage, PositionData, PostOutput, Tag
+from message.DetectTag import DetectImage, NamedDetection, PositionData, PostOutput, Tag
 
 
 def log_info(message):
@@ -18,9 +18,7 @@ def open_config():
     with open("config.toml", "r") as file:
         config = toml.load(file)
 
-    if config["main_config_path"] is not None and os.path.exists(
-        config["main_config_path"]
-    ):
+    if config.get("main_config_path") and os.path.exists(config["main_config_path"]):
         with open(config["main_config_path"], "r") as file:
             log_info("Using config file: " + config["main_config_path"])
             config = toml.load(file)
@@ -30,72 +28,112 @@ def open_config():
     return config["april-detection"]
 
 
+def get_detector(config: Config):
+    return pyapriltags.Detector(
+        families=str(config.main.family),
+        nthreads=config.main.nthreads,
+        quad_decimate=config.main.quad_decimate,
+        quad_sigma=config.main.quad_sigma,
+        refine_edges=config.main.refine_edges,
+        decode_sharpening=config.main.decode_sharpening,
+        debug=0,
+        searchpath=config.main.searchpath,
+    )
+
+
+def reset_config():
+    global config
+    global detector
+    log_info("Resetting config...")
+    config = Config(open_config())
+    detector = get_detector(config)
+
+
+def input_thread():
+    global user_input
+    while True:
+        user_input = input()
+        if user_input == "reset":
+            reset_config()
+
+
+thread = threading.Thread(target=input_thread, daemon=True)
+thread.start()
+
+user_input = None
 config = Config(open_config())
-server = Flask(__name__)
-detector = pyapriltags.Detector(
-    families=str(config.main.family),
-    nthreads=config.main.nthreads,
-    quad_decimate=config.main.quad_decimate,
-    quad_sigma=config.main.quad_sigma,
-    refine_edges=config.main.refine_edges,
-    decode_sharpening=config.main.decode_sharpening,
-    debug=0 if config.main.debug == False else 1,
-    searchpath=config.main.searchpath,
+detector = get_detector(config)
+
+context = zmq.Context()
+
+internal_pub_socket = context.socket(zmq.PUB)
+internal_pub_socket.connect(f"tcp://localhost:{config.message.internal_pub_port}")
+
+internal_sub_socket = context.socket(zmq.SUB)
+internal_sub_socket.connect(f"tcp://localhost:{config.message.internal_sub_port}")
+internal_sub_socket.setsockopt_string(
+    zmq.SUBSCRIBE, config.message.post_camera_input_topic
 )
 
-try:
-    requests.post(
-        "http://localhost:" + str(config.message.sending_port) + "/subscribe",
-        json={
-            "topic": config.message.post_camera_input_topic,
-            "post_url": "http://localhost:"
-            + str(config.message.listening_port)
-            + "/process",
-        },
-    )
-except Exception as e:
-    log_info("Failed to subscribe to message topic: " + str(e))
-    exit(1)
+poller = zmq.Poller()
+poller.register(internal_sub_socket, zmq.POLLIN)
 
+time.sleep(1)
+log_info("Ready!")
 
-@server.route("/process", methods=["POST"])
-def on_message():
+while True:
+    socks = dict(poller.poll())
+
+    if internal_sub_socket not in socks:
+        continue
+
+    message = internal_sub_socket.recv_string()[
+        len(config.message.post_camera_input_topic) :
+    ]
+
     if config.main.debug:
-        log_info("Received message! Processing it...")
+        log_info("Received message: " + message)
 
-    message = DetectImage.from_json(request.json)
-    if message.camera not in config.cameras:
-        log_info(f"Unknown camera: {message.camera}")
+    message_content = DetectImage.from_json(message)
+    image = message_content.decode_image()
 
-    image = message.decode_image()
-    if not message.is_grayscale:
+    if not message_content.is_grayscale:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    out = detector.detect(
+    camera_config = config.cameras[message_content.camera_name]
+    tags = detector.detect(
         image,
         estimate_tag_pose=True,
-        camera_params=(
-            config.cameras[message.camera].focal_length_x,
-            config.cameras[message.camera].focal_length_y,
-            config.cameras[message.camera].center_x,
-            config.cameras[message.camera].center_y,
-        ),
+        camera_params=[
+            camera_config.focal_length_x,
+            camera_config.focal_length_y,
+            camera_config.center_x,
+            camera_config.center_y,
+        ],
         tag_size=config.main.tag_size,
     )
 
-    out_msg = PostOutput(message.camera, [])
-    for tag in out:
-        out_msg.add_tag(Tag(tag, PositionData(tag)))
+    output = PostOutput(message_content.camera_name, [])
+    for tag in tags:
+        output.add_tag(
+            Tag(
+                NamedDetection(
+                    tag.tag_family,
+                    tag.tag_id,
+                    tag.hamming,
+                    tag.decision_margin,
+                    tag.homography.tolist(),
+                    tag.center.tolist(),
+                    [corner.tolist() for corner in tag.corners],
+                    tag.pose_R.tolist() if tag.pose_R is not None else None,
+                    tag.pose_t.tolist() if tag.pose_t is not None else None,
+                    tag.pose_err,
+                    tag.tag_size,
+                ),
+                PositionData(tag),
+            )
+        )
 
-    requests.post(
-        "http://localhost:" + str(config.message.sending_port) + "/post",
-        json={
-            "topic": config.message.post_camera_output_topic,
-            "data": out_msg.to_json(),
-        },
+    internal_pub_socket.send_string(
+        config.message.post_camera_output_topic + output.to_json()
     )
-
-    return "Processed message successfully", 200
-
-
-server.run(host="localhost", port=config.message.listening_port)

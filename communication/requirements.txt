@@ -1,5 +1,4 @@
-requests
-Flask
-websockets
-httpx
-gunicorn
+redis
+colorama
+toml
+pyzmq

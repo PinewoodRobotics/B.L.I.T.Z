@@ -1,93 +1,63 @@
-import argparse
-from flask import Flask, request
-import requests
-
-app = Flask(__name__)
-post_sub_data_urls = {}
-log = True
-
-
-@app.route("/post", methods=["POST"])
-def post_listener():
-    """
-    A way for the client to send data to other subscribed clients.
-    """
-    data = request.json
-    topic = data.get("topic")
-    message = data.get("data")
-
-    if log:
-        print("Post")
-        print("Topic:", topic)
-        # print("Message:", message)
-
-    if topic in post_sub_data_urls:
-        for url in post_sub_data_urls[topic]:
-            try:
-                requests.post(url, json=message, timeout=0.01)
-            except Exception as e:
-                print("Error sending data to " + url + ".", " Removing from list.")
-
-                print(e)
-
-    return "OK", 200
-
-
-@app.route("/subscribe", methods=["POST"])
-def subscribe_listener():
-    """
-    Allows a client to subscribe to a topic.
-    """
-    data = request.json
-    topic = data.get("topic")
-    post_url = data.get("post_url")
-
-    if log:
-        print("Subscribe")
-        print("Topic:", topic)
-        print("Post URL:", post_url)
-
-    if topic not in post_sub_data_urls:
-        post_sub_data_urls[topic] = []
-
-    post_sub_data_urls[topic].append(post_url)
-
-    return "OK", 200
-
-
-@app.route("/unsubscribe", methods=["DELETE"])
-def unsubscribe_listener():
-    """
-    Allows a client to unsubscribe from a topic.
-    """
-    topic = request.headers.get("topic")
-    post_url = request.headers.get("post_url")
-
-    if log:
-        print("Unsubscribe")
-        print("Topic:", topic)
-        print("Post URL:", post_url)
-
-    if topic in post_sub_data_urls and post_url in post_sub_data_urls[topic]:
-        post_sub_data_urls[topic].remove(post_url)
-
-    return "OK", 200
-
+import toml
+import zmq
+from config import Config
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="A script that demonstrates argument parsing."
+    # Load configuration
+    config = toml.load(open("config.toml"))
+    if "main-config-path" in config:
+        config = toml.load(open(config["main-config-path"]))
+    config = Config(config)
+
+    context = zmq.Context()
+
+    # Internal PUB socket for publishing within the internal network
+    internal_pub_socket = context.socket(zmq.PUB)
+    internal_pub_socket.bind(f"tcp://*:{config.internal_pub_port}")
+
+    # Internal SUB socket for receiving messages from internal publishers
+    internal_sub_socket = context.socket(zmq.SUB)
+    internal_sub_socket.bind(f"tcp://*:{config.internal_sub_port}")
+    internal_sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")  # Subscribe to all topics
+
+    # External PUB socket for publishing to external peers
+    external_pub_socket = context.socket(zmq.PUB)
+    external_pub_socket.bind(f"tcp://*:{config.self_port}")
+
+    # External SUB socket for receiving messages from external peers
+    external_sub_socket = context.socket(zmq.SUB)
+    for peer in config.peers:
+        external_sub_socket.connect(f"tcp://{peer}")
+    external_sub_socket.setsockopt_string(
+        zmq.SUBSCRIBE, ""
+    )  # Subscribe to all external messages
+
+    # Poller to check for incoming messages on internal and external sub sockets
+    poller = zmq.Poller()
+    poller.register(internal_sub_socket, zmq.POLLIN)
+    poller.register(external_sub_socket, zmq.POLLIN)
+
+    print(
+        f"Broker started with internal PUB on port {config.internal_pub_port}, "
+        f"internal SUB on port {config.internal_sub_port}, "
+        f"and external PUB on port {config.self_port}"
     )
 
-    parser.add_argument("--port", type=str, help="An example argument.", required=False)
-    parser.add_argument(
-        "--log", type=str, help="Path to the configuration file.", required=False
-    )
+    while True:
+        socks = dict(poller.poll())
 
-    args = parser.parse_args()
+        # Check for messages from internal publishers
+        if internal_sub_socket in socks:
+            msg = internal_sub_socket.recv_string()
+            # Forward the message to all internal subscribers
+            internal_pub_socket.send_string(msg)
 
-    if args.log is not None and args.log.lower() == "true":
-        print("Logging enabled!")
-        log = True
+            # If the message is intended for external distribution, send it out
+            if msg.startswith("EXTERNAL"):
+                external_pub_socket.send_string(msg[10:])  # Strips "EXTERNAL" prefix
 
-    app.run(host="127.0.0.1", port=8081 if args.port is None else args.port)
+        # Check for messages from external peers
+        if external_sub_socket in socks:
+            msg = external_sub_socket.recv_string()
+            # Forward the message to internal subscribers
+            internal_pub_socket.send_string(msg)

@@ -22,8 +22,8 @@ required_config_camera = [
 ]
 
 required_config_message = [
-    "listening-port",
-    "sending-port",
+    "internal-pub-port",
+    "internal-sub-port",
     "post-camera-input-topic",
     "post-camera-output-topic",
 ]
@@ -107,8 +107,8 @@ class Main:
 
 class Message:
     def __init__(self, config):
-        self.listening_port = config["listening-port"]
-        self.sending_port = config["sending-port"]
+        self.internal_pub_port = config["internal-pub-port"]
+        self.internal_sub_port = config["internal-sub-port"]
         self.post_camera_input_topic = config["post-camera-input-topic"]
         self.post_camera_output_topic = config["post-camera-output-topic"]
 

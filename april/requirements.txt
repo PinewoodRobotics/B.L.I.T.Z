@@ -6,3 +6,5 @@ toml
 colorama
 dataclasses
 Flask
+pyzmq
+keyboard

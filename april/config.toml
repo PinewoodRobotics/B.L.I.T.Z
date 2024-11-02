@@ -6,7 +6,7 @@ main_config_path="test/config.toml" # that is a main config file with ALL the co
 cameras=["left"]
 tag-size=0.05
 family="tag36h11"
-nthreads=1
+nthreads=4
 quad_decimate=2.0
 quad_sigma=0.0
 refine_edges=1
@@ -15,8 +15,8 @@ searchpath=["apriltags"]
 debug=0
 
 [april-detection.message]
-listening-port=8082
-sending-port=8081
+internal-pub-port = 5556
+internal-sub-port = 5557
 post-camera-input-topic="apriltag/camera"
 post-camera-output-topic="apriltag/tag"
 
