@@ -1,0 +1,8 @@
+pyapriltags
+numpy
+opencv-python
+requests
+toml
+colorama
+dataclasses
+Flask

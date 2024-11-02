@@ -4,7 +4,7 @@ import requests
 
 app = Flask(__name__)
 post_sub_data_urls = {}
-log = False
+log = True
 
 
 @app.route("/post", methods=["POST"])
@@ -19,11 +19,16 @@ def post_listener():
     if log:
         print("Post")
         print("Topic:", topic)
-        print("Message:", message)
+        # print("Message:", message)
 
     if topic in post_sub_data_urls:
         for url in post_sub_data_urls[topic]:
-            requests.post(url, json=message)
+            try:
+                requests.post(url, json=message, timeout=0.01)
+            except Exception as e:
+                print("Error sending data to " + url + ".", " Removing from list.")
+
+                print(e)
 
     return "OK", 200
 
@@ -85,4 +90,4 @@ if __name__ == "__main__":
         print("Logging enabled!")
         log = True
 
-    app.run(host="127.0.0.1", port=1234 if args.port is None else args.port)
+    app.run(host="127.0.0.1", port=8081 if args.port is None else args.port)
