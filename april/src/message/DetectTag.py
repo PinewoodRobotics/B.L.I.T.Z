@@ -34,19 +34,21 @@ class PositionData:
     angle_relative_to_camera_pitch: float
     position_x_relative: float
     position_y_relative: float
+    position_z_relative: float
 
     def __init__(self, raw_detection_data: "Detection"):
         tvec = raw_detection_data.pose_t
+
         self.distance_to_camera = float(np.linalg.norm(tvec))
 
-        rvec = raw_detection_data.pose_R
-        yaw = np.arctan2(rvec[2, 0], rvec[0, 0])
-        pitch = np.arctan2(rvec[1, 0], np.sqrt(rvec[0, 0] ** 2 + rvec[2, 0] ** 2))
-        self.angle_relative_to_camera_yaw = float(yaw)
-        self.angle_relative_to_camera_pitch = float(pitch)
+        x, y, z = tvec[0, 0], tvec[1, 0], tvec[2, 0]
 
-        self.position_x_relative = float(tvec[0, 0])
-        self.position_y_relative = float(tvec[1, 0])
+        self.angle_relative_to_camera_yaw = np.arctan2(x, z)
+        self.angle_relative_to_camera_pitch = np.arctan2(y, z)
+
+        self.position_x_relative = float(x)
+        self.position_y_relative = float(y)
+        self.position_z_relative = float(z)
 
     def to_dict(self):
         return {
@@ -55,6 +57,7 @@ class PositionData:
             "angle_relative_to_camera_pitch": self.angle_relative_to_camera_pitch,
             "position_x_relative": self.position_x_relative,
             "position_y_relative": self.position_y_relative,
+            "position_z_relative": self.position_z_relative,
         }
 
 

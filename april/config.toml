@@ -4,7 +4,7 @@ main_config_path="test/config.toml" # that is a main config file with ALL the co
 # The requirements and the meanings of each entry are in the README file.
 [april-detection]
 cameras=["left"]
-tag-size=0.05
+tag-size=0.20
 family="tag36h11"
 nthreads=4
 quad_decimate=2.0
