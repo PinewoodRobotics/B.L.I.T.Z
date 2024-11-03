@@ -1,0 +1,59 @@
+[autobahn]
+internal-pub-port = 5556
+internal-sub-port = 5557
+
+[camera-feed-cleaner]
+cameras = ["left", "right"]
+image-input-topic = "feed-cleaner/input"
+image-output-topic = "feed-cleaner/output"
+
+[camera-feed-cleaner.left] # the bigger white one on the left (for myself)
+dist-coeff = [
+    -0.3699966980628528,
+    0.1821265728482258,
+    -0.000017146753545554133,
+    0.001312177635207973,
+    0.060869889777672416,
+]
+camera-matrix = [
+    [
+        1457.5931734170763,
+        0.0,
+        997.1660947238562,
+    ],
+    [
+        0.0,
+        1401.1036215895347,
+        539.0780233970917,
+    ],
+    [
+        0.0,
+        0.0,
+        1.0,
+    ],
+]
+[camera-feed-cleaner.right] # the smaller black one on the right (for myself)
+camera-matrix = [
+    [
+        1487.1124346674526,
+        0.0,
+        945.122412363984,
+    ],
+    [
+        0.0,
+        1434.705975660968,
+        547.8805261625706,
+    ],
+    [
+        0.0,
+        0.0,
+        1.0,
+    ],
+]
+dist-coeff = [
+    -0.4513475113205368,
+    0.21139658631382788,
+    -0.0028846973373456855,
+    0.0021349747481580624,
+    -0.055584296827295585,
+]
