@@ -1,0 +1,6 @@
+toml
+torch
+torchvision
+colorama
+ultralytics
+pyzmq

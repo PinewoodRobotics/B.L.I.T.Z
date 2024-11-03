@@ -1,7 +1,11 @@
-main_config_path="test/config.toml" # that is a main config file with ALL the configs. The python will look for this param and if it is defined, it will try to access the main config file.
+# main_config_path="test/config.toml" # that is a main config file with ALL the configs. The python will look for this param and if it is defined, it will try to access the main config file.
 # However, if the main config file is not there, the python will just default to acessing this config file.
 
 # The requirements and the meanings of each entry are in the README file.
+[autobahn]
+internal-pub-port = 5556
+internal-sub-port = 5557
+
 [april-detection]
 cameras=["left"]
 tag-size=0.20
@@ -15,8 +19,6 @@ searchpath=["apriltags"]
 debug=0
 
 [april-detection.message]
-internal-pub-port = 5556
-internal-sub-port = 5557
 post-camera-input-topic="apriltag/camera"
 post-camera-output-topic="apriltag/tag"
 

@@ -22,24 +22,33 @@ required_config_camera = [
 ]
 
 required_config_message = [
-    "internal-pub-port",
-    "internal-sub-port",
     "post-camera-input-topic",
     "post-camera-output-topic",
+]
+
+required_autobahn = [
+    "internal-pub-port",
+    "internal-sub-port",
 ]
 
 
 class Config:
     def __init__(self, config):
-        if not self.check_toml_config(config):
-            return
+        if not self.check_toml_config(
+            config["april-detection"]
+        ) or not self.check_autobahn_config(config["autobahn"]):
+            exit(1)
 
-        self.main = Main(config)
+        self.main = Main(config["april-detection"])
         log_info("Found main config.")
-        self.cameras: Dict[str, Camera] = self.get_camera_configs(config)
+        self.cameras: Dict[str, Camera] = self.get_camera_configs(
+            config["april-detection"]
+        )
         log_info("Found camera configs.")
-        self.message = Message(config["message"])
+        self.message = Message(config["april-detection"]["message"])
         log_info("Found message config.")
+        self.autobahn = Autobahn(config["autobahn"])
+        log_info("Found autobahn config.")
 
     def get_camera_configs(self, config):
         cameras = {}
@@ -90,6 +99,22 @@ class Config:
                 return False
         return True
 
+    def check_autobahn_config(self, config):
+        if config is None:
+            return False
+
+        for key in required_autobahn:
+            if key not in config:
+                log_error(f"Missing config for autobahn: '{key}'.")
+                return False
+        return True
+
+
+class Autobahn:
+    def __init__(self, config):
+        self.internal_pub_port = config["internal-pub-port"]
+        self.internal_sub_port = config["internal-sub-port"]
+
 
 class Main:
     def __init__(self, config):
@@ -107,8 +132,6 @@ class Main:
 
 class Message:
     def __init__(self, config):
-        self.internal_pub_port = config["internal-pub-port"]
-        self.internal_sub_port = config["internal-sub-port"]
         self.post_camera_input_topic = config["post-camera-input-topic"]
         self.post_camera_output_topic = config["post-camera-output-topic"]
 

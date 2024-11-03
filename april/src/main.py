@@ -25,7 +25,7 @@ def open_config():
     else:
         log_info("Using default config file!")
 
-    return config["april-detection"]
+    return config
 
 
 def get_detector(config: Config):
@@ -53,7 +53,7 @@ def input_thread():
     global user_input
     while True:
         user_input = input()
-        if user_input == "reset":
+        if user_input == "reload":
             reset_config()
 
 
@@ -67,10 +67,10 @@ detector = get_detector(config)
 context = zmq.Context()
 
 internal_pub_socket = context.socket(zmq.PUB)
-internal_pub_socket.connect(f"tcp://localhost:{config.message.internal_pub_port}")
+internal_pub_socket.connect(f"tcp://localhost:{config.autobahn.internal_pub_port}")
 
 internal_sub_socket = context.socket(zmq.SUB)
-internal_sub_socket.connect(f"tcp://localhost:{config.message.internal_sub_port}")
+internal_sub_socket.connect(f"tcp://localhost:{config.autobahn.internal_sub_port}")
 internal_sub_socket.setsockopt_string(
     zmq.SUBSCRIBE, config.message.post_camera_input_topic
 )
