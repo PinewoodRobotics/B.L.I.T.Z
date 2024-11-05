@@ -2,3 +2,4 @@ april/venv
 robot/venv
 .venv
 .DS_Store
+.VSCodeCounter
