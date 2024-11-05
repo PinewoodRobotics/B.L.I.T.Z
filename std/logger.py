@@ -1,10 +1,19 @@
 import colorama
+from enum import Enum
+
+
+class LogLevel(Enum):
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+
 
 PREFIX = ""
-LOG_LEVEL = "INFO"
+LOG_LEVEL = LogLevel.DEBUG
 
 
-def init_logging(prefix: str, log_level: str):
+def init_logging(prefix: str, log_level: LogLevel):
     global PREFIX
     global LOG_LEVEL
     colorama.init()
@@ -14,34 +23,34 @@ def init_logging(prefix: str, log_level: str):
 
 
 def message(message: str):
-    if LOG_LEVEL == "DEBUG":
+    if LOG_LEVEL == LogLevel.DEBUG:
         log(PREFIX, message, colorama.Fore.RESET)
 
 
 def error(message: str):
-    if LOG_LEVEL == "ERROR":
+    if LOG_LEVEL == LogLevel.ERROR:
         log(PREFIX, message, colorama.Fore.RED)
 
 
 def warning(message: str):
-    if LOG_LEVEL == "WARNING":
+    if LOG_LEVEL == LogLevel.WARNING:
         log(PREFIX, message, colorama.Fore.YELLOW)
 
 
 def info(message: str):
-    if LOG_LEVEL == "INFO":
+    if LOG_LEVEL == LogLevel.INFO:
         log(PREFIX, message, colorama.Fore.CYAN)
 
 
 def debug(message: str):
-    if LOG_LEVEL == "DEBUG":
+    if LOG_LEVEL == LogLevel.DEBUG:
         log(PREFIX, message, colorama.Fore.BLUE)
 
 
 def success(message: str):
-    if LOG_LEVEL == "DEBUG":
+    if LOG_LEVEL == LogLevel.DEBUG:
         log(PREFIX, message, colorama.Fore.GREEN)
 
 
 def log(prefix: str, message: str, color: str):
-    print(f"{prefix} {color}{message}{colorama.Fore.RESET}")
+    print(f"[{prefix}] {color}{message}{colorama.Fore.RESET}")
