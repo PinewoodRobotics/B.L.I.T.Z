@@ -1,5 +1,0 @@
-colorama
-pyzmq
-toml
-numpy
-opencv-python

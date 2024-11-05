@@ -29,19 +29,6 @@ def reset_config():
     config = Config(open_config())
 
 
-def initiate_pub_sub(config: Config):
-    context = zmq.Context()
-
-    internal_pub_socket = context.socket(zmq.PUB)
-    internal_pub_socket.connect(f"tcp://localhost:{config.autobahn.internal_pub_port}")
-
-    internal_sub_socket = context.socket(zmq.SUB)
-    internal_sub_socket.connect(f"tcp://localhost:{config.autobahn.internal_sub_port}")
-    internal_sub_socket.setsockopt_string(zmq.SUBSCRIBE, config.input_topic)
-
-    return internal_pub_socket, internal_sub_socket
-
-
 if __name__ == "__main__":
     config = Config(open_config())
 
@@ -114,5 +101,5 @@ if __name__ == "__main__":
         _, encoded_image = cv2.imencode(".jpg", frame)
         encoded_base64 = base64.b64encode(encoded_image).decode("utf-8")
         pub.send_string(
-            f"{config.output_topic}{ImageOutput(encoded_base64, message_decoded.camera_name).to_json()}",
+            f"{config.output_topic} {ImageOutput(encoded_base64, message_decoded.camera_name).to_json()}",
         )

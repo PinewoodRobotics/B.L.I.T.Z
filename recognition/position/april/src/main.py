@@ -88,11 +88,11 @@ while True:
         continue
 
     message = internal_sub_socket.recv_string()[
-        len(config.message.post_camera_input_topic) :
+        len(config.message.post_camera_input_topic) + 1 :
     ]
 
     if config.main.debug:
-        log_info("Received message: " + message)
+        log_info("Received message!")
 
     message_content = DetectImage.from_json(message)
     image = message_content.decode_image()
@@ -112,6 +112,9 @@ while True:
         ],
         tag_size=config.main.tag_size,
     )
+
+    if config.main.debug:
+        log_info("Found " + str(len(tags)) + " tags!")
 
     output = PostOutput(message_content.camera_name, [])
     for tag in tags:
@@ -135,5 +138,5 @@ while True:
         )
 
     internal_pub_socket.send_string(
-        config.message.post_camera_output_topic + output.to_json()
+        config.message.post_camera_output_topic + " " + output.to_json()
     )

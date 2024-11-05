@@ -7,24 +7,24 @@ internal-pub-port = 5556
 internal-sub-port = 5557
 
 [april-detection]
-cameras=["left"]
-tag-size=0.20
-family="tag36h11"
-nthreads=4
-quad_decimate=2.0
-quad_sigma=0.0
-refine_edges=1
-decode_sharpening=0.25
-searchpath=["apriltags"]
-debug=0
+cameras = ["left"]
+tag-size = 0.20
+family = "tag36h11"
+nthreads = 4
+quad_decimate = 2.0
+quad_sigma = 0.0
+refine_edges = 1
+decode_sharpening = 0.25
+searchpath = ["apriltags"]
+debug = 0
 
 [april-detection.message]
-post-camera-input-topic="apriltag/camera"
-post-camera-output-topic="apriltag/tag"
+post-camera-input-topic = "apriltag/camera"
+post-camera-output-topic = "apriltag/tag"
 
 [april-detection.left]
-focal-length-x=950
-focal-length-y=950
-center-x=640
-center-y=360
-name="left"
+focal-length-x = 950
+focal-length-y = 950
+center-x = 640
+center-y = 360
+name = "left"

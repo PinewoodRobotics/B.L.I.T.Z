@@ -1,6 +1,0 @@
-# main-config-path = "config.toml" 
-
-self-port = 5555              # Port for broadcasting to external peers
-internal-sub-port = 5556      # Port for internal processes to publish to the broker
-internal-pub-port = 5557      # Port for broker to broadcast to internal subscribers
-peers = []

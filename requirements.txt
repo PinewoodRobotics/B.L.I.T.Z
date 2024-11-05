@@ -1,0 +1,14 @@
+colorama
+pyzmq
+toml
+numpy
+opencv-python
+torch
+torchvision
+ultralytics
+pyapriltags
+requests
+dataclasses
+Flask
+keyboard
+nats-py
