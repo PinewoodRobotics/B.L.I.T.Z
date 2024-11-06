@@ -19,8 +19,6 @@ This is primarily made in order to have all the code for similar things in one p
 2. recognition
    1. april tag recognition and distance estimation [to it]
    2. robot image recognition and distance estimation [to it]
-3. cleaning
-   1. camera feed cleaning - primarily to remove fisheye AT THE MOMENT
 
 ## Documentation
 
