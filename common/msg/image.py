@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import json
 import cv2
 import numpy as np
-from std import logger
+from common import logger
 
 
 @dataclass
@@ -16,7 +16,7 @@ class ImageMessage:
         return cv2.imdecode(self.image, flag)
 
     @classmethod
-    def from_cv2(cls, image: cv2.Mat, camera_name: str):
+    def from_cv2(cls, image: np.ndarray, camera_name: str):
         success, encoded_img = cv2.imencode(
             ".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 90]
         )
@@ -56,6 +56,10 @@ class TransformImageMessage(ImageMessage):
         data = json.loads(json_data)
         data["image"] = np.array(data["image"], dtype=np.uint8)
         return cls(**data)
+
+    @classmethod
+    def from_bytes(cls, bytes_data: bytes):
+        return cls.from_json(bytes_data.decode("utf-8"))
 
     def to_json(self):
         data = {

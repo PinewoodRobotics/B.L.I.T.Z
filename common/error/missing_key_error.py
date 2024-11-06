@@ -1,4 +1,4 @@
-from std import logger
+from common import logger
 
 
 class MissingKeyError(Exception):

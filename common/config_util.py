@@ -1,4 +1,4 @@
-from std.error.MissingKeyError import MissingKeyError
+from error.missing_key_error import MissingKeyError
 
 
 def check_config(config: dict, required_keys: list[str], config_name: str):

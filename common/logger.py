@@ -22,6 +22,11 @@ def init_logging(prefix: str, log_level: LogLevel):
     LOG_LEVEL = log_level
 
 
+def set_log_level(log_level: LogLevel):
+    global LOG_LEVEL
+    LOG_LEVEL = log_level
+
+
 def message(message: str):
     if LOG_LEVEL == LogLevel.DEBUG:
         log(PREFIX, message, colorama.Fore.RESET)

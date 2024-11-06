@@ -1,4 +1,4 @@
-from std.config_util import check_config
+from common.config_util import check_config
 
 required_keys = [
     "cameras",
