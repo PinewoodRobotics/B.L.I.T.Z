@@ -1,6 +1,7 @@
 from common.config_util import check_config
+from typing import Any, List, Dict
 
-required_keys = [
+required_keys: List[str] = [
     "cameras",
     "tag-size",
     "family",
@@ -13,9 +14,12 @@ required_keys = [
     "debug",
 ]
 
-required_keys_message = ["post-camera-input-topic", "post-camera-output-topic"]
+required_keys_message: List[str] = [
+    "post-camera-input-topic",
+    "post-camera-output-topic",
+]
 
-required_keys_camera = [
+required_keys_camera: List[str] = [
     "focal-length-x",
     "focal-length-y",
     "center-x",
@@ -25,26 +29,46 @@ required_keys_camera = [
 
 
 class AprilDetectionMessageConfig:
-    def __init__(self, config: dict):
+    post_camera_input_topic: str
+    post_camera_output_topic: str
+
+    def __init__(self, config: Dict[str, str]) -> None:
         check_config(config, required_keys_message, "AprilDetectionMessageConfig")
         self.post_camera_input_topic = config["post-camera-input-topic"]
         self.post_camera_output_topic = config["post-camera-output-topic"]
 
 
 class CameraConfig:
-    def __init__(self, config: dict):
+    focal_length_x: float
+    focal_length_y: float
+    center_x: float
+    center_y: float
+    name: str
+
+    def __init__(self, config: Dict[str, float | str]) -> None:
         check_config(config, required_keys_camera, "CameraConfig")
-        self.focal_length_x = config["focal-length-x"]
-        self.focal_length_y = config["focal-length-y"]
-        self.center_x = config["center-x"]
-        self.center_y = config["center-y"]
-        self.name = config["name"]
+        self.focal_length_x = float(config["focal-length-x"])
+        self.focal_length_y = float(config["focal-length-y"])
+        self.center_x = float(config["center-x"])
+        self.center_y = float(config["center-y"])
+        self.name = str(config["name"])
 
 
 class AprilDetectionConfig:
-    def __init__(self, config: dict):
+    tag_size: float
+    family: str
+    nthreads: int
+    quad_decimate: float
+    quad_sigma: float
+    refine_edges: bool
+    decode_sharpening: float
+    searchpath: str
+    debug: bool
+    message: AprilDetectionMessageConfig
+    cameras: Dict[str, CameraConfig]
+
+    def __init__(self, config: Dict[str, Any]) -> None:
         check_config(config, required_keys, "AprilDetectionConfig")
-        self.cameras = config["cameras"]
         self.tag_size = config["tag-size"]
         self.family = config["family"]
         self.nthreads = config["nthreads"]
@@ -56,4 +80,6 @@ class AprilDetectionConfig:
         self.debug = config["debug"]
 
         self.message = AprilDetectionMessageConfig(config["message"])
-        self.cameras = [CameraConfig(camera) for camera in config["cameras"]]
+        self.cameras: Dict[str, CameraConfig] = {}
+        for camera in config["cameras"]:
+            self.cameras[camera] = CameraConfig(config[camera])

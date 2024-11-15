@@ -3,6 +3,14 @@ measure-speed = true
 
 #############################
 
+[profiler]
+activated = true
+profile-function = true
+time-function = false
+output-file = "profiler.txt"
+
+#############################
+
 [autobahn]
 port = 5556
 

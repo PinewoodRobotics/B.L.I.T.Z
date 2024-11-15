@@ -1,15 +1,30 @@
 import cv2
 import numpy as np
 
-from common.msg.image import TransformImageMessage
+from common import profiler
 
 
+@profiler.timeit
+@profiler.profile_function
 def unfisheye_image(
     image: np.ndarray,
     camera_matrix: np.ndarray,
     dist_coeff: np.ndarray,
     do_crop: bool = True,
 ):
+    """
+    Remove fisheye distortion from an image using camera calibration parameters.
+
+    Args:
+        image (np.ndarray): Input image to remove fisheye distortion from
+        camera_matrix (np.ndarray): 3x3 camera intrinsic matrix containing focal lengths and optical centers
+        dist_coeff (np.ndarray): Distortion coefficients (k1,k2,p1,p2,[k3[,k4,k5,k6]])
+        do_crop (bool, optional): Whether to crop edges of output image. Defaults to True.
+
+    Returns:
+        np.ndarray: Undistorted image with fisheye effect removed. If do_crop is True,
+                   the image edges will be cropped to remove black borders.
+    """
     height, width = image.shape[:2]
 
     new_camera_matrix, _ = cv2.getOptimalNewCameraMatrix(

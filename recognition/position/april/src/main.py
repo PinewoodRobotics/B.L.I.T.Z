@@ -1,142 +1,115 @@
-import os
+import asyncio
 import threading
 import time
-import cv2
-import zmq
+import nats
+import numpy as np
 import pyapriltags
-import toml
-from colorama import Fore, Style
-from config import Config
-from message.DetectTag import DetectImage, NamedDetection, PositionData, PostOutput, Tag
+from nats.aio.msg import Msg
+from pyinstrument import Profiler
 
-
-def log_info(message):
-    print("[April Main Thread]", Fore.CYAN, message, Style.RESET_ALL)
-
-
-def open_config():
-    with open("config.toml", "r") as file:
-        config = toml.load(file)
-
-    if config.get("main_config_path") and os.path.exists(config["main_config_path"]):
-        with open(config["main_config_path"], "r") as file:
-            log_info("Using config file: " + config["main_config_path"])
-            config = toml.load(file)
-    else:
-        log_info("Using default config file!")
-
-    return config
+from common import profiler
+from common.config import Config, Module
+from common.config_class.profiler import ProfilerConfig
+from generated.common.proto.AprilTag_pb2 import AprilTags, Tag
+from generated.common.proto.Image_pb2 import ImageMessage
+import msgpack_numpy as m
+from common.image.image_util import from_proto_to_cv2
+from recognition.position.april.src.util import from_detection_to_proto
 
 
 def get_detector(config: Config):
     return pyapriltags.Detector(
-        families=str(config.main.family),
-        nthreads=config.main.nthreads,
-        quad_decimate=config.main.quad_decimate,
-        quad_sigma=config.main.quad_sigma,
-        refine_edges=config.main.refine_edges,
-        decode_sharpening=config.main.decode_sharpening,
+        families=str(config.april_detection.family),
+        nthreads=config.april_detection.nthreads,
+        quad_decimate=config.april_detection.quad_decimate,
+        quad_sigma=config.april_detection.quad_sigma,
+        refine_edges=config.april_detection.refine_edges,
+        decode_sharpening=config.april_detection.decode_sharpening,
         debug=0,
-        searchpath=config.main.searchpath,
     )
 
 
-def reset_config():
-    global config
-    global detector
-    log_info("Resetting config...")
-    config = Config(open_config())
-    detector = get_detector(config)
-
-
-def input_thread():
+def input_thread(config: Config):
     global user_input
     while True:
         user_input = input()
         if user_input == "reload":
-            reset_config()
+            config.reload()
 
 
-thread = threading.Thread(target=input_thread, daemon=True)
-thread.start()
-
-user_input = None
-config = Config(open_config())
-detector = get_detector(config)
-
-context = zmq.Context()
-
-internal_pub_socket = context.socket(zmq.PUB)
-internal_pub_socket.connect(f"tcp://localhost:{config.autobahn.internal_pub_port}")
-
-internal_sub_socket = context.socket(zmq.SUB)
-internal_sub_socket.connect(f"tcp://localhost:{config.autobahn.internal_sub_port}")
-internal_sub_socket.setsockopt_string(
-    zmq.SUBSCRIBE, config.message.post_camera_input_topic
-)
-
-poller = zmq.Poller()
-poller.register(internal_sub_socket, zmq.POLLIN)
-
-time.sleep(1)
-log_info("Ready!")
-
-while True:
-    socks = dict(poller.poll())
-
-    if internal_sub_socket not in socks:
-        continue
-
-    message = internal_sub_socket.recv_string()[
-        len(config.message.post_camera_input_topic) + 1 :
-    ]
-
-    if config.main.debug:
-        log_info("Received message!")
-
-    message_content = DetectImage.from_json(message)
-    image = message_content.decode_image()
-
-    if not message_content.is_grayscale:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    camera_config = config.cameras[message_content.camera_name]
-    tags = detector.detect(
-        image,
-        estimate_tag_pose=True,
-        camera_params=[
-            camera_config.focal_length_x,
-            camera_config.focal_length_y,
-            camera_config.center_x,
-            camera_config.center_y,
-        ],
-        tag_size=config.main.tag_size,
+async def main():
+    profiler.init_profiler(
+        ProfilerConfig(
+            {
+                "activated": True,
+                "output-file": "profiler.html",
+                "profile-function": True,
+                "time-function": True,
+            }
+        )
     )
 
-    if config.main.debug:
-        log_info("Found " + str(len(tags)) + " tags!")
+    config = Config(
+        "config.toml",
+        exclude=[
+            Module.CAMERA_FEED_CLEANER,
+            Module.IMAGE_RECOGNITION,
+            Module.PROFILER,
+        ],
+    )
+    thread = threading.Thread(target=input_thread, daemon=True, args=(config,))
+    thread.start()
+    detector = get_detector(config)
+    nt = await nats.connect(f"nats://localhost:{config.autobahn.port}")
 
-    output = PostOutput(message_content.camera_name, [])
-    for tag in tags:
-        output.add_tag(
-            Tag(
-                NamedDetection(
-                    tag.tag_family,
-                    tag.tag_id,
-                    tag.hamming,
-                    tag.decision_margin,
-                    tag.homography.tolist(),
-                    tag.center.tolist(),
-                    [corner.tolist() for corner in tag.corners],
-                    tag.pose_R.tolist() if tag.pose_R is not None else None,
-                    tag.pose_t.tolist() if tag.pose_t is not None else None,
-                    tag.pose_err,
-                    tag.tag_size,
-                ),
-                PositionData(tag),
-            )
+    count = 0
+    time_start = time.time()
+
+    async def on_message(msg: Msg):
+        nonlocal count, time_start
+        count += 1
+        if count >= 10:
+            time_end = time.time()
+            print(f"Time taken: {count / (time_end - time_start):.2f} QPS")
+            time_start = time_end
+            count = 0
+
+        msg_decoded = ImageMessage.FromString(msg.data)
+
+        tags = detector.detect(
+            from_proto_to_cv2(msg_decoded),
+            estimate_tag_pose=True,
+            camera_params=(
+                config.april_detection.cameras[msg_decoded.camera_name].focal_length_x,
+                config.april_detection.cameras[msg_decoded.camera_name].focal_length_y,
+                config.april_detection.cameras[msg_decoded.camera_name].center_x,
+                config.april_detection.cameras[msg_decoded.camera_name].center_y,
+            ),
+            tag_size=config.april_detection.tag_size,
         )
 
-    internal_pub_socket.send_string(
-        config.message.post_camera_output_topic + " " + output.to_json()
+        output = AprilTags(
+            msg_decoded.camera_name,
+            [from_detection_to_proto(tag) for tag in tags],
+        )
+
+        await nt.publish(
+            config.april_detection.message.post_camera_output_topic,
+            output.SerializeToString(),
+        )
+
+    await nt.subscribe(
+        config.april_detection.message.post_camera_input_topic,
+        cb=on_message,
     )
+
+    print(config.april_detection.message.post_camera_input_topic)
+
+    try:
+        await asyncio.Event().wait()  # Wait indefinitely without consuming CPU
+    except asyncio.CancelledError:
+        pass
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

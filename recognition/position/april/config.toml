@@ -2,9 +2,12 @@
 # However, if the main config file is not there, the python will just default to acessing this config file.
 
 # The requirements and the meanings of each entry are in the README file.
+
+log-level = "DEBUG"
+measure-speed = false
+
 [autobahn]
-internal-pub-port = 5556
-internal-sub-port = 5557
+port = 4222
 
 [april-detection]
 cameras = ["left"]

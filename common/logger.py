@@ -1,6 +1,8 @@
 import colorama
 from enum import Enum
 
+from pyinstrument import Profiler
+
 
 class LogLevel(Enum):
     DEBUG = "DEBUG"
@@ -14,6 +16,13 @@ LOG_LEVEL = LogLevel.DEBUG
 
 
 def init_logging(prefix: str, log_level: LogLevel):
+    """
+    Initialize the logging system with a prefix and log level.
+
+    Args:
+        prefix (str): The prefix to prepend to all log messages
+        log_level (LogLevel): The minimum log level to display messages for
+    """
     global PREFIX
     global LOG_LEVEL
     colorama.init()
@@ -55,6 +64,11 @@ def debug(message: str):
 def success(message: str):
     if LOG_LEVEL == LogLevel.DEBUG:
         log(PREFIX, message, colorama.Fore.GREEN)
+
+
+def log_profiler(profiler: Profiler):
+    if LOG_LEVEL == LogLevel.DEBUG:
+        print(profiler.output_text(unicode=True, color=True))
 
 
 def log(prefix: str, message: str, color: str):

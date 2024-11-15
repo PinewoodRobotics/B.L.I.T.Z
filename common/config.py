@@ -1,12 +1,14 @@
 from enum import Enum
 import toml
 
-from config_util import check_config
-from logger import LogLevel
-from config_class.autobahn import AutobahnConfig
-from config_class.image_recognition import ImageRecognitionConfig
-from config_class.april_detection import AprilDetectionConfig
-from config_class.camera_feed_cleaner import CameraFeedCleanerConfig
+from common import logger
+from common.config_class.profiler import ProfilerConfig
+from common.config_util import check_config
+from common.logger import LogLevel
+from common.config_class.autobahn import AutobahnConfig
+from common.config_class.image_recognition import ImageRecognitionConfig
+from common.config_class.april_detection import AprilDetectionConfig
+from common.config_class.camera_feed_cleaner import CameraFeedCleanerConfig
 
 
 class Module(Enum):
@@ -14,6 +16,7 @@ class Module(Enum):
     IMAGE_RECOGNITION = "image-recognition"
     APRIL_DETECTION = "april-detection"
     CAMERA_FEED_CLEANER = "camera-feed-cleaner"
+    PROFILER = "profiler"
 
 
 main_config_required_keys = ["log-level", "measure-speed"]
@@ -22,25 +25,35 @@ main_config_required_keys = ["log-level", "measure-speed"]
 class Config:
     def __init__(self, config_path: str, exclude: list[Module] = []):
         self.__config_raw = toml.load(config_path)
-        check_config(self.__config_raw, main_config_required_keys, "Main Config")
+        self.__config_path = config_path
+        self.__load(self.__config_raw, exclude)
 
-        self.log_level = LogLevel(self.__config_raw["log-level"])
-        self.measure_speed = self.__config_raw["measure-speed"]
+    def __load(self, config_raw: dict, exclude: list[Module] = []):
+        check_config(config_raw, main_config_required_keys, "Main Config")
+
+        self.log_level = LogLevel(config_raw["log-level"])
+        self.measure_speed = config_raw["measure-speed"]
 
         if Module.AUTOBAHN not in exclude:
-            self.autobahn = AutobahnConfig(self.__config_raw["autobahn"])
+            self.autobahn = AutobahnConfig(config_raw["autobahn"])
 
         if Module.IMAGE_RECOGNITION not in exclude:
             self.image_recognition = ImageRecognitionConfig(
-                self.__config_raw["image-recognition"]
+                config_raw["image-recognition"]
             )
 
         if Module.APRIL_DETECTION not in exclude:
-            self.april_detection = AprilDetectionConfig(
-                self.__config_raw["april-detection"]
-            )
+            self.april_detection = AprilDetectionConfig(config_raw["april-detection"])
 
         if Module.CAMERA_FEED_CLEANER not in exclude:
             self.camera_feed_cleaner = CameraFeedCleanerConfig(
-                self.__config_raw["camera-feed-cleaner"]
+                config_raw["camera-feed-cleaner"]
             )
+
+        if Module.PROFILER not in exclude:
+            self.profiler = ProfilerConfig(config_raw["profiler"])
+
+    def reload(self):
+        logger.info("Reloading config...")
+        self.__config_raw = toml.load(self.__config_path)
+        self.__load(self.__config_raw)

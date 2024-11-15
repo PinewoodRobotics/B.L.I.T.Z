@@ -12,3 +12,8 @@ dataclasses
 Flask
 keyboard
 nats-py
+pyinstrument
+dill
+msgpack_numpy
+msgpack
+protobuf

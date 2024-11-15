@@ -3,3 +3,10 @@ robot/venv
 .venv
 .DS_Store
 .VSCodeCounter
+generated/
+__pycache__
+*.html
+*.pyc
+*.pyo
+*.pyd
+*.pyz
