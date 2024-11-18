@@ -1,0 +1,19 @@
+log-level = "INFO"
+measure-speed = true
+
+[autobahn]
+port = 4222
+
+[image-recognition]
+image-input-topic = "recognition/image_input"
+image-output-topic = "recognition/image_output"
+model = "yolov5mu.pt"                           # "yolov8n.yaml"
+device = "mps"
+
+[image-recognition.trainer]
+name = "yolov8_custom"
+imgsz = 640
+epochs = 10
+data-yaml-path = "data.yaml"
+dataset-root-path = "dataset"
+batch-size = 16
