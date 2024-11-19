@@ -16,10 +16,8 @@ from project.common.config import Config, Module
 from project.common.config_class.profiler import ProfilerConfig
 from project.common.image.image_util import from_proto_to_cv2
 from project.generated.project.common.proto.Image_pb2 import ImageMessage
-from project.generated.project.common.proto.Inference_pb2 import (
-    Inference,
-    InferenceList,
-)
+from project.generated.project.common.proto.Inference_pb2 import Inference
+from project.generated.project.common.proto.Inference_pb2 import InferenceList
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 

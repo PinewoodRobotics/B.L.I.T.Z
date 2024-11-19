@@ -6,7 +6,6 @@ initiate-project:
 	pip install -e .
 
 generate-proto: prepare
-	mkdir -p project/generated
 	protoc --python_out=project/generated --pyi_out=project/generated project/common/proto/*.proto
 
 run-multiprocess-2-test:

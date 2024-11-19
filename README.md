@@ -31,3 +31,8 @@ The documentation of each "module" can be found in the corresponding folders whe
 ## Goal
 
 The main goal of this is to create a code base such that we can put it on a raspberry pi, run one command, and everything is up and running.
+
+## Running the code
+
+Remember to do `pip install -e .` in the root directory to install all the packages.
+Also remember do to `make generate-proto` in the root directory to generate the python files from the proto files.
