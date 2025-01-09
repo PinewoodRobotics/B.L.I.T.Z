@@ -92,17 +92,27 @@ async def main() -> None:
 
         inferences = []
         for i in results:
-            if i.boxes is None:
+            # Check if `i.boxes` exists and has valid detections
+            if i.boxes is None or len(i.boxes) == 0:
                 continue
 
-            inferences.append(
-                Inference(
-                    confidence=float(i.boxes.conf[0].item()),
-                    class_name=model.names[int(i.boxes.cls[0].item())],
-                    class_id=int(i.boxes.cls[0].item()),
-                    bounding_box=i.boxes.xyxy[0].tolist(),
+            # Ensure all required attributes have valid data
+            if (
+                i.boxes.conf is not None
+                and len(i.boxes.conf) > 0
+                and i.boxes.cls is not None
+                and len(i.boxes.cls) > 0
+                and i.boxes.xyxy is not None
+                and len(i.boxes.xyxy) > 0
+            ):
+                inferences.append(
+                    Inference(
+                        confidence=float(i.boxes.conf[0].item()),
+                        class_name=model.names[int(i.boxes.cls[0].item())],
+                        class_id=int(i.boxes.cls[0].item()),
+                        bounding_box=i.boxes.xyxy[0].tolist(),
+                    )
                 )
-            )
 
         output = InferenceList(
             camera_name=msg_decoded.camera_name,

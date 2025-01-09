@@ -1,4 +1,21 @@
 {
   "python.analysis.typeCheckingMode": "basic",
-  "makefile.configureOnOpen": false
+  "makefile.configureOnOpen": false,
+  "[jupyter]": {
+    "editor.formatOnSave": true
+  },
+  "python.formatting.provider": "black",
+  "files.associations": {
+    "iostream": "cpp",
+    "deque": "cpp",
+    "list": "cpp",
+    "map": "cpp",
+    "set": "cpp",
+    "string": "cpp",
+    "unordered_map": "cpp",
+    "unordered_set": "cpp",
+    "vector": "cpp",
+    "*.tcc": "cpp"
+  },
+  "cmake.sourceDirectory": "/Users/godbrigero/Documents/BLITZ/project/hybrid-frustum-pointnet/lidar"
 }

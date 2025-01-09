@@ -5,4 +5,11 @@
 #ifndef TIMED_POINT_H
 #define TIMED_POINT_H
 
-#endif //TIMED_POINT_H
+struct TimedPointXYZ {
+  double x;
+  double y;
+  double z;
+  double timestamp;
+};
+
+#endif  // TIMED_POINT_H

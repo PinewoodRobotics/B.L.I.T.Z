@@ -1,0 +1,9 @@
+[requires]
+cpr/1.10.1
+jsoncpp/1.9.5
+tomlplusplus/3.3.0
+pcl/1.13.1
+
+[generators]
+CMakeDeps
+CMakeToolchain

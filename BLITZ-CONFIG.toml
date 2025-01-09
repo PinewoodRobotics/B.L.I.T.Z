@@ -87,6 +87,7 @@ camera-matrix = [
         1.0,
     ],
 ]
+
 [camera-feed-cleaner.right] # the smaller black one on the right (for myself)
 camera-matrix = [
     [
