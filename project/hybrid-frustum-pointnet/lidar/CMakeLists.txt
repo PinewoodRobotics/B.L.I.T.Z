@@ -6,10 +6,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Find required packages
-find_package(cpr REQUIRED)
 find_package(jsoncpp REQUIRED)
 find_package(tomlplusplus REQUIRED)
+find_package(flann REQUIRED)
+include_directories(${FLANN_INCLUDE_DIRS})
 find_package(PCL REQUIRED COMPONENTS
     common
     io
@@ -22,7 +22,6 @@ find_package(PCL REQUIRED COMPONENTS
 )
 
 # Add external dependencies
-add_subdirectory(external/cpp-httplib)
 
 # Specify source files explicitly
 file(GLOB_RECURSE SOURCES
@@ -36,31 +35,44 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 # Add the Unitree lidar SDK as an imported library
 add_library(unitree_lidar_sdk STATIC IMPORTED)
 set_target_properties(unitree_lidar_sdk PROPERTIES
-    IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/unitree_lidar/lib/libunitree_lidar_sdk.a
+    IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/include/unitree_lidar/lib/libunitree_lidar_sdk.a
 )
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/unitree_lidar/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/unitree_lidar/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/cpp-httplib/include
     ${PCL_INCLUDE_DIRS}
 )
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    cpr::cpr
     JsonCpp::JsonCpp
     tomlplusplus::tomlplusplus
     unitree_lidar_sdk
-    httplib::httplib
     ${PCL_LIBRARIES}
 )
 
 # Apply PCL definitions
 add_definitions(${PCL_DEFINITIONS})
 
-# Add compiler warnings
-if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
-elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /permissive-)
-endif()
+###################################################
+
+add_executable(test_lidar_pt_cloud 
+    ${CMAKE_CURRENT_SOURCE_DIR}/lidar-test/test-lidar-pt-cloud.cpp
+)
+
+# Include directories for test executable
+target_include_directories(test_lidar_pt_cloud PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/unitree_lidar/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/cpp-httplib/include
+    ${PCL_INCLUDE_DIRS}
+)
+
+# Link libraries for test executable
+target_link_libraries(test_lidar_pt_cloud PRIVATE
+    JsonCpp::JsonCpp
+    tomlplusplus::tomlplusplus
+    unitree_lidar_sdk
+    ${PCL_LIBRARIES}
+)
