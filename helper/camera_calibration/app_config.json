@@ -1,0 +1,8 @@
+{
+    "camera": {
+        "camera_port": 0
+    },
+    "transformation": {
+        "use_grayscale": false
+    }
+}
