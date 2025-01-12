@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 
-@Dataclass
+
+@dataclass
 class TransformationConfig:
     use_grayscale: bool
