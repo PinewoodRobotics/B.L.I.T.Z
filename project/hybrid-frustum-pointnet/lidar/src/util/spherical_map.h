@@ -26,6 +26,8 @@ class SphericalMap {
     }
   }
 
+  int size() { return this->points.size(); }
+
   const std::vector<TimedPointXYZ> queryPointsInFrustum(
       const Frustum& frustum) const {
     std::vector<TimedPointXYZ> result;
@@ -44,13 +46,12 @@ class SphericalMap {
   double maxPointExistenceTimeMs, pointCleanIntervalMs, lastCleanTimeMs;
 
   void cleanOldPoints(double currentTime) {
-    points.erase(
-        std::remove_if(points.begin(), points.end(),
-                       [this, currentTime](const TimedPointXYZ& point) {
-                         return currentTime - point.timestamp >
-                                maxPointExistenceTimeMs;
-                       }),
-        points.end());
+    auto it = std::remove_if(points.begin(), points.end(),
+                             [this, currentTime](const TimedPointXYZ& point) {
+                               return (currentTime - point.timestamp) >
+                                      maxPointExistenceTimeMs;
+                             });
+    points.erase(it, points.end());
   }
 
   bool isPointInsideFrustum(

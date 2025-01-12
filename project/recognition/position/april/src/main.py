@@ -7,14 +7,13 @@ import pyapriltags
 from nats.aio.msg import Msg
 from pyinstrument import Profiler
 
-from common import profiler
 from project.common.config import Config, Module
 from project.common.config_class.profiler import ProfilerConfig
 from project.generated.project.common.proto.AprilTag_pb2 import AprilTags, Tag
 from project.generated.project.common.proto.Image_pb2 import ImageMessage
 import msgpack_numpy as m
 from project.common.image.image_util import from_proto_to_cv2
-from recognition.position.april.src.util import from_detection_to_proto
+from util import from_detection_to_proto
 
 
 def get_detector(config: Config):
@@ -38,17 +37,6 @@ def input_thread(config: Config):
 
 
 async def main():
-    profiler.init_profiler(
-        ProfilerConfig(
-            {
-                "activated": True,
-                "output-file": "profiler.html",
-                "profile-function": True,
-                "time-function": True,
-            }
-        )
-    )
-
     config = Config(
         "config.toml",
         exclude=[

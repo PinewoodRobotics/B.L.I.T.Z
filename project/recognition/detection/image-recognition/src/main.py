@@ -19,8 +19,6 @@ from project.generated.project.common.proto.Image_pb2 import ImageMessage
 from project.generated.project.common.proto.Inference_pb2 import Inference
 from project.generated.project.common.proto.Inference_pb2 import InferenceList
 
-os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
-
 
 def input_thread(config: Config) -> None:
     global user_input

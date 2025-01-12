@@ -1,2 +1,3 @@
 *.json
 stereo_images/
+./camera_calibration

@@ -30,4 +30,9 @@ class ImageInferenceHelper:
         self.image_id_map[image.id] = {"frame": frame, "timestamp": time.time()}
 
     async def get_latest_inference(self) -> InferenceList:
-        return await self.queue.get()
+        while self.queue.qsize() > 1:  # Skip older messages
+            await self.queue.get()
+            
+        response = await self.queue.get()
+        print(self.queue.qsize())
+        return response

@@ -1,5 +1,6 @@
 [lidar]
 port_names = ["/dev/ttyUSB0"]
 cloud_scan_num = 16              # higher = more points but slower
-max_point_existence_time_ms = 50.0 # higher = more points but slower and more memory and less accuracy 
+max_point_existence_time_ms = 1000.0 # higher = more points but slower and more memory and less accuracy 
 server_port = 8080
+

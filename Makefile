@@ -21,4 +21,4 @@ run-autobahn:
 	nats-server -c project/autobahn/autobahn.conf
 
 prepare:
-	if [ ! -d "generated" ]; then mkdir generated; fi
+	if [ ! -d "project/generated" ]; then mkdir project/generated; fi

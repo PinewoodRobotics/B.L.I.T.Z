@@ -1,7 +1,7 @@
 [requires]
 jsoncpp/1.9.5
 tomlplusplus/3.3.0
-flann/1.9.2
+gtest/1.15.0
 
 [generators]
 CMakeDeps

@@ -29,10 +29,12 @@ file(GLOB_RECURSE SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
 )
 
-# Create the executable
+file(GLOB_RECURSE UTIL_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/util/*.h"
+)
+
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-# Add the Unitree lidar SDK as an imported library
 add_library(unitree_lidar_sdk STATIC IMPORTED)
 set_target_properties(unitree_lidar_sdk PROPERTIES
     IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/include/unitree_lidar/lib/libunitree_lidar_sdk.a
@@ -56,23 +58,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 # Apply PCL definitions
 add_definitions(${PCL_DEFINITIONS})
 
-###################################################
-
-add_executable(test_lidar_pt_cloud 
-    ${CMAKE_CURRENT_SOURCE_DIR}/lidar-test/test-lidar-pt-cloud.cpp
-)
-
-# Include directories for test executable
-target_include_directories(test_lidar_pt_cloud PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/unitree_lidar/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/cpp-httplib/include
-    ${PCL_INCLUDE_DIRS}
-)
-
-# Link libraries for test executable
-target_link_libraries(test_lidar_pt_cloud PRIVATE
-    JsonCpp::JsonCpp
-    tomlplusplus::tomlplusplus
-    unitree_lidar_sdk
-    ${PCL_LIBRARIES}
-)
+add_subdirectory("lidar-test")
+add_subdirectory("tests")

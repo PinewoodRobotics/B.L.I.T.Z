@@ -18,3 +18,7 @@ msgpack_numpy
 msgpack
 protobuf
 opencv-contrib-python
+asyncio
+nest_asyncio
+open3d
+flask-socketio

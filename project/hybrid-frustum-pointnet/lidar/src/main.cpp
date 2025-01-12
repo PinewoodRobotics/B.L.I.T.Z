@@ -10,6 +10,13 @@
 #include "util/spherical_map.h"
 #include "util/vector3.h"
 
+long long getCurrentTimeMs() {
+  auto now = std::chrono::system_clock::now();
+  auto duration = now.time_since_epoch();
+  return std::chrono::duration_cast<std::chrono::milliseconds>(duration)
+      .count();
+}
+
 httplib::Server::Handler makePOSTHandler(SphericalMap &sphericalMap) {
   return [&sphericalMap](const httplib::Request &req, httplib::Response &res) {
     try {
@@ -17,22 +24,36 @@ httplib::Server::Handler makePOSTHandler(SphericalMap &sphericalMap) {
       Json::CharReaderBuilder reader;
       std::string errors;
 
-      double originX = jsonData["origin"]["x"].asDouble();
-      double originY = jsonData["origin"]["y"].asDouble();
-      double originZ = jsonData["origin"]["z"].asDouble();
+      // Parse JSON from request body
+      std::istringstream iss(req.body);
+      if (!Json::parseFromStream(reader, iss, &jsonData, &errors)) {
+        res.status = 400;
+        res.set_content("Invalid JSON: " + errors, "text/plain");
+        return;
+      }
+
+      double originX = jsonData["origin"].get("x", 0.0).asFloat();
+      double originY = jsonData["origin"].get("y", 0.0).asFloat();
+      double originZ = jsonData["origin"].get("z", 0.0).asFloat();
 
       std::array<Vec3, 4> directions;
       for (int i = 0; i < 4; i++) {
-        double directionX = jsonData["directions"][i]["x"].asDouble();
-        double directionY = jsonData["directions"][i]["y"].asDouble();
-        double directionZ = jsonData["directions"][i]["z"].asDouble();
+        const auto &dir = jsonData["directions"][i];
+        if (!dir.isObject()) {
+          res.status = 400;
+          res.set_content(
+              "Invalid 'direction' object at index " + std::to_string(i),
+              "text/plain");
+          return;
+        }
+        double directionX = dir.get("x", 0.0).asDouble();
+        double directionY = dir.get("y", 0.0).asDouble();
+        double directionZ = dir.get("z", 0.0).asDouble();
         directions[i] = Vec3(directionX, directionY, directionZ);
       }
 
       Frustum frustum(Vec3(originX, originY, originZ), directions);
-
-      auto startTime = std::chrono::high_resolution_clock::now();  // debug
-
+      auto startTime = std::chrono::high_resolution_clock::now();
       auto points = sphericalMap.queryPointsInFrustum(frustum);
 
       Json::Value responseJson;
@@ -45,12 +66,11 @@ httplib::Server::Handler makePOSTHandler(SphericalMap &sphericalMap) {
         responseJson["points"].append(pointJson);
       }
 
-      auto endTime = std::chrono::high_resolution_clock::now();  // debug
+      auto endTime = std::chrono::high_resolution_clock::now();
       auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-          endTime - startTime);  // debug
+          endTime - startTime);
 
-      std::cout << "Query time: " << duration.count() << "ms"
-                << std::endl;  // debug
+      std::cout << "Query time: " << duration.count() << "ms" << std::endl;
 
       Json::StreamWriterBuilder writer;
       res.set_content(Json::writeString(writer, responseJson),
@@ -101,7 +121,7 @@ int main() {
   sleep(1);
 
   for (auto lreader : lidar_readers) {
-    lreader->setLidarWorkingMode(unitree_lidar_sdk::STANDBY);
+    lreader->setLidarWorkingMode(unitree_lidar_sdk::NORMAL);
     std::cout << "lidar reader set to standby" << std::endl;
   }
 
@@ -119,10 +139,13 @@ int main() {
           break;
 
         case unitree_lidar_sdk::POINTCLOUD:
-          std::cout << "lidar reader got pointcloud" << std::endl;
+          // std::cout << "lidar reader got pointcloud" << std::endl;
           for (auto point : lreader->getCloud().points) {
-            sphericalMap.addPoint(point.x, point.y, point.z, point.time);
+            sphericalMap.addPoint(point.y, point.z, point.x,
+                                  getCurrentTimeMs());
           }
+          // std::cout << "Lidar spherical map has" << sphericalMap.size()
+          //           << "points!" << std::endl;
           break;
 
         default:
