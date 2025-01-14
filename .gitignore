@@ -60,3 +60,4 @@ nats-server.conf
 # Temporary files
 tmp/
 temp/
+./node_modules/

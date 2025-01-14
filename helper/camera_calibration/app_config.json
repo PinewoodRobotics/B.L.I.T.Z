@@ -1,8 +1,1 @@
-{
-    "camera": {
-        "camera_port": 0
-    },
-    "transformation": {
-        "use_grayscale": false
-    }
-}
+{"camera":{"camera_port":0},"transformation":{"detect_april_tags":true,"use_grayscale":false,"undistort":{"undistort":false,"camera_matrix":[],"dist_coeff":[]},"camera_settings":{"exposure":{"min":0.0,"max":123.0},"gain":{"min":1.0,"max":10.0},"gamma":{"min":0.0,"max":2.0}},"threshholding":{"hue":{"min":0.0,"max":360.0},"saturation":{"min":0.0,"max":255.0},"value":{"min":0.0,"max":255.0}},"filtering":{"object_size":{"min":10.0,"max":500.0},"bounding_box_aspect_ratio":{"min":0.5,"max":2.0},"fullness":{"min":0.6,"max":1.0}},"april_tag_config":{"quad_decimate":2.0,"quad_sigma":0.0,"refine_edges":1,"decode_sharpening":0.25,"tag_size_m":0.1}},"calibration":{"checkerboard":{"cols":8,"rows":6,"square_size":0.02}}}

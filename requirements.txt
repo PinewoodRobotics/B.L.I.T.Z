@@ -22,3 +22,6 @@ asyncio
 nest_asyncio
 open3d
 flask-socketio
+websockets
+pydantic
+flask-cors

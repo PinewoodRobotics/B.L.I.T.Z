@@ -17,5 +17,6 @@
     "vector": "cpp",
     "*.tcc": "cpp"
   },
-  "cmake.sourceDirectory": "/Users/godbrigero/Documents/BLITZ/project/hybrid-frustum-pointnet/lidar"
+  "cmake.sourceDirectory": "/Users/godbrigero/Documents/BLITZ/project/hybrid-frustum-pointnet/lidar",
+  "cSpell.words": ["pyapriltags", "Threshholding"]
 }

@@ -1,101 +1,396 @@
-import Image from "next/image";
+"use client";
+
+import { StandardButton } from "./components/Button";
+import { PageSplit } from "./components/PageSplit";
+import LiveStream from "./components/LiveStream";
+import { useRouter } from "next/navigation";
+import { CheckBox } from "./components/CheckBox";
+import { GradientSlider } from "./components/Slider";
+import { useEffect, useState } from "react";
+import { TransformationConfig } from "./interfaces/update_mode";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const router = useRouter();
+  const [transformationConfig, setTransformationConfig] =
+    useState<TransformationConfig | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+  const [doUndistort, setDoUndistort] = useState(false);
+  const [cameraConfig, setCameraConfig] = useState("");
+
+  useEffect(() => {
+    if (!transformationConfig) {
+      fetchTransformationConfig().then((config) => {
+        setTransformationConfig(config);
+        if (config.undistort.undistort) {
+          setDoUndistort(true);
+        }
+      });
+    }
+  }, [transformationConfig]);
+
+  useEffect(() => {
+    sendUpdateMode("video");
+  }, []);
+
+  async function fetchTransformationConfig() {
+    const response = await fetch("/backend/get_saved_transformation_config", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return await response.json();
+  }
+
+  async function sendUpdateSettings(new_config: Partial<TransformationConfig>) {
+    await fetch("/backend/update_settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ...new_config }),
+    });
+  }
+
+  async function sendUpdateMode(mode: "checkerboard" | "apriltag" | "video") {
+    await fetch("/backend/update_mode", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        new_mode: mode,
+      }),
+    });
+  }
+
+  return (
+    <main className="w-full h-screen">
+      {transformationConfig && (
+        <PageSplit>
+          <div className="w-full h-full p-10">
+            <div className="flex flex-col gap-10">
+              <div className="text-4xl font-bold">Camera Feed Calibration</div>
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-3">
+                  <div className="text-2xl font-bold">Detection Settings</div>
+                  <CheckBox
+                    label="Undistort Image"
+                    onChange={async (v) => {
+                      setDoUndistort(v);
+                      if (!v) {
+                        await sendUpdateSettings({
+                          undistort: {
+                            undistort: false,
+                            camera_matrix: [],
+                            dist_coeff: [],
+                          },
+                        });
+                      }
+                    }}
+                    checked={doUndistort}
+                  />
+                  {doUndistort && (
+                    <textarea
+                      className="w-full h-40 text-black"
+                      value={cameraConfig}
+                      onChange={async (e) => {
+                        setCameraConfig(e.target.value);
+
+                        const camera_config = JSON.parse(e.target.value);
+                        console.log(e.target.value + "camera_config");
+                        if (
+                          camera_config.camera_matrix &&
+                          camera_config.dist_coeff
+                        ) {
+                          console.log(camera_config);
+                          await sendUpdateSettings({
+                            undistort: {
+                              undistort: true,
+                              camera_matrix: camera_config.camera_matrix,
+                              dist_coeff: camera_config.dist_coeff,
+                            },
+                          });
+                        }
+                      }}
+                    />
+                  )}
+                  <CheckBox
+                    label="Detect April Tags"
+                    onChange={(v) => {
+                      setTransformationConfig({
+                        ...transformationConfig,
+                        detect_april_tags: v,
+                      });
+                    }}
+                    checked={transformationConfig.detect_april_tags}
+                  />
+                  <CheckBox
+                    label="Use Grayscale"
+                    onChange={async (v) => {
+                      setTransformationConfig({
+                        ...transformationConfig,
+                        use_grayscale: v,
+                      });
+                      await sendUpdateSettings({
+                        ...transformationConfig,
+                        use_grayscale: v,
+                      });
+                    }}
+                    checked={transformationConfig.use_grayscale}
+                  />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="text-2xl font-bold">Color Settings</div>
+                  <div className="flex flex-col gap-10 mt-5">
+                    <div className="w-60 h-4">
+                      <GradientSlider
+                        onChange={async (v) => {
+                          const v1 = v[0];
+                          const v2 = v[1];
+                          console.log(v1, v2);
+
+                          setTransformationConfig({
+                            ...transformationConfig,
+                            threshholding: {
+                              ...transformationConfig.threshholding,
+                              hue: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+
+                          await sendUpdateSettings({
+                            ...transformationConfig,
+                            threshholding: {
+                              ...transformationConfig.threshholding,
+                              hue: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+                        }}
+                        min={0}
+                        max={360}
+                        step={0.5}
+                        initialValues={[
+                          transformationConfig.threshholding?.hue?.min ?? 0,
+                          transformationConfig.threshholding?.hue?.max ?? 360,
+                        ]}
+                      />
+                    </div>
+                    <div className="w-60 h-4">
+                      <GradientSlider
+                        onChange={async (v) => {
+                          const v1 = v[0];
+                          const v2 = v[1];
+
+                          setTransformationConfig({
+                            ...transformationConfig,
+                            threshholding: {
+                              ...transformationConfig.threshholding,
+                              saturation: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+
+                          await sendUpdateSettings({
+                            ...transformationConfig,
+                            threshholding: {
+                              ...transformationConfig.threshholding,
+                              saturation: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+                        }}
+                        min={0}
+                        max={255}
+                        step={0.5}
+                        initialValues={[
+                          transformationConfig.threshholding?.saturation?.min ??
+                            0,
+                          transformationConfig.threshholding?.saturation?.max ??
+                            255,
+                        ]}
+                      />
+                    </div>
+                    <div className="w-60 h-4">
+                      <GradientSlider
+                        onChange={async (v) => {
+                          const v1 = v[0];
+                          const v2 = v[1];
+
+                          setTransformationConfig({
+                            ...transformationConfig,
+                            threshholding: {
+                              ...transformationConfig.threshholding,
+                              value: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+
+                          await sendUpdateSettings({
+                            threshholding: {
+                              ...transformationConfig.threshholding,
+                              value: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+                        }}
+                        min={0}
+                        max={255}
+                        step={0.5}
+                        initialValues={[
+                          transformationConfig.threshholding?.value?.min ?? 0,
+                          transformationConfig.threshholding?.value?.max ?? 255,
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="text-2xl font-bold">Camera Settings</div>
+                  <div className="flex flex-col gap-10 mt-5">
+                    <div className="w-60 h-4">
+                      <GradientSlider
+                        onChange={async (v) => {
+                          const v1 = v[0];
+                          const v2 = v[1];
+                          console.log(v1, v2);
+
+                          setTransformationConfig({
+                            ...transformationConfig,
+                            camera_settings: {
+                              ...transformationConfig.camera_settings,
+                              exposure: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+
+                          await sendUpdateSettings({
+                            ...transformationConfig,
+                            camera_settings: {
+                              ...transformationConfig.camera_settings,
+                              gain: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+                        }}
+                        min={0}
+                        max={360}
+                        step={0.5}
+                        initialValues={[
+                          transformationConfig.threshholding?.hue?.min ?? 0,
+                          transformationConfig.threshholding?.hue?.max ?? 360,
+                        ]}
+                      />
+                    </div>
+                    <div className="w-60 h-4">
+                      <GradientSlider
+                        onChange={async (v) => {
+                          const v1 = v[0];
+                          const v2 = v[1];
+
+                          setTransformationConfig({
+                            ...transformationConfig,
+                            camera_settings: {
+                              ...transformationConfig.camera_settings,
+                              gain: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+
+                          await sendUpdateSettings({
+                            ...transformationConfig,
+                            camera_settings: {
+                              ...transformationConfig.camera_settings,
+                              gain: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+                        }}
+                        min={0}
+                        max={255}
+                        step={0.5}
+                        initialValues={[
+                          transformationConfig.camera_settings?.gain?.min ?? 0,
+                          transformationConfig.camera_settings?.gain?.max ??
+                            255,
+                        ]}
+                      />
+                    </div>
+                    <div className="w-60 h-4">
+                      <GradientSlider
+                        onChange={async (v) => {
+                          const v1 = v[0];
+                          const v2 = v[1];
+
+                          setTransformationConfig({
+                            ...transformationConfig,
+                            camera_settings: {
+                              ...transformationConfig.camera_settings,
+                              gamma: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+
+                          await sendUpdateSettings({
+                            camera_settings: {
+                              ...transformationConfig.camera_settings,
+                              gamma: {
+                                min: v1,
+                                max: v2,
+                              },
+                            },
+                          });
+                        }}
+                        min={0}
+                        max={255}
+                        step={0.5}
+                        initialValues={[
+                          transformationConfig.camera_settings?.gamma?.min ?? 0,
+                          transformationConfig.camera_settings?.gamma?.max ??
+                            255,
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <StandardButton
+                text="Switch To Calibration"
+                onClick={() => {
+                  router.push("/calibration");
+                }}
+              />
+            </div>
+          </div>
+          <div className="p-10">
+            <LiveStream />
+          </div>
+        </PageSplit>
+      )}
+    </main>
   );
 }
