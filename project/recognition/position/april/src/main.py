@@ -80,7 +80,7 @@ async def main():
 
         output = AprilTags(
             camera_name=msg_decoded.camera_name,
-            image_id=msg_decoded.id,
+            image_id=msg_decoded.image_id,
             tags=[from_detection_to_proto(tag) for tag in tags],
             timestamp=msg_decoded.timestamp,
         )

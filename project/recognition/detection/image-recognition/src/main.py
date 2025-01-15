@@ -114,6 +114,7 @@ async def main() -> None:
 
         output = InferenceList(
             camera_name=msg_decoded.camera_name,
+            image_id=msg_decoded.image_id,
             inferences=inferences,
         )
 

@@ -14,9 +14,6 @@ run-multiprocess-2-test:
 run-multiprocess:
 	python project/test/april/april_tag_mult_process.py
 
-run-april-server:
-	cd project/recognition/position/april && python src/main.py
-
 run-autobahn:
 	nats-server -c project/autobahn/autobahn.conf
 

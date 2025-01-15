@@ -7,5 +7,5 @@ message ImageMessage {
     int64 timestamp = 4;
     int32 height = 5;
     int32 width = 6;
-    int32 id = 7;
+    int32 image_id = 7;
 }

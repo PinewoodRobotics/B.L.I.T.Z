@@ -27,12 +27,12 @@ class ImageInferenceHelper:
     async def send_image_message(self, image: ImageMessage, frame: MatLike):
         await self.nats_client.publish(self.image_pub_topic, image.SerializeToString())
         await self.nats_client.flush()
-        self.image_id_map[image.id] = {"frame": frame, "timestamp": time.time()}
+        self.image_id_map[image.image_id] = {"frame": frame, "timestamp": time.time()}
 
     async def get_latest_inference(self) -> InferenceList:
         while self.queue.qsize() > 1:  # Skip older messages
             await self.queue.get()
-            
+
         response = await self.queue.get()
         print(self.queue.qsize())
         return response
