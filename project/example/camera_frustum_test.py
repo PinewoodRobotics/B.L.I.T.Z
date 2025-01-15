@@ -7,24 +7,29 @@ from asyncio import CancelledError
 import open3d as o3d
 import random
 
-from project.common.camera.box_fov_conversion import bbox_to_frustum
+from project.common.camera.box_frustum_conversion import bbox_to_frustum
 from project.common.camera.image_inference_helper import ImageInferenceHelper
 from project.common.camera.transform import unfisheye_image
 from project.generated.project.common.proto.Image_pb2 import ImageMessage
 
-camera_matrix = np.array([
-    [1487.1124346674526, 0.0, 945.122412363984],
-    [0.0, 1434.705975660968, 547.8805261625706],
-    [0.0, 0.0, 1.0],
-])
+camera_matrix = np.array(
+    [
+        [1487.1124346674526, 0.0, 945.122412363984],
+        [0.0, 1434.705975660968, 547.8805261625706],
+        [0.0, 0.0, 1.0],
+    ]
+)
 
-dist_coef = np.array([
-    -0.4513475113205368,
-    0.21139658631382788,
-    -0.0028846973373456855,
-    0.0021349747481580624,
-    -0.055584296827295585,
-])
+dist_coef = np.array(
+    [
+        -0.4513475113205368,
+        0.21139658631382788,
+        -0.0028846973373456855,
+        0.0021349747481580624,
+        -0.055584296827295585,
+    ]
+)
+
 
 def create_frustum_geometry(frustum_points):
     """
@@ -34,8 +39,14 @@ def create_frustum_geometry(frustum_points):
     :return: Open3D LineSet object representing the frustum.
     """
     lines = [
-        [0, 1], [1, 3], [3, 2], [2, 0],  # Rectangle (base)
-        [0, 4], [1, 4], [2, 4], [3, 4]   # Connecting lines to the camera
+        [0, 1],
+        [1, 3],
+        [3, 2],
+        [2, 0],  # Rectangle (base)
+        [0, 4],
+        [1, 4],
+        [2, 4],
+        [3, 4],  # Connecting lines to the camera
     ]
     colors = [[1, 0, 0] for _ in lines]  # Set line color (red)
 
@@ -45,6 +56,7 @@ def create_frustum_geometry(frustum_points):
     line_set.colors = o3d.utility.Vector3dVector(colors)
 
     return line_set
+
 
 async def main():
     cap = cv2.VideoCapture(2)
@@ -70,7 +82,9 @@ async def main():
             unfisheyed_image = unfisheye_image(frame, camera_matrix, dist_coef)
 
             # Convert the frame to Open3D Image format
-            o3d_image = o3d.geometry.Image(cv2.cvtColor(unfisheyed_image, cv2.COLOR_BGR2RGB))
+            o3d_image = o3d.geometry.Image(
+                cv2.cvtColor(unfisheyed_image, cv2.COLOR_BGR2RGB)
+            )
 
             # Encode and prepare image message
             _, compressed_image = cv2.imencode(".jpg", unfisheyed_image)
@@ -122,5 +136,5 @@ async def main():
         cv2.destroyAllWindows()
         vis.destroy_window()
 
-asyncio.run(main())
 
+asyncio.run(main())

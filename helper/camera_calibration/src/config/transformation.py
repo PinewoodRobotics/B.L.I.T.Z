@@ -90,7 +90,6 @@ class TransformationConfig(BaseModel):
                 self.camera_settings.gamma = new_config.camera_settings.gamma
         if new_config.threshholding:
             if new_config.threshholding.hue:
-                print(new_config.threshholding.hue)
                 self.threshholding.hue = new_config.threshholding.hue
             if new_config.threshholding.saturation:
                 self.threshholding.saturation = new_config.threshholding.saturation
