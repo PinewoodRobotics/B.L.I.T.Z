@@ -20,5 +20,12 @@ run-april-server:
 run-autobahn:
 	nats-server -c project/autobahn/autobahn.conf
 
+ai-server:
+	cd project/recognition/detection/image-recognition && python src/main.py
+
+april-server:
+	cd project/recognition/position/april && python src/main.py
+
 prepare:
 	if [ ! -d "project/generated" ]; then mkdir project/generated; fi
+

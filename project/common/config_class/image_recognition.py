@@ -1,4 +1,4 @@
-from project.common.config import check_config
+from project.common.config_class.config_template import ConfigTemplate
 
 
 required_keys_main = ["image-input-topic", "image-output-topic", "model", "device"]
@@ -13,9 +13,9 @@ required_keys_trainer = [
 ]
 
 
-class TrainerConfig:
+class TrainerConfig(ConfigTemplate):
     def __init__(self, config: dict):
-        check_config(config, required_keys_trainer, "TrainerConfig")
+        self.check_config(config, required_keys_trainer, "TrainerConfig")
         self.name = config["name"]
         self.imgsz = config["imgsz"]
         self.epochs = config["epochs"]
@@ -24,9 +24,9 @@ class TrainerConfig:
         self.batch_size = config["batch-size"]
 
 
-class ImageRecognitionConfig:
+class ImageRecognitionConfig(ConfigTemplate):
     def __init__(self, config: dict):
-        check_config(config, required_keys_main, "ImageRecognitionConfig")
+        self.check_config(config, required_keys_main, "ImageRecognitionConfig")
         self.image_input_topic = config["image-input-topic"]
         self.image_output_topic = config["image-output-topic"]
         self.model = config["model"]

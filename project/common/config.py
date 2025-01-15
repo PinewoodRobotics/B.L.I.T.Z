@@ -1,6 +1,7 @@
 from enum import Enum
 import toml
 
+from project.common.config_class.config_template import ConfigTemplate
 from project.common.debug import logger
 from project.common.config_class.profiler import ProfilerConfig
 from project.common.error.missing_key_error import MissingKeyError
@@ -22,14 +23,14 @@ class Module(Enum):
 main_config_required_keys = ["log-level", "measure-speed"]
 
 
-class Config:
+class Config(ConfigTemplate):
     def __init__(self, config_path: str, exclude: list[Module] = []):
         self.__config_raw = toml.load(config_path)
         self.__config_path = config_path
         self.__load(self.__config_raw, exclude)
 
     def __load(self, config_raw: dict, exclude: list[Module] = []):
-        check_config(config_raw, main_config_required_keys, "Main Config")
+        self.check_config(config_raw, main_config_required_keys, "Main Config")
 
         self.log_level = LogLevel(config_raw["log-level"])
         self.measure_speed = config_raw["measure-speed"]
@@ -57,26 +58,3 @@ class Config:
         logger.info("Reloading config...")
         self.__config_raw = toml.load(self.__config_path)
         self.__load(self.__config_raw)
-
-
-def check_config(config: dict, required_keys: list[str], config_name: str):
-    """
-    Check if a configuration dictionary contains all required keys.
-
-    Args:
-        config (dict): The configuration dictionary to check
-        required_keys (list[str]): List of keys that must be present in the config
-        config_name (str): Name of the configuration being checked, used in error messages
-
-    Raises:
-        MissingKeyError: If any required key is missing from the config dictionary
-
-    Example:
-        >>> config = {"key1": "value1", "key2": "value2"}
-        >>> required_keys = ["key1", "key3"]
-        >>> check_config(config, required_keys, "My Config")
-        MissingKeyError: Missing key: 'key3' in My Config
-    """
-    for key in required_keys:
-        if key not in config:
-            raise MissingKeyError(key, config_name)

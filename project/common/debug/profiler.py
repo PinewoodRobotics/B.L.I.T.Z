@@ -7,7 +7,7 @@ from project.common.config_class.profiler import ProfilerConfig
 profiler_config: None | ProfilerConfig = None
 
 
-def init_profiler(config: ProfilerConfig):
+def init_profiler(config: "ProfilerConfig"):
     global profiler_config
     profiler_config = config
 

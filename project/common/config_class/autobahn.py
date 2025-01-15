@@ -1,10 +1,10 @@
-from project.common.config import check_config
+from project.common.config_class.config_template import ConfigTemplate
 
 
 required_keys = ["port"]
 
 
-class AutobahnConfig:
+class AutobahnConfig(ConfigTemplate):
     def __init__(self, config: dict):
-        check_config(config, required_keys, "AutobahnConfig")
+        self.check_config(config, required_keys, "AutobahnConfig")
         self.port = config["port"]

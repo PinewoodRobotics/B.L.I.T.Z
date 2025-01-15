@@ -1,6 +1,5 @@
 from typing import Any, List, Dict
-
-from project.common.config import check_config
+from project.common.config_class.config_template import ConfigTemplate
 
 required_keys: List[str] = [
     "cameras",
@@ -29,17 +28,17 @@ required_keys_camera: List[str] = [
 ]
 
 
-class AprilDetectionMessageConfig:
+class AprilDetectionMessageConfig(ConfigTemplate):
     post_camera_input_topic: str
     post_camera_output_topic: str
 
     def __init__(self, config: Dict[str, str]) -> None:
-        check_config(config, required_keys_message, "AprilDetectionMessageConfig")
+        self.check_config(config, required_keys_message, "AprilDetectionMessageConfig")
         self.post_camera_input_topic = config["post-camera-input-topic"]
         self.post_camera_output_topic = config["post-camera-output-topic"]
 
 
-class CameraConfig:
+class CameraConfig(ConfigTemplate):
     focal_length_x: float
     focal_length_y: float
     center_x: float
@@ -47,7 +46,7 @@ class CameraConfig:
     name: str
 
     def __init__(self, config: Dict[str, float | str]) -> None:
-        check_config(config, required_keys_camera, "CameraConfig")
+        self.check_config(config, required_keys_camera, "CameraConfig")
         self.focal_length_x = float(config["focal-length-x"])
         self.focal_length_y = float(config["focal-length-y"])
         self.center_x = float(config["center-x"])
@@ -55,7 +54,7 @@ class CameraConfig:
         self.name = str(config["name"])
 
 
-class AprilDetectionConfig:
+class AprilDetectionConfig(ConfigTemplate):
     tag_size: float
     family: str
     nthreads: int
@@ -69,7 +68,7 @@ class AprilDetectionConfig:
     cameras: Dict[str, CameraConfig]
 
     def __init__(self, config: Dict[str, Any]) -> None:
-        check_config(config, required_keys, "AprilDetectionConfig")
+        self.check_config(config, required_keys, "AprilDetectionConfig")
         self.tag_size = config["tag-size"]
         self.family = config["family"]
         self.nthreads = config["nthreads"]
