@@ -1,0 +1,6 @@
+[server]
+port = 8080
+
+[others]
+# 1 = { port = 8080, url = "ws://localhost:8080" }
+# 2 = { port = 8081, url = "ws://localhost:8081" }
