@@ -1,6 +1,7 @@
 from typing import List, Tuple
 import numpy as np
 
+
 def bbox_to_frustum(K, bbox, depth):
     """
     Converts a bounding box and depth into a frustum in 3D space.
@@ -16,15 +17,17 @@ def bbox_to_frustum(K, bbox, depth):
     x_min, y_min, x_max, y_max = bbox
 
     # Compute normalized image plane coordinates
-    corners = np.array([
-        [-(x_min - cx) / fx, -(y_min - cy) / fy],  # Upper left
-        [-(x_max - cx) / fx, -(y_min - cy) / fy],  # Upper right
-        [-(x_max - cx) / fx, -(y_max - cy) / fy],  # Lower right
-        [-(x_min - cx) / fx, -(y_max - cy) / fy],  # Lower left
-    ])
+    corners = np.array(
+        [
+            [-(x_min - cx) / fx, -(y_min - cy) / fy],  # Upper left
+            [-(x_max - cx) / fx, -(y_min - cy) / fy],  # Upper right
+            [-(x_max - cx) / fx, -(y_max - cy) / fy],  # Lower right
+            [-(x_min - cx) / fx, -(y_max - cy) / fy],  # Lower left
+        ]
+    )
 
     # Map corners to 3D frustum points with correct vector length (depth)
-    frustum_points: list[tuple[float, float, float]]= []
+    frustum_points: list[tuple[float, float, float]] = []
     for x, y in corners:
         # Compute the direction vector
         direction = np.array([x, y, 1.0])  # z=1 is used for the canonical optical axis
@@ -34,23 +37,22 @@ def bbox_to_frustum(K, bbox, depth):
 
     return frustum_points
 
+
 def transform_frustum(
     frustum_list: list[tuple[float, float, float]],
     rotation_transformation: tuple[float, float],
-    linear_transformation: tuple[float, float, float]
+    linear_transformation: tuple[float, float, float],
 ) -> list[tuple[float, float, float]]:
     cos_theta, sin_theta = rotation_transformation
     tx, ty, tz = linear_transformation
-    rotation_matrix = np.array([
-        [cos_theta, -sin_theta, 0],
-        [sin_theta, cos_theta,  0],
-        [0,         0,          1]
-    ])
+    rotation_matrix = np.array(
+        [[cos_theta, -sin_theta, 0], [sin_theta, cos_theta, 0], [0, 0, 1]]
+    )
 
     transformed_frustum = []
     for point in frustum_list:
         x, y, z = point
-        
+
         rotated_point = rotation_matrix @ np.array([x, y, z])
 
         transformed_point = rotated_point + np.array([tx, ty, tz])

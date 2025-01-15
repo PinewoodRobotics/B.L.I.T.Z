@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from project.common import profiler
+from project.common.debug import profiler
 from project.common.camera.transform import unfisheye_image
 from project.common.config_class.profiler import ProfilerConfig
 from project.test.test_config import PROFILER_CONFIG

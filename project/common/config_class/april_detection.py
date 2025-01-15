@@ -1,5 +1,6 @@
-from project.common.config_util import check_config
 from typing import Any, List, Dict
+
+from project.common.config import check_config
 
 required_keys: List[str] = [
     "cameras",

@@ -22,7 +22,3 @@ def from_proto_to_cv2(image_message: ImageMessage) -> np.ndarray:
         )
 
     return decoded_image
-
-
-def convert_to_gray(image: np.ndarray) -> np.ndarray:
-    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)

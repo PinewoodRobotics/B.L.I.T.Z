@@ -1,7 +1,7 @@
 import time
 from pyinstrument import Profiler
 
-from project.common import logger
+from project.common.debug import logger
 from project.common.config_class.profiler import ProfilerConfig
 
 profiler_config: None | ProfilerConfig = None

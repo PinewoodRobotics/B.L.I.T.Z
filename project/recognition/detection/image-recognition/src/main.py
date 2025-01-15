@@ -11,7 +11,7 @@ from nats.aio.msg import Msg
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 
-from project.common import profiler
+from project.common.debug import profiler
 from project.common.config import Config, Module
 from project.common.config_class.profiler import ProfilerConfig
 from project.common.image.image_util import from_proto_to_cv2

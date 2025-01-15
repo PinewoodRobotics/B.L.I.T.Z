@@ -1,4 +1,4 @@
-from project.common import logger
+from project.common.debug import logger
 
 
 class MissingKeyError(Exception):

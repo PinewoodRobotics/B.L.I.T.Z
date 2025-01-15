@@ -1,10 +1,10 @@
 from enum import Enum
 import toml
 
-from project.common import logger
+from project.common.debug import logger
 from project.common.config_class.profiler import ProfilerConfig
-from project.common.config_util import check_config
-from project.common.logger import LogLevel
+from project.common.error.missing_key_error import MissingKeyError
+from project.common.debug.logger import LogLevel
 from project.common.config_class.autobahn import AutobahnConfig
 from project.common.config_class.image_recognition import ImageRecognitionConfig
 from project.common.config_class.april_detection import AprilDetectionConfig
@@ -57,3 +57,26 @@ class Config:
         logger.info("Reloading config...")
         self.__config_raw = toml.load(self.__config_path)
         self.__load(self.__config_raw)
+
+
+def check_config(config: dict, required_keys: list[str], config_name: str):
+    """
+    Check if a configuration dictionary contains all required keys.
+
+    Args:
+        config (dict): The configuration dictionary to check
+        required_keys (list[str]): List of keys that must be present in the config
+        config_name (str): Name of the configuration being checked, used in error messages
+
+    Raises:
+        MissingKeyError: If any required key is missing from the config dictionary
+
+    Example:
+        >>> config = {"key1": "value1", "key2": "value2"}
+        >>> required_keys = ["key1", "key3"]
+        >>> check_config(config, required_keys, "My Config")
+        MissingKeyError: Missing key: 'key3' in My Config
+    """
+    for key in required_keys:
+        if key not in config:
+            raise MissingKeyError(key, config_name)

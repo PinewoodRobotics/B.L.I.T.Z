@@ -15,7 +15,7 @@ from project.common.camera.box_frustum_conversion import (
 from project.common.camera.image_inference_helper import ImageInferenceHelper
 from project.common.camera.transform import unfisheye_image
 from project.generated.project.common.proto.Inference_pb2 import InferenceList
-from project.common import profiler
+from project.common.debug import profiler
 from project.common.config_class.profiler import ProfilerConfig
 from project.generated.project.common.proto.Image_pb2 import ImageMessage
 from project.generated.project.common.proto.Inference_pb2 import Inference

@@ -10,7 +10,7 @@ from nats.aio.msg import Msg
 import msgpack
 import msgpack_numpy as m
 
-from project.common import profiler
+from project.common.debug import profiler
 from project.common.config_class.profiler import ProfilerConfig
 from project.generated.project.common.proto.AprilTag_pb2 import AprilTags, Tag
 from project.generated.project.common.proto.Image_pb2 import ImageMessage

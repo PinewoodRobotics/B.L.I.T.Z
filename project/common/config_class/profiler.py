@@ -1,4 +1,4 @@
-from project.common.config_util import check_config
+from project.common.config import check_config
 
 
 required_keys = [

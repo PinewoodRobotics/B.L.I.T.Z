@@ -1,5 +1,5 @@
 import numpy as np
-from project.common.config_util import check_config
+from project.common.config import check_config
 
 required_keys = ["cameras", "image-input-topic", "image-output-topic"]
 required_keys_camera = ["dist-coeff", "camera-matrix"]
