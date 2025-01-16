@@ -7,7 +7,7 @@ log-level = "DEBUG"
 measure-speed = false
 
 [autobahn]
-port = 4222
+port = 8080
 
 [april-detection]
 cameras = ["left"]

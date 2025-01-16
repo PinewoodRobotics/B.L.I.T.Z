@@ -162,8 +162,13 @@ async fn main() {
                                     None => {
                                         for writer in writers.lock().await.iter_mut() {
                                             if is_topic_match(&writer.0, &msg) {
-                                                send_to_topic(msg.clone(), writer.1).await;
-                                                info!("Sent to topic: {}", writer.0);
+                                                if writer.1.len() > 1 {
+                                                    send_to_topic(msg.clone(), writer.1).await;
+                                                    info!("Sent to topic: {}", writer.0);
+                                                } else {
+                                                    writer.1[0].send(Message::Binary(msg)).await;
+                                                }
+
                                                 break;
                                             } // TODO4: have topic and payload (String, Bytes)
                                         }

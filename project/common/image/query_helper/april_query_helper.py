@@ -3,6 +3,8 @@ import time
 from typing import List, Tuple
 import cv2
 import numpy as np
+from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.common.debug.profiler import profile_function
 from project.common.image.query_helper.query_helper import QueryHelper
 from nats.aio.client import Client
 from nats.aio.msg import Msg
@@ -12,15 +14,16 @@ from project.generated.project.common.proto.Image_pb2 import ImageMessage
 
 
 class AprilQueryHelper(QueryHelper):
-    def __init__(self, nats_client: Client, input_topic: str, output_topic: str):
+    def __init__(self, autobahn_server: Autobahn, input_topic: str, output_topic: str):
         super().__init__(
             input_topic=input_topic,
             output_topic=output_topic,
-            nats_client=nats_client,
+            autobahn_server=autobahn_server,
             on_message=self.__on_message,
         )
         self.image_inference_map = {}
 
+    @profile_function
     async def send_image(self, image: np.ndarray, camera_name: str):
         id = random.randint(0, 1000000)
         timestamp = int(time.time())
@@ -39,9 +42,9 @@ class AprilQueryHelper(QueryHelper):
         await self.send_message(image_message.SerializeToString())
         return id
 
-    async def __on_message(self, msg: Msg):
+    async def __on_message(self, msg: bytes):
         april_tags = AprilTags()
-        april_tags.ParseFromString(msg.data)
+        april_tags.ParseFromString(msg)
         await self.queue.put(april_tags)
 
     async def send_bulk_images(self, images: List[Tuple[np.ndarray, str]]):

@@ -7,6 +7,7 @@ import pyapriltags
 from nats.aio.msg import Msg
 from pyinstrument import Profiler
 
+from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.common.config import Config, Module
 from project.common.config_class.profiler import ProfilerConfig
 from project.generated.project.common.proto.AprilTag_pb2 import AprilTags, Tag
@@ -48,24 +49,29 @@ async def main():
     thread = threading.Thread(target=input_thread, daemon=True, args=(config,))
     thread.start()
     detector = get_detector(config)
-    nt = await nats.connect(f"nats://localhost:{config.autobahn.port}")
+    autobahn_server = Autobahn("localhost", config.autobahn.port)
+    await autobahn_server.begin()
 
     count = 0
     time_start = time.time()
+    total_time = 1
 
-    async def on_message(msg: Msg):
-        nonlocal count, time_start
+    async def on_message(msg: bytes):
+        nonlocal count, time_start, total_time
         count += 1
         if count >= 10:
             time_end = time.time()
             print(f"Time taken: {count / (time_end - time_start):.2f} QPS")
+            print(f"Inference time taken: {total_time / count:.4f} ms")
             time_start = time_end
             count = 0
+            total_time = 0
 
-        msg_decoded = ImageMessage.FromString(msg.data)
+        msg_decoded = ImageMessage.FromString(msg)
         # print(int(time.time() * 1000) - msg_decoded.timestamp)
         image = from_proto_to_cv2(msg_decoded)
 
+        start = time.time()
         tags = detector.detect(
             image,
             estimate_tag_pose=True,
@@ -78,6 +84,8 @@ async def main():
             tag_size=config.april_detection.tag_size,
         )
 
+        total_time += time.time() - start
+
         output = AprilTags(
             camera_name=msg_decoded.camera_name,
             image_id=msg_decoded.image_id,
@@ -85,14 +93,14 @@ async def main():
             timestamp=msg_decoded.timestamp,
         )
 
-        await nt.publish(
+        await autobahn_server.publish(
             config.april_detection.message.post_camera_output_topic,
             output.SerializeToString(),
         )
 
-    await nt.subscribe(
+    await autobahn_server.subscribe(
         config.april_detection.message.post_camera_input_topic,
-        cb=on_message,
+        on_message,
     )
 
     print(config.april_detection.message.post_camera_input_topic)
