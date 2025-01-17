@@ -70,12 +70,13 @@ class Streamer:
                         if not success or frame is None:
                             continue
 
-                        frame = apply_all_transformations(
-                            frame,
-                            self.transformation_config,
-                            self.camera_params,
-                            self.detector,
-                        )
+                        if self.camera.set_frame_lock is False:
+                            frame = apply_all_transformations(
+                                frame,
+                                self.transformation_config,
+                                self.camera_params,
+                                self.detector,
+                            )
 
                         _, buffer = cv2.imencode(".jpg", frame)
                         await asyncio.wait_for(

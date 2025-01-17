@@ -55,10 +55,11 @@ def apply_all_transformations(
     camera_params: tuple[float, float, float, float],
     detector: pyapriltags.Detector,
 ):
-    if config.undistort:
+    if config.undistort.undistort is True:
         image = undistort_image(
             image, config.undistort.camera_matrix, config.undistort.dist_coeff
         )
+
     if config.use_grayscale:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 

@@ -1,6 +1,7 @@
 import random
 import time
 from typing import List, Tuple
+import zlib
 import cv2
 import numpy as np
 from project.autobahn.autobahn_python.autobahn import Autobahn
@@ -62,7 +63,7 @@ class AprilQueryHelper(QueryHelper):
         while response.image_id != id:
             response = await self.queue.get()
 
-        print(f"Time taken: {(time.time() - response.timestamp) * 1000:.2f} ms")
+        # print(f"Time taken: {(time.time() - response.timestamp) * 1000:.2f} ms")
         return response
 
     async def send_and_wait_bulk_images(self, images: List[Tuple[np.ndarray, str]]):

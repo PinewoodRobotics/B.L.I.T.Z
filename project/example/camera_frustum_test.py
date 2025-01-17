@@ -4,13 +4,15 @@ import cv2
 import nats
 import numpy as np
 from asyncio import CancelledError
-import open3d as o3d
+import open3d
 import random
 
 from project.common.camera.box_frustum_conversion import bbox_to_frustum
 from project.common.camera.image_inference_helper import ImageInferenceHelper
 from project.common.camera.transform import unfisheye_image
 from project.generated.project.common.proto.Image_pb2 import ImageMessage
+
+from open3d import visualization
 
 camera_matrix = np.array(
     [
@@ -50,10 +52,10 @@ def create_frustum_geometry(frustum_points):
     ]
     colors = [[1, 0, 0] for _ in lines]  # Set line color (red)
 
-    line_set = o3d.geometry.LineSet()
-    line_set.points = o3d.utility.Vector3dVector(frustum_points)
-    line_set.lines = o3d.utility.Vector2iVector(lines)
-    line_set.colors = o3d.utility.Vector3dVector(colors)
+    line_set = open3d.geometry.LineSet()
+    line_set.points = open3d.utility.Vector3dVector(frustum_points)
+    line_set.lines = open3d.utility.Vector2iVector(lines)
+    line_set.colors = open3d.utility.Vector3dVector(colors)
 
     return line_set
 
@@ -66,7 +68,7 @@ async def main():
     )
     await image_inference_helper.start_subscribe()
 
-    vis = o3d.visualization.Visualizer()  # Open3D visualizer
+    vis = visualization.Visualizer()  # Open3D visualizer
     vis.create_window()
 
     # Geometry placeholders
@@ -82,7 +84,7 @@ async def main():
             unfisheyed_image = unfisheye_image(frame, camera_matrix, dist_coef)
 
             # Convert the frame to Open3D Image format
-            o3d_image = o3d.geometry.Image(
+            o3d_image = open3d.geometry.Image(
                 cv2.cvtColor(unfisheyed_image, cv2.COLOR_BGR2RGB)
             )
 
@@ -94,7 +96,7 @@ async def main():
                 image=compressed_image.tobytes(),
                 camera_name="camera0",
                 is_gray=False,
-                id=image_id,
+                image_id=image_id,
                 height=unfisheyed_image.shape[0],
                 width=unfisheyed_image.shape[1],
                 timestamp=int(time.time() * 1000),
@@ -121,7 +123,9 @@ async def main():
                     frustum_geometry = create_frustum_geometry(frustum_points)
                     vis.add_geometry(frustum_geometry)
                 else:
-                    frustum_geometry.points = o3d.utility.Vector3dVector(frustum_points)
+                    frustum_geometry.points = open3d.utility.Vector3dVector(
+                        frustum_points
+                    )
                     vis.update_geometry(frustum_geometry)
 
             vis.poll_events()

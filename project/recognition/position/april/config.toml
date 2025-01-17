@@ -26,8 +26,8 @@ post-camera-input-topic = "apriltag/camera"
 post-camera-output-topic = "apriltag/tag"
 
 [april-detection.left]
-focal-length-x = 950
-focal-length-y = 950
-center-x = 640
-center-y = 360
+focal-length-x = 1459.013092168164
+focal-length-y = 1450.9546373771313
+center-x = 941.1817368129706
+center-y = 523.0240888523196
 name = "left"

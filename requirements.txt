@@ -25,3 +25,5 @@ flask-socketio
 websockets
 pydantic
 flask-cors
+pyvista
+pygame
