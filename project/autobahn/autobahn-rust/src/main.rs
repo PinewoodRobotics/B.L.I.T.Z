@@ -1,4 +1,4 @@
-use flags::MessageFlags;
+use flags::Msg;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::StreamExt;
 use log::{error, info};
@@ -71,29 +71,27 @@ async fn main() {
                                 info!("Connection closed by peer");
                                 break;
                             }
+                            Ok(Message::Ping(_)) => {}
                             Ok(msg) => {
                                 let msg = msg.into_data();
-                                match MessageFlags::get_flag(&msg) {
-                                    Some(MessageFlags::SUBSCRIBE) => {
-                                        if let Some(topic) = MessageFlags::get_topic(&msg) {
-                                            external_writers.lock().await.insert(
-                                                topic,
-                                                Writer::new_with_connection(writer.clone(), id),
-                                            );
-                                        }
+                                match Msg::parse_message(msg) {
+                                    Some(Msg::SUBSCRIBE(topic)) => {
+                                        external_writers.lock().await.insert(
+                                            topic,
+                                            Writer::new_with_connection(writer.clone(), id),
+                                        );
                                     }
-                                    Some(MessageFlags::UNSUBSCRIBE) => {
-                                        if let Some(topic) = MessageFlags::get_topic(&msg) {
-                                            external_writers.lock().await.remove(&topic);
+                                    Some(Msg::UNSUBSCRIBE(topic)) => {
+                                        external_writers.lock().await.remove(&topic);
+                                    }
+                                    Some(Msg::PUBLISH(topic, payload)) => {
+                                        if let Some(writers) = writers.lock().await.get_mut(&topic)
+                                        {
+                                            send_to_topic(payload, writers).await;
                                         }
                                     }
                                     None => {
-                                        for writer in writers.lock().await.iter_mut() {
-                                            if is_topic_match(&writer.0, &msg) {
-                                                send_to_topic(msg.clone(), writer.1).await;
-                                                break;
-                                            }
-                                        }
+                                        error!("Invalid message");
                                     }
                                 }
                             }
@@ -131,47 +129,41 @@ async fn main() {
                                 info!("Client closed connection");
                                 break;
                             }
+                            Ok(Message::Ping(_)) => {}
                             Ok(msg) => {
                                 info!("Received: {:?}", msg);
                                 let msg = msg.into_data();
-                                match MessageFlags::get_flag(&msg) {
-                                    Some(MessageFlags::SUBSCRIBE) => {
-                                        if let Some(topic) = MessageFlags::get_topic(&msg) {
-                                            info!("Subscribing to topic: {}", topic);
-                                            writers
-                                                .lock()
-                                                .await
-                                                .entry(topic)
-                                                .or_insert_with(Vec::new)
-                                                .push(Writer::new(writer.clone(), id));
-                                        }
+                                match Msg::parse_message(msg) {
+                                    Some(Msg::SUBSCRIBE(topic)) => {
+                                        info!("Subscribing to topic: {}", topic);
+                                        writers
+                                            .lock()
+                                            .await
+                                            .entry(topic)
+                                            .or_insert_with(Vec::new)
+                                            .push(Writer::new(writer.clone(), id));
                                     }
-                                    Some(MessageFlags::UNSUBSCRIBE) => {
-                                        if let Some(topic) = MessageFlags::get_topic(&msg) {
-                                            writers.lock().await.remove(&topic);
-                                            for ext_writer in
-                                                external_writers.lock().await.iter_mut()
-                                            {
-                                                ext_writer
-                                                    .1
-                                                    .send(Message::Binary(msg.clone()))
-                                                    .await;
-                                            }
-                                        } // TODO3: fix this with retain
+                                    Some(Msg::UNSUBSCRIBE(topic)) => {
+                                        writers.lock().await.retain(|t, _| t != &topic);
+                                        /*for ext_writer in external_writers.lock().await.iter_mut() {
+                                            ext_writer.1.send(Message::Binary(msg.clone())).await;
+                                        }
+
+                                        TODO: fix this when get to external
+                                        */
+                                    }
+                                    Some(Msg::PUBLISH(topic, payload)) => {
+                                        if let Some(writers) = writers.lock().await.get_mut(&topic)
+                                        {
+                                            send_to_topic(
+                                                Msg::build_message(Msg::PUBLISH(topic, payload)),
+                                                writers,
+                                            )
+                                            .await;
+                                        }
                                     }
                                     None => {
-                                        for writer in writers.lock().await.iter_mut() {
-                                            if is_topic_match(&writer.0, &msg) {
-                                                if writer.1.len() > 1 {
-                                                    send_to_topic(msg.clone(), writer.1).await;
-                                                    info!("Sent to topic: {}", writer.0);
-                                                } else {
-                                                    writer.1[0].send(Message::Binary(msg)).await;
-                                                }
-
-                                                break;
-                                            } // TODO4: have topic and payload (String, Bytes)
-                                        }
+                                        error!("Invalid message");
                                     }
                                 }
                             }

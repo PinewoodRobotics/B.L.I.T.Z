@@ -24,6 +24,7 @@ open3d
 flask-socketio
 websockets
 pydantic
+construct
 flask-cors
 pyvista
 pygame

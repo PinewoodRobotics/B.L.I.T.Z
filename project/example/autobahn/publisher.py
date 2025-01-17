@@ -1,6 +1,6 @@
 import asyncio
 
-from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.autobahn.autobahn_python.autobahn import Autobahn, Flags
 
 
 autobahn = Autobahn(host="localhost", port=8080)
