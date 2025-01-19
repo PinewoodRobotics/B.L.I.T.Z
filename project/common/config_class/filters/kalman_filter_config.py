@@ -35,10 +35,11 @@ class KalmanFilterConfig(ConfigTemplate):
         self.uncertainty_matrix: list[list[float]] = config["uncertainty-matrix"]
         self.process_noise_matrix: list[list[float]] = config["process-noise-matrix"]
         self.dim_x_z: list[int] = config["dim-x-z"]
-        self.sensors_used = []
+        self.sensors_used = config["sensors"]
         self.sensors_config: dict[MeasurementType, KalmanFilterSensorConfig] = {}
         for sensor in self.sensors_used:
-            self.sensors_config[sensor] = KalmanFilterSensorConfig(config[sensor])
+            sensor_enum = MeasurementType(sensor)
+            self.sensors_config[sensor_enum] = KalmanFilterSensorConfig(config[sensor])
 
 
 class KalmanFilterSensorConfig(ConfigTemplate):

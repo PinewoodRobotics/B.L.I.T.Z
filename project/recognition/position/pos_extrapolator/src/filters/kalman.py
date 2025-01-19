@@ -1,4 +1,4 @@
-from filterpy.kalman import KalmanFilter
+from filterpy.kalman import KalmanFilter, ExtendedKalmanFilter
 import numpy as np
 from project.common.config_class.filters.kalman_filter_config import (
     KalmanFilterConfig,
@@ -24,9 +24,9 @@ class KalmanFilterStrategy(FilterStrategy):
 
     def filter_data(self, data: list[float], data_type: MeasurementType) -> None:
         self.kf.update(
-            data,
-            self.sensors[data_type].measurement_noise_matrix,
-            self.sensors[data_type].measurement_conversion_matrix,
+            np.array(data),
+            np.array(self.sensors[data_type].measurement_noise_matrix),
+            np.array(self.sensors[data_type].measurement_conversion_matrix),
         )
 
     def predict(self):

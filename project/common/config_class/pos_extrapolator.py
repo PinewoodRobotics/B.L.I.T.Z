@@ -4,11 +4,18 @@ from project.common.config_class.config_template import ConfigTemplate
 
 required_keys = [
     "cameras-to-analyze",
+    "odometries-to-analyze",
+    "imu-to-analyze",
     "tag-position-config",
     "tag-confidence-threshold",
     "position-extrapolation-method",
 ]
-required_keys_message = ["post-tag-input-topic", "post-robot-position-output-topic"]
+required_keys_message = [
+    "post-tag-input-topic",
+    "post-odometry-input-topic",
+    "post-imu-input-topic",
+    "post-robot-position-output-topic",
+]
 
 
 class PositionExtrapolationMethod(Enum):
@@ -23,6 +30,8 @@ class PosExtrapolatorMessageConfig(ConfigTemplate):
     def __init__(self, config: Dict[str, str]) -> None:
         self.check_config(config, required_keys_message, "PosExtrapolatorMessageConfig")
         self.post_tag_input_topic = config["post-tag-input-topic"]
+        self.post_odometry_input_topic = config["post-odometry-input-topic"]
+        self.post_imu_input_topic = config["post-imu-input-topic"]
         self.post_robot_position_output_topic = config[
             "post-robot-position-output-topic"
         ]
@@ -32,6 +41,8 @@ class PosExtrapolatorConfig(ConfigTemplate):
     def __init__(self, config: Dict[str, Any]) -> None:
         self.check_config(config, required_keys, "PosExtrapolatorConfig")
         self.cameras_to_analyze = config["cameras-to-analyze"]
+        self.odometries_to_analyze = config["odometries-to-analyze"]
+        self.imu_to_analyze = config["imu-to-analyze"]
 
         tag_position_config = config["tag-position-config"]
         self.tag_position_config_file = tag_position_config["tag-position-config-file"]

@@ -59,6 +59,8 @@ class Autobahn:
                                 await callback(payload)
                 except websockets.exceptions.ConnectionClosed:
                     break
+                except Exception as e:
+                    print(f"Error in listener: {e}")
         except Exception as e:
             print(f"Error in listener: {e}")
 

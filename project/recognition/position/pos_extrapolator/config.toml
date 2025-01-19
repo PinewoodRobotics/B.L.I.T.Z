@@ -1,9 +1,17 @@
+log-level = "INFO"
+measure-speed = false
+
+[autobahn]
+port = 8080
+
 # ------------- POS EXTRAPOLATOR -------------
 
 [pos-extrapolator]
 cameras-to-analyze = ["left"]
+odometries-to-analyze = ["odometry"]
+imu-to-analyze = ["imu"]
 tag-confidence-threshold = 0.5
-position-extrapolation-method = "average-position"
+position-extrapolation-method = "kalman-linear-filter"
 
 [pos-extrapolator.tag-position-config]
 tag-position-config-file = "tag_pos/tag_position_config.json"
@@ -11,6 +19,8 @@ config-in-use = "1"                                           # TODO
 
 [pos-extrapolator.message]
 post-tag-input-topic = "apriltag/tag"
+post-odometry-input-topic = "odometry/odometry"
+post-imu-input-topic = "imu/imu"
 post-robot-position-output-topic = "pos-extrapolator/robot-position"
 
 # ------------- KALMAN FILTER -------------
@@ -33,24 +43,24 @@ uncertainty-matrix = [
     [0.0, 0.0, 0.0, 0.0, 500.0], # no format
 ]
 process-noise-matrix = [
-    [0.1, 0.0, 0.0, 0.0, 0.0], # no format
-    [0.0, 0.1, 0.0, 0.0, 0.0], # no format
-    [0.0, 0.0, 0.1, 0.0, 0.0], # no format
-    [0.0, 0.0, 0.0, 0.1, 0.0], # no format
-    [0.0, 0.0, 0.0, 0.0, 0.1], # no format
+    [0.05, 0.0, 0.0, 0.0, 0.0], # no format
+    [0.0, 0.05, 0.0, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.05, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.0, 0.1, 0.0],  # no format
+    [0.0, 0.0, 0.0, 0.0, 0.1],  # no format
 ]
 dim-x-z = [5, 5]
-sensors = ["april-tag", "odometry"]
+sensors = ["april-tag"]
 
 # ---
 
 [kalman-filter.april-tag]
 measurement-noise-matrix = [
-    [1.0, 0.0, 0.0, 0.0, 0.0], # no format
-    [0.0, 1.0, 0.0, 0.0, 0.0], # no format
-    [0.0, 0.0, 1.0, 0.0, 0.0], # no format
-    [0.0, 0.0, 0.0, 1.0, 0.0], # no format
-    [0.0, 0.0, 0.0, 0.0, 1.0], # no format
+    [0.8, 0.0, 0.0, 0.0, 0.0], # no format
+    [0.0, 0.8, 0.0, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.8, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.0, 0.8, 0.0], # no format
+    [0.0, 0.0, 0.0, 0.0, 0.8], # no format
 ]
 measurement-conversion-matrix = [
     [1.0, 0.0, 0.0, 0.0, 0.0], # no format
