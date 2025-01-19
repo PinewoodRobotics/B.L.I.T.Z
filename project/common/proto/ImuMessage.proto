@@ -1,0 +1,9 @@
+message ImuMessage {
+    required float acceleration_x = 1;
+    required float acceleration_y = 2;
+    required float acceleration_z = 3;
+    
+    required float angular_velocity_x = 4;
+    required float angular_velocity_y = 5;
+    required float angular_velocity_z = 6;
+}

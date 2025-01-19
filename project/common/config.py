@@ -1,7 +1,11 @@
 from enum import Enum
 import toml
 
+from project.common.config_class.camera_parameters import CameraParametersConfig
 from project.common.config_class.config_template import ConfigTemplate
+from project.common.config_class.filters.kalman_filter_config import KalmanFilterConfig
+from project.common.config_class.filters.weighted_avg_config import WeightedAvgConfig
+from project.common.config_class.pos_extrapolator import PosExtrapolatorConfig
 from project.common.debug import logger
 from project.common.config_class.profiler import ProfilerConfig
 from project.common.error.missing_key_error import MissingKeyError
@@ -9,15 +13,17 @@ from project.common.debug.logger import LogLevel
 from project.common.config_class.autobahn import AutobahnConfig
 from project.common.config_class.image_recognition import ImageRecognitionConfig
 from project.common.config_class.april_detection import AprilDetectionConfig
-from project.common.config_class.camera_feed_cleaner import CameraFeedCleanerConfig
 
 
 class Module(Enum):
     AUTOBAHN = "autobahn"
     IMAGE_RECOGNITION = "image-recognition"
     APRIL_DETECTION = "april-detection"
-    CAMERA_FEED_CLEANER = "camera-feed-cleaner"
     PROFILER = "profiler"
+    CAMERA_PARAMETERS = "camera-parameters"
+    POS_EXTRAPOLATOR = "pos-extrapolator"
+    KALMAN_FILTER = "kalman-filter"
+    WEIGHTED_AVG_FILTER = "weighted-average-filter"
 
 
 main_config_required_keys = ["log-level", "measure-speed"]
@@ -43,13 +49,26 @@ class Config(ConfigTemplate):
                 config_raw["image-recognition"]
             )
 
+        if Module.CAMERA_PARAMETERS not in exclude:
+            self.camera_parameters = CameraParametersConfig(
+                config_raw["camera-parameters"]
+            )
+
+        if Module.POS_EXTRAPOLATOR not in exclude:
+            self.pos_extrapolator = PosExtrapolatorConfig(
+                config_raw["pos-extrapolator"]
+            )
+
+        if Module.KALMAN_FILTER not in exclude:
+            self.kalman_filter = KalmanFilterConfig(config_raw["kalman-filter"])
+
+        if Module.WEIGHTED_AVG_FILTER not in exclude:
+            self.weighted_avg_filter = WeightedAvgConfig(
+                config_raw["weighted-average-filter"]
+            )
+
         if Module.APRIL_DETECTION not in exclude:
             self.april_detection = AprilDetectionConfig(config_raw["april-detection"])
-
-        if Module.CAMERA_FEED_CLEANER not in exclude:
-            self.camera_feed_cleaner = CameraFeedCleanerConfig(
-                config_raw["camera-feed-cleaner"]
-            )
 
         if Module.PROFILER not in exclude:
             self.profiler = ProfilerConfig(config_raw["profiler"])

@@ -11,77 +11,42 @@ import numpy as np
 
 from project.example.util.render.render_2d import PygameWindow
 from project.example.util.render.render_helper import AsyncPyVistaVisualizer
-
-camera_matrix = [
-    [
-        1459.013092168164,
-        0.0,
-        941.1817368129706,
-    ],
-    [
-        0.0,
-        1450.9546373771313,
-        523.0240888523196,
-    ],
-    [
-        0.0,
-        0.0,
-        1.0,
-    ],
-]
-dist_coeffs = [
-    [
-        -0.43237149459673446,
-        0.19572749208462567,
-        0.0006948679465891381,
-        5.132481888695187e-5,
-        -0.05070219401624212,
-    ],
-]
+from project.generated.project.common.proto.AprilTag_pb2 import AprilTags
+from project.generated.project.common.proto.Image_pb2 import ImageMessage
 
 
 async def main():
-    # Initialize Autobahn server
     autobahn_server = Autobahn("localhost", 8080)
     await autobahn_server.begin()
-
-    # Initialize AprilTag detection helper
-    april_tag_detection_helper = AprilQueryHelper(
-        autobahn_server=autobahn_server,
-        input_topic="apriltag/tag",
-        output_topic="apriltag/camera",
-    )
-    await april_tag_detection_helper.begin_subscribe()
     visualizer = PygameWindow()
-
-    # Create task for running the visualizer
     asyncio.create_task(visualizer.run())
 
-    # Initialize camera
-    cap = cv2.VideoCapture(0)
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # frame = unfisheye_image(frame, np.array(camera_matrix), np.array(dist_coeffs))
-
-        res = await april_tag_detection_helper.send_and_wait_for_response(
-            cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), "left"
-        )
-
-        if res and res.tags:
-            print(res.tags)
+    async def process_tags(msg: bytes):
+        res = AprilTags()
+        res.ParseFromString(msg)
+        if res.tags:
             visualizer.update_objects(
                 [
-                    (tag.position_x_relative * 100, tag.position_z_relative * 100)
+                    (tag.position_x_relative * 25, tag.position_z_relative * 25)
                     for tag in res.tags
                 ]
             )
 
-        cv2.imshow("frame", frame)
-        cv2.waitKey(1)
+    async def process_camera(msg: bytes):
+        image = ImageMessage()
+        image.ParseFromString(msg)
+        if image.camera_name == "left":
+            image = cv2.imdecode(
+                np.frombuffer(image.image, np.uint8), cv2.IMREAD_GRAYSCALE
+            )
+            cv2.imshow("image", image)
+            cv2.waitKey(1)
+
+    await autobahn_server.subscribe("apriltag/tag", process_tags)
+    await autobahn_server.subscribe("apriltag/camera", process_camera)
+
+    while True:
+        await asyncio.sleep(0.1)
 
 
 if __name__ == "__main__":

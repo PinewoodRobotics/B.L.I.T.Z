@@ -3,7 +3,7 @@ import asyncio
 
 
 class PygameWindow:
-    def __init__(self, width=800, height=600, title="Pygame Window"):
+    def __init__(self, width=1200, height=800, title="Pygame Window"):
         pygame.init()
         self.width = width
         self.height = height

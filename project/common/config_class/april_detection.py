@@ -15,8 +15,8 @@ required_keys: List[str] = [
 ]
 
 required_keys_message: List[str] = [
-    "post-camera-input-topic",
     "post-camera-output-topic",
+    "post-tag-output-topic",
 ]
 
 required_keys_camera: List[str] = [
@@ -29,29 +29,13 @@ required_keys_camera: List[str] = [
 
 
 class AprilDetectionMessageConfig(ConfigTemplate):
-    post_camera_input_topic: str
     post_camera_output_topic: str
+    post_tag_output_topic: str
 
     def __init__(self, config: Dict[str, str]) -> None:
         self.check_config(config, required_keys_message, "AprilDetectionMessageConfig")
-        self.post_camera_input_topic = config["post-camera-input-topic"]
         self.post_camera_output_topic = config["post-camera-output-topic"]
-
-
-class CameraConfig(ConfigTemplate):
-    focal_length_x: float
-    focal_length_y: float
-    center_x: float
-    center_y: float
-    name: str
-
-    def __init__(self, config: Dict[str, float | str]) -> None:
-        self.check_config(config, required_keys_camera, "CameraConfig")
-        self.focal_length_x = float(config["focal-length-x"])
-        self.focal_length_y = float(config["focal-length-y"])
-        self.center_x = float(config["center-x"])
-        self.center_y = float(config["center-y"])
-        self.name = str(config["name"])
+        self.post_tag_output_topic = config["post-tag-output-topic"]
 
 
 class AprilDetectionConfig(ConfigTemplate):
@@ -65,10 +49,10 @@ class AprilDetectionConfig(ConfigTemplate):
     searchpath: str
     debug: bool
     message: AprilDetectionMessageConfig
-    cameras: Dict[str, CameraConfig]
 
     def __init__(self, config: Dict[str, Any]) -> None:
         self.check_config(config, required_keys, "AprilDetectionConfig")
+        self.cameras = config["cameras"]
         self.tag_size = config["tag-size"]
         self.family = config["family"]
         self.nthreads = config["nthreads"]
@@ -80,6 +64,3 @@ class AprilDetectionConfig(ConfigTemplate):
         self.debug = config["debug"]
 
         self.message = AprilDetectionMessageConfig(config["message"])
-        self.cameras: Dict[str, CameraConfig] = {}
-        for camera in config["cameras"]:
-            self.cameras[camera] = CameraConfig(config[camera])

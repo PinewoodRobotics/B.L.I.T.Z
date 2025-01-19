@@ -20,7 +20,7 @@ impl Msg {
 
         let flag = buf.get_u8();
 
-        let topic_len = buf.get_u16();
+        let topic_len = buf.get_u32();
 
         let topic = String::from_utf8(buf.copy_to_bytes(topic_len as usize).to_vec()).ok()?;
 
@@ -28,7 +28,7 @@ impl Msg {
             0x01 => Some(Self::SUBSCRIBE(topic)),
             0x02 => Some(Self::UNSUBSCRIBE(topic)),
             0x03 => {
-                let payload_len = buf.get_u16();
+                let payload_len = buf.get_u32();
                 let payload = buf.copy_to_bytes(payload_len as usize);
                 Some(Self::PUBLISH(topic, payload.into()))
             }

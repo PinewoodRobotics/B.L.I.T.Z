@@ -28,3 +28,5 @@ construct
 flask-cors
 pyvista
 pygame
+pyserial
+filterpy

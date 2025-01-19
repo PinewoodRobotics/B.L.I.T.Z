@@ -10,10 +10,10 @@ measure-speed = false
 port = 8080
 
 [april-detection]
-cameras = ["left"]
+cameras = ["left", "right"]
 tag-size = 0.20
 family = "tag36h11"
-nthreads = 4
+nthreads = 8
 quad_decimate = 2.0
 quad_sigma = 0.0
 refine_edges = 1
@@ -22,12 +22,95 @@ searchpath = ["apriltags"]
 debug = 0
 
 [april-detection.message]
-post-camera-input-topic = "apriltag/camera"
-post-camera-output-topic = "apriltag/tag"
+post-camera-output-topic = "apriltag/camera"
+post-tag-output-topic = "apriltag/tag"
 
-[april-detection.left]
-focal-length-x = 1459.013092168164
-focal-length-y = 1450.9546373771313
-center-x = 941.1817368129706
-center-y = 523.0240888523196
-name = "left"
+[camera-parameters]
+cameras = ["left", "computer", "right"]
+
+[camera-parameters.left]
+port = 0
+dist-coeff = [
+    -0.43237149459673446,
+    0.19572749208462567,
+    0.0006948679465891381,
+    5.132481888695187e-5,
+    -0.05070219401624212,
+]
+camera-matrix = [
+    [
+        1459.013092168164,
+        0.0,
+        941.1817368129706,
+    ],
+    [
+        0.0,
+        1450.9546373771313,
+        523.0240888523196,
+    ],
+    [
+        0.0,
+        0.0,
+        1.0,
+    ],
+]
+rotation-vector = [0.0, 0.0, 0.0]
+translation-vector = [0.0, 0.0, 0.0]
+
+[camera-parameters.computer]
+port = 1
+dist-coeff = [
+    -0.43237149459673446,
+    0.19572749208462567,
+    0.0006948679465891381,
+    5.132481888695187e-5,
+    -0.05070219401624212,
+]
+camera-matrix = [
+    [
+        1459.013092168164,
+        0.0,
+        941.1817368129706,
+    ],
+    [
+        0.0,
+        1450.9546373771313,
+        523.0240888523196,
+    ],
+    [
+        0.0,
+        0.0,
+        1.0,
+    ],
+]
+rotation-vector = [0.0, 0.0, 0.0]
+translation-vector = [0.0, 0.0, 0.0]
+
+[camera-parameters.right]
+port = 1
+dist-coeff = [
+    -0.43237149459673446,
+    0.19572749208462567,
+    0.0006948679465891381,
+    5.132481888695187e-5,
+    -0.05070219401624212,
+]
+camera-matrix = [
+    [
+        1459.013092168164,
+        0.0,
+        941.1817368129706,
+    ],
+    [
+        0.0,
+        1450.9546373771313,
+        523.0240888523196,
+    ],
+    [
+        0.0,
+        0.0,
+        1.0,
+    ],
+]
+rotation-vector = [0.0, 0.0, 0.0]
+translation-vector = [0.0, 0.0, 0.0]

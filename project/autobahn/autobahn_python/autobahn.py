@@ -67,9 +67,9 @@ class Autobahn:
             try:
                 await self.websocket.send(
                     flag.value
-                    + len(topic).to_bytes(2, "big")
+                    + len(topic).to_bytes(4, "big")
                     + topic
-                    + len(message).to_bytes(2, "big")
+                    + len(message).to_bytes(4, "big")
                     + message
                 )
             except websockets.exceptions.ConnectionClosed:
