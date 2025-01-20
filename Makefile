@@ -26,3 +26,6 @@ april-server:
 prepare:
 	if [ ! -d "project/generated" ]; then mkdir project/generated; fi
 
+generate-proto-cpp-navx2:
+	mkdir -p project/hardware/navx2/include/proto
+	protoc --cpp_out=project/hardware/navx2/include/proto project/common/proto/*.proto
