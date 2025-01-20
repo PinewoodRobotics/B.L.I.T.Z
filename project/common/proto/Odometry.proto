@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+message Odometry {
+    float x = 1;
+    float y = 2;
+    float vx = 3;
+    float vy = 4;
+    float theta = 5;
+    int64 timestamp = 10;
+}

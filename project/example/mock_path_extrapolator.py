@@ -3,133 +3,281 @@ import random
 import time
 import pygame
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.common.config import Config, Module
-from project.generated.project.common.proto.AprilTag_pb2 import AprilTags
+from project.generated.project.common.proto.AprilTag_pb2 import AprilTags, Tag
+from project.generated.project.common.proto.Imu_pb2 import Imu
+from project.generated.project.common.proto.Odometry_pb2 import Odometry
 from project.generated.project.common.proto.RobotPosition_pb2 import RobotPosition
+from collections import defaultdict
 
 
 class PositionVisualizer:
-    def __init__(self, window_size=(800, 600), scale=100, trail_length=50):
-        pygame.init()
-        self.window_size = window_size
-        self.scale = scale  # pixels per meter
-        self.screen = pygame.display.set_mode(window_size)
-        pygame.display.set_caption("Robot Position Visualizer")
-        self.background_color = (255, 255, 255)
-        self.robot_color = (255, 0, 0)  # Estimated position in red
-        self.real_color = (0, 255, 0)  # Real position in green
-        self.robot_size = 10
+    def __init__(self, window_size=(10, 8), trail_length=25):
+        # Setup matplotlib figure
+        plt.ion()  # Enable interactive mode
+        self.fig, self.ax = plt.subplots(figsize=window_size)
+        self.ax.set_aspect("equal")
+        self.ax.grid(True)
 
         # Trail parameters
         self.trail_length = trail_length
-        self.robot_trail = []  # [(x, y, angle), ...]
-        self.real_trail = []
+        self.positions = {}  # Change to regular dict
+        self.colors = plt.colormaps["rainbow"](np.linspace(0, 1, 10))  # Color cycle
+        self.color_idx = 0
 
-        # Store current positions
-        self.robot_pos = None
-        self.real_pos = None
+        # Setup plot limits
+        self.ax.set_xlim(-3, 3)
+        self.ax.set_ylim(-3, 3)
+        plt.show()
 
-    def update_robot_pos(self, position: RobotPosition):
-        """Update estimated robot position and trail"""
-        self.robot_pos = (
-            position.estimated_position[0],
-            position.estimated_position[1],
-            position.estimated_rotation[1],
-        )
-        self.robot_trail.append(self.robot_pos)
-        if len(self.robot_trail) > self.trail_length:
-            self.robot_trail.pop(0)
+    def update_pos(self, name: str, position: tuple[float, float, float]):
+        """Update position for a named entity"""
+        if name not in self.positions:
+            self.positions[name] = {
+                "trail": [],
+                "color": self.colors[self.color_idx % len(self.colors)],
+            }
+            self.color_idx += 1
+
+        pos_data = self.positions[name]
+        pos_data["trail"].append(position)
+
+        # Maintain trail length
+        if len(pos_data["trail"]) > self.trail_length:
+            pos_data["trail"].pop(0)
 
         self._draw_frame()
         return True
-
-    def update_real_pos(self, position: tuple[float, float, float]):
-        """Update real position from AprilTags and trail"""
-        self.real_pos = position
-
-        self.real_trail.append(self.real_pos)
-        if len(self.real_trail) > self.trail_length:
-            self.real_trail.pop(0)
-
-        self._draw_frame()
 
     def _draw_frame(self):
-        """Internal method to handle all drawing operations"""
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                return False
+        """Update all visualizations"""
+        self.ax.clear()  # Clear the axis before re-drawing
+        self.ax.grid(True)  # Re-enable grid
+        self.ax.set_xlim(-5, 5)
+        self.ax.set_ylim(-5, 5)
 
-        self.screen.fill(self.background_color)
+        for name, pos_data in self.positions.items():
+            trail = pos_data["trail"]
+            if not trail:
+                continue
 
-        # Draw trails
-        self._draw_trail(self.real_trail, self.real_color)
-        self._draw_trail(self.robot_trail, self.robot_color)
+            # Extract coordinates
+            x_coords = [p[0] for p in trail]
+            y_coords = [p[1] for p in trail]
 
-        # Draw current positions
-        if self.real_pos:
-            self._draw_position(self.real_pos, self.real_color)
-        if self.robot_pos:
-            self._draw_position(self.robot_pos, self.robot_color)
+            # Calculate alpha values for fade effect
+            alphas = np.linspace(0.2, 1, len(trail) - 1)  # One alpha per segment
 
-        pygame.display.flip()
+            # Draw trail with fade effect
+            for i in range(len(trail) - 1):
+                color = (*pos_data["color"][:3], alphas[i])  # Alpha for current segment
+                self.ax.plot(
+                    [x_coords[i], x_coords[i + 1]],
+                    [y_coords[i], y_coords[i + 1]],
+                    color=color,
+                    linewidth=1,
+                )
+
+            # Draw current position
+            current_pos = trail[-1]
+            self.ax.plot(
+                current_pos[0],
+                current_pos[1],
+                "o",
+                color=pos_data["color"],
+                markersize=8,
+                label=name,
+            )
+
+            # Draw direction indicator
+            angle = np.deg2rad(current_pos[2])
+            arrow_length = 0.5
+            dx = arrow_length * np.cos(angle)
+            dy = arrow_length * np.sin(angle)
+            self.ax.arrow(
+                current_pos[0],
+                current_pos[1],
+                dx,
+                dy,
+                head_width=0.1,
+                head_length=0.2,
+                color=pos_data["color"],
+            )
+
+        # Update legend
+        self.ax.legend()
+
+        # Refresh the plot
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
         return True
 
-    def _draw_trail(self, trail, base_color):
-        """Draw position trail with fading effect"""
-        for i, pos in enumerate(trail):
-            # Calculate alpha based on position in trail
-            alpha = int(255 * (i + 1) / len(trail))
-            color = (*base_color[:3], alpha)
+    def close(self):
+        """Close the visualization window"""
+        plt.close(self.fig)
 
-            # Convert to screen coordinates
-            screen_x = self.window_size[0] // 2 + pos[0] * self.scale
-            screen_y = self.window_size[1] // 2 - pos[1] * self.scale
 
-            # Create a surface for the trail point
-            trail_surface = pygame.Surface(
-                (self.robot_size * 2, self.robot_size * 2), pygame.SRCALPHA
-            )
-            pygame.draw.circle(
-                trail_surface,
-                color,
-                (self.robot_size, self.robot_size),
-                self.robot_size // 2,
-            )
-            self.screen.blit(
-                trail_surface, (screen_x - self.robot_size, screen_y - self.robot_size)
-            )
+class FakeDataGenerator:
+    def __init__(
+        self,
+        randomization_april_tags: float = 0.1,
+        randomization_odom: float = 0.2,
+        randomization_imu: float = 0.7,
+        imu_drift_per_tick: float = 0.01,
+        strategy: str = "triangle",
+    ):
+        self.randomization_april_tags = randomization_april_tags
+        self.randomization_odom = randomization_odom
+        self.randomization_imu = randomization_imu
+        self.strategy = strategy
+        self.imu_drift_per_tick = imu_drift_per_tick
+        self.last_imu_update = time.time()
+        self.imu_drift = (0.0, 0.0, 0.0)
 
-    def _draw_position(self, pos, color):
-        """Draw current position and direction indicator"""
-        screen_x = self.window_size[0] // 2 + pos[0] * self.scale
-        screen_y = self.window_size[1] // 2 - pos[1] * self.scale
+        self.real_position_state: tuple[float, float, float, float, float] = (
+            0,
+            0,
+            0,
+            0,
+            0,
+        )
+        self.last_t = 0
 
-        # Draw position
-        pygame.draw.circle(
-            self.screen,
-            color,
-            (int(screen_x), int(screen_y)),
-            self.robot_size,
+    def next_tag(self) -> tuple[float, float, float]:
+        x, y, _, _, theta = self.real_position_state
+        noisy_x, noisy_y, noisy_theta = self._add_noise(
+            [x, y, theta], self.randomization_april_tags
         )
 
-        # Draw direction indicator
-        angle = np.deg2rad(pos[2])
-        end_x = screen_x + 20 * np.cos(angle)
-        end_y = screen_y - 20 * np.sin(angle)
-        pygame.draw.line(
-            self.screen,
-            color,
-            (screen_x, screen_y),
-            (end_x, end_y),
-            2,
+        return (noisy_x, noisy_y, noisy_theta)
+
+    def next_imu(self) -> tuple[float, float, float]:
+        current_time = time.time()
+        dt = current_time - self.last_imu_update
+        self.last_imu_update = current_time
+
+        x, y, _, _, theta = self.real_position_state
+        noisy_x, noisy_y, noisy_theta = self._add_noise(
+            [x, y, theta], self.randomization_imu
+        )
+
+        drift_amount = self.imu_drift_per_tick * dt
+        self.imu_drift = (
+            self.imu_drift[0] + drift_amount,
+            self.imu_drift[1] + drift_amount,
+            self.imu_drift[2] + drift_amount,
+        )
+
+        return (
+            noisy_x + self.imu_drift[0],
+            noisy_y + self.imu_drift[1],
+            noisy_theta + self.imu_drift[2],
+        )
+
+    def get_real_pos(self) -> tuple[float, float, float, float, float]:
+        return self.real_position_state
+
+    def next_odom(self) -> tuple[float, float, float, float, float]:
+        x, y, vx, vy, theta = self.real_position_state
+        noisy_data = self._add_noise([x, y, vx, vy, theta], self.randomization_odom)
+        return (
+            noisy_data[0],
+            noisy_data[1],
+            noisy_data[2],
+            noisy_data[3],
+            noisy_data[4],
+        )
+
+    def tick(self, t: float):
+        match self.strategy:
+            case "triangle":
+                self.real_position_state = self._calculate_real_state(
+                    self._triangle_strategy(t)
+                )
+            case "circle":
+                self.real_position_state = self._calculate_real_state(
+                    self._circle_strategy(t)
+                )
+            case _:
+                raise ValueError(f"Invalid strategy: {self.strategy}")
+
+    def _calculate_real_state(
+        self, new_state: tuple[float, float, float]
+    ) -> tuple[float, float, float, float, float]:
+        dt = self.last_t - time.time()
+        if dt == 0:
+            return (*new_state[:2], 0, 0, new_state[2])
+
+        vx = (new_state[0] - self.real_position_state[0]) / dt
+        vy = (new_state[1] - self.real_position_state[1]) / dt
+
+        return (new_state[0], new_state[1], vx, vy, new_state[2])
+
+    def _add_noise(self, position: list[float], amt_noise: float) -> list[float]:
+        return [p + random.uniform(-amt_noise, amt_noise) for p in position]
+
+    def _triangle_strategy(self, t: float) -> tuple[float, float, float]:
+        center_x, center_y = 0.0, 0.0
+        triangle_size = 2
+
+        p1 = (center_x, center_y + triangle_size, 1.0)
+        p2 = (
+            center_x - triangle_size * np.sqrt(3) / 2,
+            center_y - triangle_size / 2,
+            1.0,
+        )
+        p3 = (
+            center_x + triangle_size * np.sqrt(3) / 2,
+            center_y - triangle_size / 2,
+            1.0,
+        )
+
+        t_normalized = t % 1.0
+        side = int(t_normalized * 3)
+        alpha = (t_normalized * 3) % 1.0
+
+        edges = [(p1, p2), (p2, p3), (p3, p1)]
+        p_start, p_end = edges[side]
+
+        # Calculate current position
+        x = p_start[0] * (1 - alpha) + p_end[0] * alpha
+        y = p_start[1] * (1 - alpha) + p_end[1] * alpha
+
+        # Calculate angle based on direction of movement
+        dx = p_end[0] - p_start[0]
+        dy = p_end[1] - p_start[1]
+        theta = np.degrees(np.arctan2(dy, dx))
+
+        return (x, y, theta)
+
+    def _circle_strategy(self, t: float) -> tuple[float, float, float]:
+        center_x, center_y = 0.0, 0.0
+        radius = 3
+        theta = t * 2 * np.pi
+        # Calculate facing direction as tangent to circle
+        facing_angle = np.degrees(
+            theta + np.pi / 2
+        )  # Add 90 degrees to point tangent to circle
+        return (
+            center_x + radius * np.cos(theta),
+            center_y + radius * np.sin(theta),
+            facing_angle,
         )
 
 
 async def main():
     autobahn_server = Autobahn("localhost", 8080)
     await autobahn_server.begin()
+    fake_data_generator = FakeDataGenerator(
+        randomization_april_tags=0.1,
+        randomization_odom=0.2,
+        randomization_imu=0.3,
+        imu_drift_per_tick=0.07,
+        strategy="circle",
+    )
 
     visualizer = PositionVisualizer()
     running = True
@@ -139,7 +287,14 @@ async def main():
         nonlocal running
         robot_pos = RobotPosition()
         robot_pos.ParseFromString(message)
-        running = visualizer.update_robot_pos(robot_pos)
+        running = visualizer.update_pos(
+            "robot",
+            (
+                robot_pos.estimated_position[0],
+                robot_pos.estimated_position[1],
+                robot_pos.estimated_rotation[1],
+            ),
+        )
 
     await autobahn_server.subscribe(
         "pos-extrapolator/robot-position",
@@ -147,42 +302,83 @@ async def main():
     )
 
     # Mock AprilTag data generation and publishing
+    t = 0
     while running:
-        # Create mock AprilTag data
+        t += 0.05
+        fake_data_generator.tick(t)
         tags = AprilTags()
         tags.camera_name = "left"
+        tags.timestamp = int(time.time() * 1000)
 
-        t = time.time()
-        pos_x_relative, pos_y_relative, pos_z_relative = (
-            2 * np.cos(t * 0.5),
-            2 * np.sin(t * 0.5),
-            1.0,
+        tag = Tag()
+        (
+            tag.position_x_relative,
+            tag.position_y_relative,
+            tag.angle_relative_to_camera_yaw,
+        ) = fake_data_generator.next_tag()
+        tags.tags.append(tag)
+
+        odometry = Odometry()
+        (odometry.x, odometry.y, odometry.vx, odometry.vy, odometry.theta) = (
+            fake_data_generator.next_odom()
         )
 
-        tag = tags.tags.add()
-        tag.position_x_relative = pos_x_relative + random.random() * 0.7
-        tag.position_y_relative = pos_y_relative + random.random() * 0.7
-        tag.position_z_relative = pos_z_relative + random.random()
-        tag.angle_relative_to_camera_pitch = 0
-        tag.angle_relative_to_camera_yaw = np.rad2deg(t * 0.5)  # Rotate with motion
+        visualizer.update_pos(
+            "odometer",
+            (
+                odometry.x,
+                odometry.y,
+                odometry.theta,
+            ),
+        )
 
-        visualizer.update_real_pos(
+        visualizer.update_pos(
+            "april_tag",
             (
                 tag.position_x_relative,
                 tag.position_y_relative,
                 tag.angle_relative_to_camera_yaw,
-            )
+            ),
         )
 
-        # Publish mock data
+        imu = Imu()
+        imu.x, imu.y, imu.yaw = fake_data_generator.next_imu()
+        imu.acceleration_x = 1.0
+        imu.acceleration_y = 1.0
+
+        visualizer.update_pos(
+            "imu",
+            (
+                imu.x,
+                imu.y,
+                imu.yaw,
+            ),
+        )
+
+        real_pos = fake_data_generator.get_real_pos()
+
+        visualizer.update_pos(
+            "real",
+            (
+                real_pos[0],
+                real_pos[1],
+                real_pos[4],
+            ),
+        )
+
         await autobahn_server.publish(
             "apriltag/tag",
             tags.SerializeToString(),
         )
 
-        await asyncio.sleep(0.1)  # 10 Hz update rate
+        await autobahn_server.publish(
+            "odometry/odometry",
+            odometry.SerializeToString(),
+        )
 
-    pygame.quit()
+        await asyncio.sleep(0.1)
+
+    visualizer.close()
 
 
 if __name__ == "__main__":

@@ -1,5 +1,10 @@
 import numpy as np
 
+from project.common.config import Config
+from project.recognition.position.pos_extrapolator.src.tag_pos_to_world import (
+    TagPosToWorld,
+)
+
 
 def get_rotation_matrix_deg(pitch: float, yaw: float) -> np.ndarray:
     return get_rotation_matrix(np.deg2rad(pitch), np.deg2rad(yaw))
@@ -35,3 +40,34 @@ def rotate_pitch_yaw(
     pitch: float, yaw: float, rotation_pitch: float, rotation_yaw: float
 ) -> tuple[float, float]:
     return pitch + rotation_pitch, yaw + rotation_yaw
+
+
+def convert_tag_to_world_pos(
+    tag_position: tuple[float, float, float],
+    camera_config: Config,
+    tag_pos_to_world: TagPosToWorld,
+    camera_name: str,
+) -> tuple[float, float, float]:
+    rotation_matrix = get_rotation_matrix_deg(
+        camera_config.camera_parameters.camera_parameters[camera_name].rotation_vector[
+            0
+        ],
+        camera_config.camera_parameters.camera_parameters[camera_name].rotation_vector[
+            1
+        ],
+    )
+    translation_vector = np.array(
+        camera_config.camera_parameters.camera_parameters[
+            camera_name
+        ].translation_vector
+    )
+
+    tag_vector = np.array(tag_position)
+    rotated_tag_vector = rotate_vector(tag_vector, rotation_matrix)
+    translated_tag_vector = translate_vector(rotated_tag_vector, translation_vector)
+
+    world_pos = tag_pos_to_world.get_world_pos(
+        (translated_tag_vector[0], translated_tag_vector[1], translated_tag_vector[2])
+    )
+
+    return world_pos

@@ -43,24 +43,24 @@ uncertainty-matrix = [
     [0.0, 0.0, 0.0, 0.0, 500.0], # no format
 ]
 process-noise-matrix = [
-    [0.05, 0.0, 0.0, 0.0, 0.0], # no format
-    [0.0, 0.05, 0.0, 0.0, 0.0], # no format
-    [0.0, 0.0, 0.05, 0.0, 0.0], # no format
-    [0.0, 0.0, 0.0, 0.1, 0.0],  # no format
-    [0.0, 0.0, 0.0, 0.0, 0.1],  # no format
+    [0.5, 0.0, 0.0, 0.0, 0.0], # no format
+    [0.0, 0.5, 0.0, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.5, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.0, 0.1, 0.0], # no format
+    [0.0, 0.0, 0.0, 0.0, 0.1], # no format
 ]
 dim-x-z = [5, 5]
-sensors = ["april-tag"]
+sensors = ["april-tag", "odometry", "imu"]
 
 # ---
 
 [kalman-filter.april-tag]
 measurement-noise-matrix = [
-    [0.8, 0.0, 0.0, 0.0, 0.0], # no format
-    [0.0, 0.8, 0.0, 0.0, 0.0], # no format
-    [0.0, 0.0, 0.8, 0.0, 0.0], # no format
-    [0.0, 0.0, 0.0, 0.8, 0.0], # no format
-    [0.0, 0.0, 0.0, 0.0, 0.8], # no format
+    [5.0, 0.0, 0.0, 0.0, 0.0],    # no format
+    [0.0, 5.0, 0.0, 0.0, 0.0],    # no format
+    [0.0, 0.0, 1000.0, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.0, 1000.0, 0.0], # no format
+    [0.0, 0.0, 0.0, 0.0, 0.02],   # no format
 ]
 measurement-conversion-matrix = [
     [1.0, 0.0, 0.0, 0.0, 0.0], # no format
@@ -77,8 +77,26 @@ measurement-noise-matrix = [
     [0.5, 0.0, 0.0, 0.0, 0.0], # no format
     [0.0, 0.5, 0.0, 0.0, 0.0], # no format
     [0.0, 0.0, 0.5, 0.0, 0.0], # no format
-    [0.0, 0.0, 0.0, 0.5, 0.0], # no format
-    [0.0, 0.0, 0.0, 0.0, 0.5], # no format
+    [0.0, 0.0, 0.0, 0.2, 0.0], # no format
+    [0.0, 0.0, 0.0, 0.0, 0.2], # no format
+]
+measurement-conversion-matrix = [
+    [1.0, 0.0, 0.0, 0.0, 0.0], # no format
+    [0.0, 1.0, 0.0, 0.0, 0.0], # no format
+    [0.0, 0.0, 1.0, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.0, 1.0, 0.0], # no format
+    [0.0, 0.0, 0.0, 0.0, 1.0], # no format
+]
+
+# ---
+
+[kalman-filter.imu]
+measurement-noise-matrix = [
+    [0.5, 0.0, 0.0, 0.0, 0.0], # no format
+    [0.0, 0.5, 0.0, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.5, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.0, 0.2, 0.0], # no format
+    [0.0, 0.0, 0.0, 0.0, 0.2], # no format
 ]
 measurement-conversion-matrix = [
     [1.0, 0.0, 0.0, 0.0, 0.0], # no format

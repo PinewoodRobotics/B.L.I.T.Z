@@ -68,3 +68,7 @@ class KalmanFilterStrategy(FilterStrategy):
 
     def get_filtered_data(self) -> list[float]:
         return self.kf.x.tolist()
+
+    def update_state_transition_matrix_5_5(self, new_delta_t: float):
+        self.kf.F[0][2] = new_delta_t
+        self.kf.F[1][3] = new_delta_t

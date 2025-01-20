@@ -21,7 +21,7 @@ required_keys_sensor = [
 class MeasurementType(Enum):
     APRIL_TAG = "april-tag"
     ODOMETRY = "odometry"
-    CAMERA = "camera"
+    IMU = "imu"
 
 
 class KalmanFilterConfig(ConfigTemplate):
