@@ -29,3 +29,6 @@ prepare:
 generate-proto-cpp-navx2:
 	mkdir -p project/hardware/navx2/include/proto
 	protoc --cpp_out=project/hardware/navx2/include/proto project/common/proto/*.proto
+
+position-extrapolator:
+	cd project/recognition/position/pos_extrapolator/ && python src/main.py

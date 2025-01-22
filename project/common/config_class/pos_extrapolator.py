@@ -4,11 +4,12 @@ from project.common.config_class.config_template import ConfigTemplate
 
 required_keys = [
     "cameras-to-analyze",
-    "odometries-to-analyze",
     "imu-to-analyze",
     "tag-position-config",
     "tag-confidence-threshold",
     "position-extrapolation-method",
+    "global-position-odometry",
+    "imu",
 ]
 required_keys_message = [
     "post-tag-input-topic",
@@ -16,6 +17,8 @@ required_keys_message = [
     "post-imu-input-topic",
     "post-robot-position-output-topic",
 ]
+
+required_keys_imu = ["global-position", "local-position"]
 
 
 class PositionExtrapolationMethod(Enum):
@@ -41,7 +44,6 @@ class PosExtrapolatorConfig(ConfigTemplate):
     def __init__(self, config: Dict[str, Any]) -> None:
         self.check_config(config, required_keys, "PosExtrapolatorConfig")
         self.cameras_to_analyze = config["cameras-to-analyze"]
-        self.odometries_to_analyze = config["odometries-to-analyze"]
         self.imu_to_analyze = config["imu-to-analyze"]
 
         tag_position_config = config["tag-position-config"]
@@ -54,3 +56,16 @@ class PosExtrapolatorConfig(ConfigTemplate):
         ]
 
         self.message = PosExtrapolatorMessageConfig(config["message"])
+
+        self.odometry_global_position = config["global-position-odometry"]
+        imus = config["imu-to-analyze"]
+        self.imu_configs = []
+        for imu in imus:
+            self.imu_configs.append(ImuConfig(config[imu]))
+
+
+class ImuConfig(ConfigTemplate):
+    def __init__(self, config: Dict[str, Any]) -> None:
+        self.check_config(config, required_keys_imu, "ImuConfig")
+        self.imu_global_position = config["global-position"]
+        self.imu_local_position = config["local-position"]

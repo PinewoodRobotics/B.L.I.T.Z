@@ -94,6 +94,7 @@ async def main():
     )
 
     while True:
+        start_time = time.time()
         sensor_data = await sensor_data_queue.get()
         if isinstance(filter_strategy, KalmanFilterStrategy):
             current_time = time.time()
@@ -108,6 +109,7 @@ async def main():
 
         if isinstance(sensor_data, AprilTags):
             for tag in sensor_data.tags:
+                start_time = time.time()
                 pos = convert_tag_to_world_pos(
                     (
                         tag.position_x_relative,
@@ -120,9 +122,10 @@ async def main():
                 )
 
                 filter_strategy.filter_data(
-                    [pos[0], pos[1], 0, 0, tag.angle_relative_to_camera_yaw],
+                    [pos[0], pos[2], 0, 0, tag.angle_relative_to_camera_yaw],
                     MeasurementType.APRIL_TAG,
                 )
+                print(f"Time taken: {(time.time() - start_time) * 1000}ms")
         elif isinstance(sensor_data, Odometry):
             filter_strategy.filter_data(
                 [
@@ -164,8 +167,6 @@ async def main():
             config.pos_extrapolator.message.post_robot_position_output_topic,
             robot_pos.SerializeToString(),
         )
-
-        await asyncio.sleep(0.1)
 
 
 if __name__ == "__main__":

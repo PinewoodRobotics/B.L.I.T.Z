@@ -8,7 +8,7 @@ port = 8080
 
 [pos-extrapolator]
 cameras-to-analyze = ["left"]
-odometries-to-analyze = ["odometry"]
+global-position-odometry = [0.0, 0.0]
 imu-to-analyze = ["imu"]
 tag-confidence-threshold = 0.5
 position-extrapolation-method = "kalman-linear-filter"
@@ -22,6 +22,10 @@ post-tag-input-topic = "apriltag/tag"
 post-odometry-input-topic = "odometry/odometry"
 post-imu-input-topic = "imu/imu"
 post-robot-position-output-topic = "pos-extrapolator/robot-position"
+
+[pos-extrapolator.imu]
+global-position = [0.0, 0.0]
+local-position = [0.0, 0.0]
 
 # ------------- KALMAN FILTER -------------
 

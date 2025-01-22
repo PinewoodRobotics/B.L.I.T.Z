@@ -10,7 +10,7 @@ measure-speed = false
 port = 8080
 
 [april-detection]
-cameras = ["left", "right"]
+cameras = ["left"]
 tag-size = 0.20
 family = "tag36h11"
 nthreads = 8
@@ -26,7 +26,7 @@ post-camera-output-topic = "apriltag/camera"
 post-tag-output-topic = "apriltag/tag"
 
 [camera-parameters]
-cameras = ["left", "computer", "right"]
+cameras = ["left"]
 
 [camera-parameters.left]
 port = 0

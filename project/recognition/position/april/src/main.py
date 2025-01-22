@@ -117,6 +117,7 @@ async def main():
             _, compressed_image = cv2.imencode(".jpg", image)
             image_id = random.randint(0, 1000000)
             timestamp = int(time.time() * 1000)
+            """
             await autobahn_server.publish(
                 config.april_detection.message.post_camera_output_topic,
                 ImageMessage(
@@ -129,6 +130,7 @@ async def main():
                     is_gray=False,
                 ).SerializeToString(),
             )
+            """
 
             output = await process_image(
                 cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),
@@ -138,10 +140,12 @@ async def main():
                 camera_name,
             )
 
-            await autobahn_server.publish(
-                config.april_detection.message.post_tag_output_topic,
-                output.SerializeToString(),
-            )
+            if len(output.tags) > 0:
+                print(output)
+                await autobahn_server.publish(
+                    config.april_detection.message.post_tag_output_topic,
+                    output.SerializeToString(),
+                )
 
             # Update FPS calculation including processing time
             process_end_time = time.time()
