@@ -141,7 +141,6 @@ async def main():
             )
 
             if len(output.tags) > 0:
-                print(output)
                 await autobahn_server.publish(
                     config.april_detection.message.post_tag_output_topic,
                     output.SerializeToString(),

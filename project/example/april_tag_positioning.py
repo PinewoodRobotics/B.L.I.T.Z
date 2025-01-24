@@ -35,7 +35,7 @@ async def main():
     async def process_camera(msg: bytes):
         image = ImageMessage()
         image.ParseFromString(msg)
-        if image.camera_name == "left":
+        if image.camera_name == "custom1":
             image = cv2.imdecode(
                 np.frombuffer(image.image, np.uint8), cv2.IMREAD_GRAYSCALE
             )

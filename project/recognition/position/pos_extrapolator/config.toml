@@ -7,7 +7,7 @@ port = 8080
 # ------------- POS EXTRAPOLATOR -------------
 
 [pos-extrapolator]
-cameras-to-analyze = ["left"]
+cameras-to-analyze = ["custom1"]
 global-position-odometry = [0.0, 0.0]
 imu-to-analyze = ["imu"]
 tag-confidence-threshold = 0.5
@@ -113,7 +113,7 @@ measurement-conversion-matrix = [
 # ------------- CAMERA PARAMETERS -------------
 
 [camera-parameters]
-cameras = ["left"]
+cameras = ["left", "custom1"]
 
 [camera-parameters.left]
 port = 0
@@ -143,3 +143,34 @@ camera-matrix = [
         1.0,
     ],
 ]
+
+[camera-parameters.custom1]
+port = 0
+camera-matrix = [
+    [
+        1422.3397947340097,
+        0.0,
+        919.1064258823222,
+    ],
+    [
+        0.0,
+        1426.529016980423,
+        584.5878097813728,
+    ],
+    [
+        0.0,
+        0.0,
+        1.0,
+    ],
+]
+dist-coeff = [
+    [
+        -0.49612685366481923,
+        0.3002800655273942,
+        -0.0012554156959090125,
+        0.0010022464212391033,
+        -0.10138789909147526,
+    ],
+]
+rotation-vector = [0.0, 0.0, 0.0]
+translation-vector = [0.0, 0.0, 0.0]

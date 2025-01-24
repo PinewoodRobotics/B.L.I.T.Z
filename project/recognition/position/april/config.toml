@@ -10,7 +10,7 @@ measure-speed = false
 port = 8080
 
 [april-detection]
-cameras = ["left"]
+cameras = ["custom1"]
 tag-size = 0.20
 family = "tag36h11"
 nthreads = 8
@@ -26,7 +26,7 @@ post-camera-output-topic = "apriltag/camera"
 post-tag-output-topic = "apriltag/tag"
 
 [camera-parameters]
-cameras = ["left"]
+cameras = ["left", "custom1"]
 
 [camera-parameters.left]
 port = 0
@@ -56,6 +56,38 @@ camera-matrix = [
 ]
 rotation-vector = [0.0, 0.0, 0.0]
 translation-vector = [0.0, 0.0, 0.0]
+
+[camera-parameters.custom1]
+port = 0
+camera-matrix = [
+    [
+        1422.3397947340097,
+        0.0,
+        919.1064258823222,
+    ],
+    [
+        0.0,
+        1426.529016980423,
+        584.5878097813728,
+    ],
+    [
+        0.0,
+        0.0,
+        1.0,
+    ],
+]
+dist-coeff = [
+    [
+        -0.49612685366481923,
+        0.3002800655273942,
+        -0.0012554156959090125,
+        0.0010022464212391033,
+        -0.10138789909147526,
+    ],
+]
+rotation-vector = [0.0, 0.0, 0.0]
+translation-vector = [0.0, 0.0, 0.0]
+
 
 [camera-parameters.computer]
 port = 1

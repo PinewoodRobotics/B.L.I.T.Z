@@ -14,8 +14,8 @@ run-multiprocess-2-test:
 run-multiprocess:
 	python project/test/april/april_tag_mult_process.py
 
-run-autobahn:
-	nats-server -c project/autobahn/autobahn.conf
+autobahn:
+	cd project/autobahn/autobahn-rust && cargo run
 
 ai-server:
 	cd project/recognition/detection/image-recognition && python src/main.py
