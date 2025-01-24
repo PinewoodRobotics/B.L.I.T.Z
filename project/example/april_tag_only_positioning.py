@@ -1,4 +1,5 @@
 import asyncio
+import time
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.example.util.render.position_renderer import PositionVisualizer
 from project.generated.project.common.proto.RobotPosition_pb2 import RobotPosition
@@ -7,6 +8,7 @@ from project.generated.project.common.proto.RobotPosition_pb2 import RobotPositi
 async def main():
     autobahn_server = Autobahn("localhost", 8080)
     await autobahn_server.begin()
+    stop_event = asyncio.Event()
 
     position_renderer = PositionVisualizer()
 
@@ -26,9 +28,8 @@ async def main():
         "pos-extrapolator/robot-position", on_position_update
     )
 
-    while True:
-        position_renderer.update_pos("center", (0, 0, 0))
-        await asyncio.sleep(0.01)
+    # Wait indefinitely until stop_event is set (which never happens in this case)
+    await stop_event.wait()
 
 
 if __name__ == "__main__":

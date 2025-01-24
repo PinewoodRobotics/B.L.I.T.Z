@@ -103,6 +103,7 @@ async def main():
         camera[0]: {"start_time": time.time(), "counter": 0, "fps": 0}
         for camera in cameras
     }
+    output_total = 0
 
     while True:
         for camera in cameras:
@@ -141,6 +142,7 @@ async def main():
             )
 
             if len(output.tags) > 0:
+                output_total += 1
                 await autobahn_server.publish(
                     config.april_detection.message.post_tag_output_topic,
                     output.SerializeToString(),
@@ -159,10 +161,11 @@ async def main():
                     process_end_time - process_start_time
                 ) * 1000  # Convert to milliseconds
                 print(
-                    f"Camera {camera_name}: {fps:.1f} FPS, {process_time:.1f}ms per frame"
+                    f"Camera {camera_name}: {fps:.1f} FPS, {process_time:.1f}ms per frame, {output_total} tags"
                 )
                 fps_stats[camera_name]["counter"] = 0
                 fps_stats[camera_name]["start_time"] = process_end_time
+                output_total = 0
 
 
 if __name__ == "__main__":

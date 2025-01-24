@@ -1,9 +1,16 @@
 from matplotlib import pyplot as plt
 import numpy as np
+import time
 
 
 class PositionVisualizer:
-    def __init__(self, window_size=(10, 8), trail_length=25):
+    def __init__(
+        self,
+        window_size=(10, 8),
+        max_min_x=(-20, 20),
+        max_min_y=(-20, 20),
+        trail_length=25,
+    ):
         # Setup matplotlib figure
         plt.ion()  # Enable interactive mode
         self.fig, self.ax = plt.subplots(figsize=window_size)
@@ -17,9 +24,14 @@ class PositionVisualizer:
         self.color_idx = 0
 
         # Setup plot limits
-        self.ax.set_xlim(-3, 3)
-        self.ax.set_ylim(-3, 3)
+        self.max_min_x = max_min_x
+        self.max_min_y = max_min_y
         plt.show()
+
+        self.last_render_time = time.time()
+        self.min_render_interval = 1 / 25  # Target 60 FPS max
+        self.frame_times = []  # Store last N frame times for averaging
+        self.max_frame_times = 25  # Number of frames to average
 
     def update_pos(self, name: str, position: tuple[float, float, float]):
         """Update position for a named entity"""
@@ -37,15 +49,23 @@ class PositionVisualizer:
         if len(pos_data["trail"]) > self.trail_length:
             pos_data["trail"].pop(0)
 
-        self._draw_frame()
+        # Only render if enough time has passed since last render
+        current_time = time.time()
+        if current_time - self.last_render_time >= self.min_render_interval:
+            self._draw_frame()
+            self.last_render_time = current_time
+
         return True
 
     def _draw_frame(self):
         """Update all visualizations"""
+        start_time = time.time()
+
         self.ax.clear()  # Clear the axis before re-drawing
         self.ax.grid(True)  # Re-enable grid
-        self.ax.set_xlim(-5, 5)
-        self.ax.set_ylim(-5, 5)
+
+        self.ax.set_xlim(self.max_min_x)
+        self.ax.set_ylim(self.max_min_y)
 
         for name, pos_data in self.positions.items():
             trail = pos_data["trail"]
@@ -101,6 +121,20 @@ class PositionVisualizer:
         # Refresh the plot
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
+
+        # Measure frame time
+        frame_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+        self.frame_times.append(frame_time)
+        if len(self.frame_times) > self.max_frame_times:
+            self.frame_times.pop(0)
+
+        # Print average frame time every 60 frames
+        if len(self.frame_times) == self.max_frame_times:
+            avg_frame_time = sum(self.frame_times) / len(self.frame_times)
+            print(
+                f"Average frame time: {avg_frame_time:.2f}ms ({1000/avg_frame_time:.1f} FPS)"
+            )
+
         return True
 
     def close(self):

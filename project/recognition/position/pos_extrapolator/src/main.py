@@ -125,7 +125,6 @@ async def main():
                     [pos[0], pos[2], 0, 0, tag.angle_relative_to_camera_yaw],
                     MeasurementType.APRIL_TAG,
                 )
-                print(f"Time taken: {(time.time() - start_time) * 1000}ms")
         elif isinstance(sensor_data, Odometry):
             filter_strategy.filter_data(
                 [
@@ -153,7 +152,7 @@ async def main():
 
         robot_pos = RobotPosition(
             camera_name=config.pos_extrapolator.cameras_to_analyze[0],
-            timestamp=int(time.time()),
+            timestamp=time.time() * 1000,
             confidence=filter_strategy.get_confidence(),
             estimated_position=(
                 filtered_position[0],
