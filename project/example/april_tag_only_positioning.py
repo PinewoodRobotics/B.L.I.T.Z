@@ -1,7 +1,10 @@
 import asyncio
 import time
+import cv2
+import numpy as np
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.example.util.render.position_renderer import PositionVisualizer
+from project.generated.project.common.proto.Image_pb2 import ImageMessage
 from project.generated.project.common.proto.RobotPosition_pb2 import RobotPosition
 
 
@@ -10,26 +13,58 @@ async def main():
     await autobahn_server.begin()
     stop_event = asyncio.Event()
 
-    position_renderer = PositionVisualizer()
+    position_renderer = PositionVisualizer(max_min_x=[-10, 10], max_min_y=[-10, 10])
 
     async def on_position_update(message: bytes):
         robot_pos = RobotPosition()
         robot_pos.ParseFromString(message)
-        position_renderer.update_pos(
-            "robot",
-            (
-                robot_pos.estimated_position[0],
-                robot_pos.estimated_position[1],
-                robot_pos.estimated_rotation[1],
-            ),
+        position_renderer.update_poses(
+            {
+                "robot": (
+                    robot_pos.estimated_position[0],
+                    robot_pos.estimated_position[1],
+                    0,
+                ),
+                "tag": (0, 1.067, 0),
+                "robot_raw": (
+                    robot_pos.estimated_rotation[0],
+                    robot_pos.estimated_rotation[1],
+                    0,
+                ),
+            }
         )
+
+    async def on_camera_update(message: bytes):
+        img = ImageMessage()
+        img.ParseFromString(message)
+
+        # Convert bytes to numpy array
+        nparr = np.frombuffer(img.image, np.uint8)
+
+        # Check if the image is grayscale or color
+        if img.is_gray:
+            frame = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+            frame = cv2.cvtColor(
+                frame, cv2.COLOR_GRAY2BGR
+            )  # Convert to BGR for consistent display
+        else:
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        # Display the frame
+        cv2.imshow("Camera Feed", frame)
+        cv2.waitKey(1)  # Wait 1ms to update the window
 
     await autobahn_server.subscribe(
         "pos-extrapolator/robot-position", on_position_update
     )
 
-    # Wait indefinitely until stop_event is set (which never happens in this case)
-    await stop_event.wait()
+    await autobahn_server.subscribe("apriltag/camera", on_camera_update)
+
+    # Add cleanup for OpenCV windows
+    try:
+        await stop_event.wait()
+    finally:
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

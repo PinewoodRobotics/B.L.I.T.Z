@@ -13,6 +13,8 @@ class Camera:
         self.frame: np.ndarray | None = None
         self.success: bool = False
         self._set_frame_lock = False
+        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     def read(self) -> tuple[bool, np.ndarray]:
         success, frame = self.camera.read()

@@ -5,7 +5,7 @@ from project.common.config import Config
 from project.generated.project.common.proto.AprilTag_pb2 import Tag
 
 
-def to_float_list(arr: np.ndarray | None) -> list:
+def to_float_list(arr: np.ndarray) -> list:
     return list(arr.flatten()) if arr is not None else []
 
 
@@ -38,7 +38,7 @@ def from_detection_to_proto(detection: pyapriltags.Detection) -> Tag:
         homography=to_float_list(detection.homography),
         center=to_float_list(detection.center),
         corners=to_float_list(detection.corners),
-        pose_R=to_float_list(detection.pose_R),
+        pose_R=to_float_list(detection.pose_R) if detection.pose_R is not None else [],
         pose_t=to_float_list(detection.pose_t),
         pose_err=detection.pose_err,
         tag_size=detection.tag_size,

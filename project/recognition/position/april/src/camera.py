@@ -11,10 +11,9 @@ class Camera:
         self.config = config
         self.video_capture = cv2.VideoCapture(self.config.port, cv2.CAP_AVFOUNDATION)
 
-        # Set resolution and FPS
-        self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-        self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-        self.video_capture.set(cv2.CAP_PROP_FPS, 30)
+        self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.video_capture.set(cv2.CAP_PROP_FPS, 100)
 
     def read(self) -> tuple[bool, np.ndarray]:
         return self.video_capture.read()

@@ -1,3 +1,4 @@
+from typing import Dict
 from matplotlib import pyplot as plt
 import numpy as np
 import time
@@ -29,9 +30,9 @@ class PositionVisualizer:
         plt.show()
 
         self.last_render_time = time.time()
-        self.min_render_interval = 1 / 25  # Target 60 FPS max
+        self.min_render_interval = 1 / 15  # Target 60 FPS max
         self.frame_times = []  # Store last N frame times for averaging
-        self.max_frame_times = 25  # Number of frames to average
+        self.max_frame_times = 15  # Number of frames to average
 
     def update_pos(self, name: str, position: tuple[float, float, float]):
         """Update position for a named entity"""
@@ -56,6 +57,29 @@ class PositionVisualizer:
             self.last_render_time = current_time
 
         return True
+
+    def update_poses(self, poses: Dict[str, tuple[float, float, float]]):
+        """Update positions for multiple named entities"""
+        for name, position in poses.items():
+            if name not in self.positions:
+                self.positions[name] = {
+                    "trail": [],
+                    "color": self.colors[self.color_idx % len(self.colors)],
+                }
+                self.color_idx += 1
+
+            pos_data = self.positions[name]
+            pos_data["trail"].append(position)
+
+            # Maintain trail length
+            if len(pos_data["trail"]) > self.trail_length:
+                pos_data["trail"].pop(0)
+
+        # Only render if enough time has passed since last render
+        current_time = time.time()
+        if current_time - self.last_render_time >= self.min_render_interval:
+            self._draw_frame()
+            self.last_render_time = current_time
 
     def _draw_frame(self):
         """Update all visualizations"""

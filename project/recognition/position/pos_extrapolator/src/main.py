@@ -1,10 +1,13 @@
 import asyncio
 import time
+import cv2
+import numpy as np
 
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.common.config import Config, Module
 from project.common.config_class.filters.kalman_filter_config import MeasurementType
 from project.common.config_class.pos_extrapolator import PositionExtrapolationMethod
+from project.common.util.math import create_transformation_matrix, get_world_pos
 from project.generated.project.common.proto.AprilTag_pb2 import AprilTags
 from project.generated.project.common.proto.Imu_pb2 import Imu
 from project.generated.project.common.proto.Odometry_pb2 import Odometry
@@ -19,10 +22,8 @@ from project.recognition.position.pos_extrapolator.src.filters.kalman import (
     KalmanFilterStrategy,
 )
 from project.recognition.position.pos_extrapolator.src.math_util import (
-    convert_tag_to_world_pos,
-)
-from project.recognition.position.pos_extrapolator.src.tag_pos_to_world import (
-    TagPosToWorld,
+    from_float_list,
+    make_rotation_matrix,
 )
 from project.generated.project.common.proto.RobotPosition_pb2 import RobotPosition
 
@@ -49,9 +50,7 @@ async def main():
 
     sensor_data_queue: asyncio.Queue[Odometry | AprilTags | Imu] = asyncio.Queue()
 
-    tag_pos_to_world = TagPosToWorld(
-        config.pos_extrapolator.tag_position_config_file, mock=True
-    )
+    # tag_pos_to_world = TagPosToWorld(config.pos_extrapolator.tag_configs, mock=True)
 
     # Initialize filter strategy based on config
     filter_strategy: FilterStrategy
@@ -96,6 +95,7 @@ async def main():
     while True:
         start_time = time.time()
         sensor_data = await sensor_data_queue.get()
+        pos = []
         if isinstance(filter_strategy, KalmanFilterStrategy):
             current_time = time.time()
 
@@ -109,20 +109,42 @@ async def main():
 
         if isinstance(sensor_data, AprilTags):
             for tag in sensor_data.tags:
-                start_time = time.time()
-                pos = convert_tag_to_world_pos(
-                    (
-                        tag.position_x_relative,
-                        tag.position_y_relative,
-                        tag.position_z_relative,
-                    ),
-                    config,
-                    tag_pos_to_world,
-                    sensor_data.camera_name,
+                # Convert tag position and angles to numpy arrays
+
+                # Get tag's global config
+                tag_config = config.pos_extrapolator.tag_configs.config[str(tag.tag_id)]
+
+                C_t = from_float_list(list(tag.pose_R), 3, 3)
+                tag_pos = np.array(
+                    [
+                        tag.pose_t[0],
+                        tag.pose_t[1],
+                        tag.pose_t[2],
+                    ]
                 )
 
+                print(C_t)
+
+                T_in_camera = create_transformation_matrix(C_t, tag_pos)
+
+                world_transform = get_world_pos(T_in_camera, tag_config.transformation)
+
+                # Extract translation and rotation components from the transformation matrix
+                translation_component = world_transform[:3, 3]  # Last column (x, y, z)
+                rotation_component = world_transform[:3, :3]  # 3x3 rotation matrix
+
+                pos = [tag_pos[0], tag_pos[2]]
+
+                # print(translation_component, rotation_component)
+
                 filter_strategy.filter_data(
-                    [pos[0], pos[2], 0, 0, tag.angle_relative_to_camera_yaw],
+                    [
+                        translation_component[0],
+                        translation_component[2],
+                        0,
+                        0,
+                        tag.angle_relative_to_camera_yaw,
+                    ],
                     MeasurementType.APRIL_TAG,
                 )
         elif isinstance(sensor_data, Odometry):
@@ -150,17 +172,18 @@ async def main():
 
         filtered_position = filter_strategy.get_filtered_data()
 
-        robot_pos = RobotPosition(
-            camera_name=config.pos_extrapolator.cameras_to_analyze[0],
-            timestamp=time.time() * 1000,
-            confidence=filter_strategy.get_confidence(),
-            estimated_position=(
-                filtered_position[0],
-                filtered_position[1],
-                filtered_position[2],
-            ),
-            estimated_rotation=(filtered_position[3], filtered_position[4]),
-        )
+        if len(pos) != 0:
+            robot_pos = RobotPosition(
+                camera_name=config.pos_extrapolator.cameras_to_analyze[0],
+                timestamp=time.time() * 1000,
+                confidence=filter_strategy.get_confidence(),
+                estimated_position=(
+                    filtered_position[0],
+                    filtered_position[1],
+                    filtered_position[2],
+                ),
+                estimated_rotation=(pos[0], pos[1]),
+            )
 
         await autobahn_server.publish(
             config.pos_extrapolator.message.post_robot_position_output_topic,

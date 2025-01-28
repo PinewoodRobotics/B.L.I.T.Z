@@ -104,6 +104,7 @@ async def main():
         for camera in cameras
     }
     output_total = 0
+    number_sent = 0
 
     while True:
         for camera in cameras:
@@ -113,25 +114,33 @@ async def main():
             got, image = camera[1].read()
             if not got:
                 print(f"Failed to read image from camera {camera_name}")
+                camera[1].release()
+                cameras[cameras.index(camera)] = (
+                    camera_name,
+                    Camera(config.camera_parameters.camera_parameters[camera_name]),
+                )
                 continue
 
             _, compressed_image = cv2.imencode(".jpg", image)
             image_id = random.randint(0, 1000000)
             timestamp = int(time.time() * 1000)
-            """
-            await autobahn_server.publish(
-                config.april_detection.message.post_camera_output_topic,
-                ImageMessage(
-                    image_id=image_id,
-                    image=compressed_image.tobytes(),
-                    camera_name=camera_name,
-                    timestamp=timestamp,
-                    height=image.shape[0],
-                    width=image.shape[1],
-                    is_gray=False,
-                ).SerializeToString(),
-            )
-            """
+
+            if number_sent > 5:
+                await autobahn_server.publish(
+                    config.april_detection.message.post_camera_output_topic,
+                    ImageMessage(
+                        image_id=image_id,
+                        image=compressed_image.tobytes(),
+                        camera_name=camera_name,
+                        timestamp=timestamp,
+                        height=image.shape[0],
+                        width=image.shape[1],
+                        is_gray=False,
+                    ).SerializeToString(),
+                )
+                number_sent = 0
+
+            number_sent += 1
 
             output = await process_image(
                 cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),

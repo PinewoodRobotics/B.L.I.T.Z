@@ -98,7 +98,7 @@ class CameraCalibratorCheckerboardRunner(ModuleThread):
                 continue
 
             h, w = frame.shape[:2]
-            self.checkerboard.set_image_size((1920, 1080))
+            self.checkerboard.set_image_size((640, 480))
 
             result = self.checkerboard.is_grid_in_image(frame)
             self.camera.set_frame(result[0], True)
