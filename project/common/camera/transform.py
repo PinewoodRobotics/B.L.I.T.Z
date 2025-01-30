@@ -9,6 +9,7 @@ from project.common.debug import profiler
 def unfisheye_image(
     image: np.ndarray, camera_matrix: np.ndarray, dist_coeff: np.ndarray
 ):
+    """Undistort (unfisheye) the image using the camera parameters."""
     height, width = image.shape[:2]
     newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
         camera_matrix, dist_coeff, (width, height), 1, (width, height)
@@ -23,4 +24,7 @@ def unfisheye_image(
     if scale < 1:
         dst = cv2.resize(dst, None, fx=scale, fy=scale)
 
-    return dst
+    return (
+        dst,
+        newcameramtx,
+    )

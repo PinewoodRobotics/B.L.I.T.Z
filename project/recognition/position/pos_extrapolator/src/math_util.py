@@ -1,12 +1,6 @@
 import numpy as np
 
 
-def from_float_list(flat_list: list, rows: int, cols: int) -> np.ndarray:
-    if not flat_list or len(flat_list) != rows * cols:
-        raise ValueError("The provided list does not match the specified dimensions.")
-    return np.array(flat_list).reshape(rows, cols)
-
-
 def make_rotation_matrix(rotation_matrix: np.ndarray) -> np.ndarray:
     """
     Adjusts the given rotation matrix to account for a new coordinate system

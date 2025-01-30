@@ -7,7 +7,12 @@ from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.common.config import Config, Module
 from project.common.config_class.filters.kalman_filter_config import MeasurementType
 from project.common.config_class.pos_extrapolator import PositionExtrapolationMethod
-from project.common.util.math import create_transformation_matrix, get_world_pos
+from project.common.util.math import (
+    create_transformation_matrix,
+    from_float_list,
+    get_translation_rotation_components,
+    get_world_pos,
+)
 from project.generated.project.common.proto.AprilTag_pb2 import AprilTags
 from project.generated.project.common.proto.Imu_pb2 import Imu
 from project.generated.project.common.proto.Odometry_pb2 import Odometry
@@ -20,10 +25,6 @@ from project.recognition.position.pos_extrapolator.src.filters.weighted_average 
 )
 from project.recognition.position.pos_extrapolator.src.filters.kalman import (
     KalmanFilterStrategy,
-)
-from project.recognition.position.pos_extrapolator.src.math_util import (
-    from_float_list,
-    make_rotation_matrix,
 )
 from project.generated.project.common.proto.RobotPosition_pb2 import RobotPosition
 
@@ -92,6 +93,8 @@ async def main():
         process_imu,
     )
 
+    robot_pos = None
+
     while True:
         start_time = time.time()
         sensor_data = await sensor_data_queue.get()
@@ -109,6 +112,8 @@ async def main():
 
         if isinstance(sensor_data, AprilTags):
             for tag in sensor_data.tags:
+                if not str(tag.tag_id) in config.pos_extrapolator.tag_configs.config:
+                    continue
                 # Convert tag position and angles to numpy arrays
 
                 # Get tag's global config
@@ -130,8 +135,9 @@ async def main():
                 world_transform = get_world_pos(T_in_camera, tag_config.transformation)
 
                 # Extract translation and rotation components from the transformation matrix
-                translation_component = world_transform[:3, 3]  # Last column (x, y, z)
-                rotation_component = world_transform[:3, :3]  # 3x3 rotation matrix
+                translation_component, rotation_component = (
+                    get_translation_rotation_components(world_transform)
+                )
 
                 pos = [tag_pos[0], tag_pos[2]]
 
@@ -185,10 +191,11 @@ async def main():
                 estimated_rotation=(pos[0], pos[1]),
             )
 
-        await autobahn_server.publish(
-            config.pos_extrapolator.message.post_robot_position_output_topic,
-            robot_pos.SerializeToString(),
-        )
+        if robot_pos is not None:
+            await autobahn_server.publish(
+                config.pos_extrapolator.message.post_robot_position_output_topic,
+                robot_pos.SerializeToString(),
+            )
 
 
 if __name__ == "__main__":

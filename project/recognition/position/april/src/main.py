@@ -20,7 +20,7 @@ from project.recognition.position.april.src.camera import Camera
 from util import from_detection_to_proto
 
 
-def get_detector(config: Config):
+def build_detector(config: Config):
     return pyapriltags.Detector(
         families=str(config.april_detection.family),
         nthreads=config.april_detection.nthreads,
@@ -32,41 +32,32 @@ def get_detector(config: Config):
     )
 
 
-def input_thread(config: Config):
-    global user_input
-    while True:
-        user_input = input()
-        if user_input == "reload":
-            config.reload()
-
-
 async def process_image(
     image: np.ndarray,
-    config: CameraParameters,
+    camera_matrix: np.ndarray,
     detector: pyapriltags.Detector,
     tag_size: float,
     camera_name: str,
 ):
-    tags = detector.detect(
-        image,
-        estimate_tag_pose=True,
-        camera_params=(
-            config.get_fxy()[0],
-            config.get_fxy()[1],
-            config.get_center()[0],
-            config.get_center()[1],
-        ),
-        tag_size=tag_size,
+    fx, fy, cx, cy = (
+        camera_matrix[0, 0],
+        camera_matrix[1, 1],
+        camera_matrix[0, 2],
+        camera_matrix[1, 2],
     )
-
-    image_id = random.randint(0, 1000000)
-    timestamp = int(time.time() * 1000)
-
     output = AprilTags(
         camera_name=camera_name,
-        image_id=image_id,
-        tags=[from_detection_to_proto(tag) for tag in tags],
-        timestamp=timestamp,
+        image_id=random.randint(0, 1000000),
+        tags=[
+            from_detection_to_proto(tag)
+            for tag in detector.detect(
+                image,
+                estimate_tag_pose=True,
+                camera_params=((fx, fy, cx, cy)),
+                tag_size=tag_size,
+            )
+        ],
+        timestamp=int(time.time() * 1000),
     )
 
     return output
@@ -84,9 +75,8 @@ async def main():
             Module.KALMAN_FILTER,
         ],
     )
-    thread = threading.Thread(target=input_thread, daemon=True, args=(config,))
-    thread.start()
-    detector = get_detector(config)
+
+    detector = build_detector(config)
     autobahn_server = Autobahn("localhost", config.autobahn.port)
     await autobahn_server.begin()
 
@@ -98,83 +88,58 @@ async def main():
         for camera_name in config.april_detection.cameras
     ]
 
-    # Initialize FPS tracking dictionaries for each camera
-    fps_stats = {
-        camera[0]: {"start_time": time.time(), "counter": 0, "fps": 0}
-        for camera in cameras
-    }
-    output_total = 0
+    camera = cameras[0]
+    camera_name = camera[0]
+
     number_sent = 0
-
+    total_time = 0
+    total_amt = 1
     while True:
-        for camera in cameras:
-            camera_name = camera[0]
-            process_start_time = time.time()
+        process_start_time = time.time()
+        got, image, mtrx = camera[1].read_with_cropping(100, 175)
+        # print((time.time() - process_start_time) * 1000)
+        # image = cv2.bitwise_not(image)
+        # print(f"Took {(time.time() - time_start) * 1000}")
 
-            got, image = camera[1].read()
-            if not got:
-                print(f"Failed to read image from camera {camera_name}")
+        if not got or image is None or mtrx is None:
+            if image is None:
                 camera[1].release()
-                cameras[cameras.index(camera)] = (
+                cameras[0] = (
                     camera_name,
                     Camera(config.camera_parameters.camera_parameters[camera_name]),
                 )
-                continue
+            continue
 
-            _, compressed_image = cv2.imencode(".jpg", image)
-            image_id = random.randint(0, 1000000)
-            timestamp = int(time.time() * 1000)
-
-            if number_sent > 5:
-                await autobahn_server.publish(
-                    config.april_detection.message.post_camera_output_topic,
-                    ImageMessage(
-                        image_id=image_id,
-                        image=compressed_image.tobytes(),
-                        camera_name=camera_name,
-                        timestamp=timestamp,
-                        height=image.shape[0],
-                        width=image.shape[1],
-                        is_gray=False,
-                    ).SerializeToString(),
-                )
-                number_sent = 0
-
-            number_sent += 1
-
-            output = await process_image(
-                cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),
-                camera[1].config,
-                detector,
-                config.april_detection.tag_size,
-                camera_name,
+        if number_sent > 5:
+            await autobahn_server.publish(
+                config.april_detection.message.post_camera_output_topic,
+                ImageMessage(
+                    image_id=random.randint(0, 1000000),
+                    image=cv2.imencode(".jpg", image)[1].tobytes(),
+                    camera_name=camera_name,
+                    timestamp=int(time.time() * 1000),
+                    height=image.shape[0],
+                    width=image.shape[1],
+                    is_gray=False,
+                ).SerializeToString(),
             )
+            number_sent = 0
+        number_sent += 1
 
-            if len(output.tags) > 0:
-                output_total += 1
-                await autobahn_server.publish(
-                    config.april_detection.message.post_tag_output_topic,
-                    output.SerializeToString(),
-                )
+        output = await process_image(
+            image,
+            mtrx,
+            detector,
+            config.april_detection.tag_size,
+            camera_name,
+        )
 
-            # Update FPS calculation including processing time
-            process_end_time = time.time()
-            fps_stats[camera_name]["counter"] += 1
-
-            if (
-                process_end_time - fps_stats[camera_name]["start_time"] > 1
-            ):  # Update FPS every second
-                elapsed_time = process_end_time - fps_stats[camera_name]["start_time"]
-                fps = fps_stats[camera_name]["counter"] / elapsed_time
-                process_time = (
-                    process_end_time - process_start_time
-                ) * 1000  # Convert to milliseconds
-                print(
-                    f"Camera {camera_name}: {fps:.1f} FPS, {process_time:.1f}ms per frame, {output_total} tags"
-                )
-                fps_stats[camera_name]["counter"] = 0
-                fps_stats[camera_name]["start_time"] = process_end_time
-                output_total = 0
+        if len(output.tags) > 0:
+            print("Found!")
+            await autobahn_server.publish(
+                config.april_detection.message.post_tag_output_topic,
+                output.SerializeToString(),
+            )
 
 
 if __name__ == "__main__":

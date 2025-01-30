@@ -60,11 +60,11 @@ sensors = ["april-tag", "odometry", "imu"]
 
 [kalman-filter.april-tag]
 measurement-noise-matrix = [
-    [500.0, 0.0, 0.0, 0.0, 0.0], # no format
-    [0.0, 500.0, 0.0, 0.0, 0.0], # no format
-    [0.0, 0.0, 500.0, 0.0, 0.0], # no format
-    [0.0, 0.0, 0.0, 1.0, 0.0],   # no format
-    [0.0, 0.0, 0.0, 0.0, 1.0],   # no format
+    [1000.0, 0.0, 0.0, 0.0, 0.0], # no format
+    [0.0, 1000.0, 0.0, 0.0, 0.0], # no format
+    [0.0, 0.0, 1000.0, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.0, 1.0, 0.0],    # no format
+    [0.0, 0.0, 0.0, 0.0, 1.0],    # no format
 ]
 measurement-conversion-matrix = [
     [1.0, 0.0, 0.0, 0.0, 0.0], # no format
