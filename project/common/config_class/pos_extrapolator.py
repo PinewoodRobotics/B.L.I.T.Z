@@ -86,9 +86,10 @@ class PosExtrapolatorConfig(ConfigTemplate):
 
         self.odometry_global_position = config["global-position-odometry"]
         imus = config["imu-to-analyze"]
-        self.imu_configs = []
+        self.imu_configs: dict[str, ImuConfig] = {}
         for imu in imus:
-            self.imu_configs.append(ImuConfig(config[imu]))
+            conf = ImuConfig(config[imu])
+            self.imu_configs[imu] = conf
 
 
 class ImuConfig(ConfigTemplate):
@@ -96,6 +97,7 @@ class ImuConfig(ConfigTemplate):
         self.check_config(config, required_keys_imu, "ImuConfig")
         self.imu_global_position = config["global-position"]
         self.imu_local_position = config["local-position"]
+        self.imu_yaw_offset = config["yaw-offset"]
 
 
 class TagPositionConfig(BaseModel):

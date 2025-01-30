@@ -26,11 +26,6 @@ async def main():
                     0,
                 ),
                 "tag": (0, 1.067, 0),
-                "robot_raw": (
-                    robot_pos.estimated_rotation[0],
-                    robot_pos.estimated_rotation[1],
-                    0,
-                ),
             }
         )
 

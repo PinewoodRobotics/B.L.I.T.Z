@@ -26,6 +26,7 @@ post-robot-position-output-topic = "pos-extrapolator/robot-position"
 [pos-extrapolator.imu]
 global-position = [0.0, 0.0]
 local-position = [0.0, 0.0]
+yaw-offset = 0.0
 
 # ------------- KALMAN FILTER -------------
 

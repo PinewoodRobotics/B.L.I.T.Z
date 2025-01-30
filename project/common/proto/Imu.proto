@@ -10,5 +10,10 @@ message Imu {
     float acceleration_x = 7;
     float acceleration_y = 8;
     float acceleration_z = 9;
-    int64 timestamp = 10;
+    float velocity_x = 10;
+    float velocity_y = 11;
+    float velocity_z = 12;
+    int64 timestamp = 13;
+    string imu_id = 14;
 }
+    
