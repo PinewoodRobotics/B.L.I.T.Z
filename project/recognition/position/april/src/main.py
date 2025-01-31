@@ -96,7 +96,9 @@ async def main():
     total_amt = 1
     while True:
         process_start_time = time.time()
-        got, image, mtrx = camera[1].read_with_cropping(100, 175)
+        got, image, mtrx = camera[1].read_with_cropping(
+            np.array([0, 0, 0]), np.array([100, 100, 100])
+        )
         # print((time.time() - process_start_time) * 1000)
         # image = cv2.bitwise_not(image)
         # print(f"Took {(time.time() - time_start) * 1000}")

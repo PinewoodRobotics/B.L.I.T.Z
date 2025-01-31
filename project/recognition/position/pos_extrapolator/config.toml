@@ -15,7 +15,7 @@ position-extrapolation-method = "kalman-linear-filter"
 
 [pos-extrapolator.tag-position-config]
 tag-position-config-folder = "tag_pos"
-config-in-use = "sac"
+config-in-use = "cs_room_test"
 
 [pos-extrapolator.message]
 post-tag-input-topic = "apriltag/tag"

@@ -27,10 +27,13 @@ def plot_top_down_view(tags, camera_matrix, dist_coeffs, tag_size):
         if tag.pose_t is not None:
             x, _, z = tag.pose_t.flatten()  # Extract X and Z position
             plt.scatter(x, z, color="blue", label=f"Tag {tag.tag_id}")
+            # Add tag ID text below the point
+            plt.text(x, z - 0.2, f"ID: {tag.tag_id}", ha="center", va="top")
+
             plt.arrow(
                 x,
                 z,
-                tag.pose_R[2][0],
+                -tag.pose_R[2][0],
                 tag.pose_R[2][2],
                 head_width=0.05,
                 head_length=0.05,
