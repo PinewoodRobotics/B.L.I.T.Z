@@ -24,10 +24,12 @@ class WorldConversion:
         filter_strategy: FilterStrategy,
         tag_configs: dict[str, TagPositionConfig] | None = None,
         imu_configs: dict[str, ImuConfig] | None = None,
+        odometry_config: list[float] | None = None,
     ):
         self.filter_strategy = filter_strategy
         self.tag_configs = tag_configs
         self.imu_configs = imu_configs
+        self.odometry_config = odometry_config
         self.last_timestamps = {}
 
     def insert_data(self, data: AprilTags | Imu | Odometry):
@@ -91,7 +93,7 @@ class WorldConversion:
                     translation_component[2],
                     0,
                     0,
-                    yaw,
+                    0,
                 ],
                 MeasurementType.APRIL_TAG,
             )
@@ -117,13 +119,18 @@ class WorldConversion:
         )
 
     def _insert_odometry(self, data: Odometry):
+        if self.odometry_config is None:
+            raise ValueError("Odometry config is not set")
+
+        # print(f"{data}")
+
         self.filter_strategy.filter_data(
             [
-                data.x,
-                data.y,
-                data.vx,
+                data.y - self.odometry_config[0],
+                data.x - self.odometry_config[1],
                 data.vy,
-                data.theta,
+                data.vx,
+                data.theta - self.odometry_config[2],
             ],
             MeasurementType.ODOMETRY,
         )

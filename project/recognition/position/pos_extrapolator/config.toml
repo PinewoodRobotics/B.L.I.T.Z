@@ -8,7 +8,7 @@ port = 8080
 
 [pos-extrapolator]
 cameras-to-analyze = ["custom-640-480"]
-global-position-odometry = [0.0, 0.0]
+global-position-odometry = [0.0, 0.0, 0.0]
 imu-to-analyze = ["imu"]
 tag-confidence-threshold = 0.5
 position-extrapolation-method = "kalman-linear-filter"
@@ -19,7 +19,7 @@ config-in-use = "cs_room_test"
 
 [pos-extrapolator.message]
 post-tag-input-topic = "apriltag/tag"
-post-odometry-input-topic = "odometry/odometry"
+post-odometry-input-topic = "robot_odometry"
 post-imu-input-topic = "imu/imu"
 post-robot-position-output-topic = "pos-extrapolator/robot-position"
 
@@ -61,11 +61,11 @@ sensors = ["april-tag", "odometry", "imu"]
 
 [kalman-filter.april-tag]
 measurement-noise-matrix = [
-    [1000.0, 0.0, 0.0, 0.0, 0.0], # no format
-    [0.0, 1000.0, 0.0, 0.0, 0.0], # no format
-    [0.0, 0.0, 1000.0, 0.0, 0.0], # no format
-    [0.0, 0.0, 0.0, 1.0, 0.0],    # no format
-    [0.0, 0.0, 0.0, 0.0, 1.0],    # no format
+    [0.7, 0.0, 0.0, 0.0, 0.0],     # no format
+    [0.0, 0.7, 0.0, 0.0, 0.0],     # no format
+    [0.0, 0.0, 10000.0, 0.0, 0.0], # no format
+    [0.0, 0.0, 0.0, 10000.0, 0.0], # no format
+    [0.0, 0.0, 0.0, 0.0, 10000.0], # no format
 ]
 measurement-conversion-matrix = [
     [1.0, 0.0, 0.0, 0.0, 0.0], # no format

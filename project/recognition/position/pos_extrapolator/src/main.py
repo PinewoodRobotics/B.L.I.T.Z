@@ -92,6 +92,7 @@ async def main():
         filter_strategy,
         config.pos_extrapolator.tag_configs.config,
         config.pos_extrapolator.imu_configs,
+        config.pos_extrapolator.odometry_global_position,
     )
 
     while True:
@@ -109,7 +110,7 @@ async def main():
                 estimated_position=(
                     filtered_position[0],
                     filtered_position[1],
-                    filtered_position[2],
+                    0,
                 ),
                 estimated_rotation=[filtered_position[4]],
             ).SerializeToString(),

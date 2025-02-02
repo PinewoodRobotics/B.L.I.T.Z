@@ -38,7 +38,7 @@ async fn main() {
     let config: Config = toml::from_str(&toml_content).expect("Failed to parse config.toml");
     let port = config.server.port;
 
-    let server = TcpListener::bind(format!("127.0.0.1:{}", port))
+    let server = TcpListener::bind(format!("0.0.0.0:{}", port))
         .await
         .expect("Failed to bind server");
 
