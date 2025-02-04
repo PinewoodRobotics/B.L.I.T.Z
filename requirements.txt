@@ -32,3 +32,4 @@ pyserial
 filterpy
 protoletariat
 ruff
+pre-commit
