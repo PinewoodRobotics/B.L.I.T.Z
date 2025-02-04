@@ -1,10 +1,6 @@
-from enum import Enum
 from project.common.config_class.filters.kalman_filter_config import (
-    KalmanFilterConfig,
     MeasurementType,
 )
-from project.common.config_class.filters.weighted_avg_config import WeightedAvgConfig
-from project.common.config_class.pos_extrapolator import PositionExtrapolationMethod
 
 
 class FilterStrategy:

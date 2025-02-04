@@ -1,17 +1,15 @@
 import random
 import time
 from typing import List, Tuple
-import zlib
+
 import cv2
 import numpy as np
-from project.autobahn.autobahn_python.autobahn import Autobahn
-from project.common.debug.profiler import profile_function
-from project.common.image.query_helper.query_helper import QueryHelper
-from nats.aio.client import Client
-from nats.aio.msg import Msg
 
 from generated.AprilTag_pb2 import AprilTags
 from generated.Image_pb2 import ImageMessage
+from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.common.debug.profiler import profile_function
+from project.common.image.query_helper.query_helper import QueryHelper
 
 
 class AprilQueryHelper(QueryHelper):

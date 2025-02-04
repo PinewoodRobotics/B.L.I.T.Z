@@ -1,4 +1,3 @@
-import zlib
 import cv2
 import numpy as np
 from generated.Image_pb2 import ImageMessage

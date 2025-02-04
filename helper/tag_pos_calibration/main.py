@@ -3,7 +3,6 @@ import json
 import os
 import cv2
 import numpy as np
-import pyapriltags
 import matplotlib.pyplot as plt
 from pydantic import BaseModel, Field
 
@@ -47,8 +46,8 @@ def plot_top_down_view(tag_positions):
     plt.title("Top-Down View of Detected Tags")
 
     for tag_id, pos in tag_positions.items():
-        x, y, z = pos.position.x, pos.position.y, pos.position.z
-        dx, dy, dz = (
+        x, _, z = pos.position.x, pos.position.y, pos.position.z
+        dx, _, dz = (
             pos.direction_vector.x,
             pos.direction_vector.y,
             pos.direction_vector.z,

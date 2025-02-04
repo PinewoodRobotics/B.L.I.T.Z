@@ -3,19 +3,14 @@ import time
 import cv2
 import nats
 import numpy as np
-from nats.aio.msg import Msg
-import nest_asyncio
 import random
 from asyncio import CancelledError
 
 from project.common.camera.box_frustum_conversion import (
     bbox_to_frustum,
-    transform_frustum,
 )
 from project.common.camera.image_inference_helper import ImageInferenceHelper
 from project.common.camera.transform import unfisheye_image
-from project.common.debug import profiler
-from project.common.config_class.profiler import ProfilerConfig
 from generated.Image_pb2 import ImageMessage
 from generated.Inference_pb2 import Inference
 from lidar_frustum import LidarPointsFrustum, Point3D
@@ -98,7 +93,7 @@ async def main():
                     Point3D(-0.012, 0, 0),
                     [Point3D(pt[0], pt[1], pt[2]) for pt in transformed_frustum],
                 )
-                if res == None:
+                if res is None:
                     print("Womp Womp")
                 else:
                     avg_total_distance = 0
@@ -113,9 +108,9 @@ async def main():
 
             cv2.imshow("frame", unfisheyed_image)
             cv2.waitKey(1)
-    except KeyboardInterrupt as e:
+    except KeyboardInterrupt:
         print("Exiting...")
-    except CancelledError as e:
+    except CancelledError:
         print("Exiting...")
     finally:
         cap.release()

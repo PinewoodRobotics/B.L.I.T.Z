@@ -37,3 +37,9 @@ generate-proto: prepare
 
 position-extrapolator:
 	cd project/recognition/position/pos_extrapolator/ && python src/main.py
+
+check-all:
+	ruff check .
+
+check-project:
+	ruff check project/

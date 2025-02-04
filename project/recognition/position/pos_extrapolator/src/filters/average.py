@@ -1,5 +1,4 @@
 from project.common.config_class.filters.kalman_filter_config import MeasurementType
-from project.common.config_class.filters.weighted_avg_config import WeightedAvgConfig
 from project.recognition.position.pos_extrapolator.src.filter import FilterStrategy
 
 

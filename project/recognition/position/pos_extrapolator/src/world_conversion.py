@@ -64,7 +64,7 @@ class WorldConversion:
             raise ValueError("Tag configs are not set")
 
         for tag in data.tags:
-            if not str(tag.tag_id) in self.tag_configs:
+            if str(tag.tag_id) not in self.tag_configs:
                 continue
 
             T_in_camera = create_transformation_matrix(
@@ -85,7 +85,7 @@ class WorldConversion:
             )
 
             # Extract yaw angle from rotation matrix
-            yaw = np.arctan2(rotation_component[1, 0], rotation_component[0, 0])
+            _ = np.arctan2(rotation_component[1, 0], rotation_component[0, 0])
 
             self.filter_strategy.filter_data(
                 [
@@ -102,7 +102,7 @@ class WorldConversion:
         if self.imu_configs is None:
             raise ValueError("Imu configs are not set")
 
-        if not str(data.imu_id) in self.imu_configs:
+        if str(data.imu_id) not in self.imu_configs:
             return
 
         imu_config = self.imu_configs[str(data.imu_id)]

@@ -1,6 +1,5 @@
 import random
 import cv2
-from matplotlib.pyplot import gray
 import numpy as np
 
 from config.calibration import CheckerboardConfig

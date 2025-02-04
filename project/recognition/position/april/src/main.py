@@ -1,21 +1,14 @@
 import asyncio
 import random
-import threading
 import time
 import cv2
-import nats
 import numpy as np
 import pyapriltags
-from nats.aio.msg import Msg
-from pyinstrument import Profiler
 
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.common.config import Config, Module
-from project.common.config_class.camera_parameters import CameraParameters
-from generated.AprilTag_pb2 import AprilTags, Tag
+from generated.AprilTag_pb2 import AprilTags
 from generated.Image_pb2 import ImageMessage
-import msgpack_numpy as m
-from project.common.image.image_util import from_proto_to_cv2
 from project.recognition.position.april.src.camera import Camera
 from util import from_detection_to_proto
 
@@ -92,10 +85,8 @@ async def main():
     camera_name = camera[0]
 
     number_sent = 0
-    total_time = 0
-    total_amt = 1
     while True:
-        process_start_time = time.time()
+        _process_start_time = time.time()
         got, image, mtrx = camera[1].read_with_cropping(
             np.array([0, 0, 0]), np.array([100, 100, 100])
         )

@@ -1,18 +1,13 @@
 import asyncio
 import random
 import time
-import pygame
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 from project.autobahn.autobahn_python.autobahn import Autobahn
-from project.common.config import Config, Module
 from project.example.util.render.position_renderer import PositionVisualizer
 from generated.AprilTag_pb2 import AprilTags, Tag
 from generated.Imu_pb2 import Imu
 from generated.Odometry_pb2 import Odometry
 from generated.RobotPosition_pb2 import RobotPosition
-from collections import defaultdict
 
 
 class FakeDataGenerator:

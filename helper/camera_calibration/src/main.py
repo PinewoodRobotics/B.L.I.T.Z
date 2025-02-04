@@ -3,16 +3,10 @@ import asyncio
 import base64
 import cv2
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit
 from flask import Flask, jsonify, request
-import numpy as np
 import toml
-import websockets
 import threading
-import logging
-import sys
 import pyapriltags
-from config.config_util import get_config_data
 from config.main_config import (
     MainAppConfig,
     MainBackendConfig,
@@ -23,7 +17,6 @@ from module.camera_calibrator_apriltag import (
 )
 from schema.update_config import UpdateConfig
 from schema.update_calibration_params import (
-    CalibrationType,
     RemoveImage,
     UpdateCalibrationParams,
 )

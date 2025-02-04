@@ -3,7 +3,6 @@ import argparse
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-import pyapriltags  # Import apriltag for the detector
 import os
 import time
 from project.common.camera.transform import unfisheye_image

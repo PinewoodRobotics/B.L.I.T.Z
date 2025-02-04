@@ -1,9 +1,7 @@
 from enum import Enum
 import io
-from struct import Struct
 from typing import Awaitable, Callable
 import websockets
-from websockets.server import ServerConnection
 import asyncio
 
 # Structure of the message:

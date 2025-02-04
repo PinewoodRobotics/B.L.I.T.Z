@@ -5,8 +5,6 @@ def render_rgb_lines():
     """
     Returns a LineSet representing red, green, and blue lines.
     """
-    import open3d as o3d
-    import numpy as np
 
     points = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]])
     lines = np.array([[0, 1], [0, 2], [0, 3]])

@@ -10,10 +10,8 @@ import open3d as o3d
 from dataclasses import asdict, dataclass
 
 from project.common.camera.box_frustum_conversion import bbox_to_frustum
-from project.common.camera.transform import unfisheye_image
 from project.common.camera.image_inference_helper import ImageInferenceHelper
 from generated.Image_pb2 import ImageMessage
-from generated.Inference_pb2 import Inference
 
 
 @dataclass
@@ -50,7 +48,7 @@ class LidarPointsFrustum:
 
         json_res = response.json()
 
-        if json_res == None or "points" not in json_res:
+        if json_res is None or "points" not in json_res:
             return None
         return [Point3D(pt["x"], pt["y"], pt["z"]) for pt in json_res["points"]]
 
@@ -79,7 +77,7 @@ def render_frustum_and_points_with_axes(frustum_points, lidar_points):
         size=1.0, origin=[0, 0, 0]
     )
 
-    if lidar_points != None:
+    if lidar_points is not None:
         # Create point cloud for lidar points
         lidar_points_np = np.array([[p.x, p.y, p.z] for p in lidar_points])
         lidar_point_cloud = o3d.geometry.PointCloud()
@@ -123,7 +121,7 @@ async def main():
             [0.0, 0.0, 1.0],
         ]
     )
-    dist_coef = np.array(
+    _dist_coef = np.array(
         [
             -0.4513475113205368,
             0.21139658631382788,

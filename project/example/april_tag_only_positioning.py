@@ -1,5 +1,4 @@
 import asyncio
-import time
 import cv2
 import numpy as np
 from project.autobahn.autobahn_python.autobahn import Autobahn

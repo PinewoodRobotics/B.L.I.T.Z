@@ -1,11 +1,9 @@
 import asyncio
-import os
 import threading
 import time
 from typing import Any
 
 import nats
-import numpy as np
 from nats.aio.client import Client
 from nats.aio.msg import Msg
 from ultralytics import YOLO

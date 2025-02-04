@@ -1,7 +1,6 @@
 import numpy as np
 import pyapriltags
 
-from project.common.config import Config
 from generated.AprilTag_pb2 import Tag
 
 

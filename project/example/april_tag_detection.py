@@ -1,11 +1,9 @@
 import asyncio
 import cv2
-import nats
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.common.config_class.profiler import ProfilerConfig
 from project.common.debug.profiler import init_profiler
 from project.common.image.query_helper.april_query_helper import AprilQueryHelper
-from nats.aio.client import Client
 
 from project.example.util.render.april_tag import render_april_tag
 

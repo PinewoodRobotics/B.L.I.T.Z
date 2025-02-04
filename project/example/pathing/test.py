@@ -1,7 +1,5 @@
 import pygame
 import time
-import math
-import heapq
 
 # Initialize pygame
 pygame.init()

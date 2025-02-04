@@ -1,6 +1,5 @@
 import asyncio
 import time
-from typing import Tuple
 from nats.aio.client import Client
 from nats.aio.msg import Msg
 from generated.Image_pb2 import ImageMessage

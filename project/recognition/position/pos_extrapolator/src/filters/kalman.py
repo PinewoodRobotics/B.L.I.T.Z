@@ -1,4 +1,4 @@
-from filterpy.kalman import KalmanFilter, ExtendedKalmanFilter
+from filterpy.kalman import KalmanFilter
 import numpy as np
 from project.common.config_class.filters.kalman_filter_config import (
     KalmanFilterConfig,

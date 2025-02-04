@@ -3,7 +3,6 @@ import numpy as np
 import pyapriltags
 
 from config.transformation import (
-    QuadDetection,
     TransformationConfig,
 )
 

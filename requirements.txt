@@ -31,3 +31,4 @@ pygame
 pyserial
 filterpy
 protoletariat
+ruff

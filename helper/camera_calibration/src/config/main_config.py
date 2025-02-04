@@ -1,11 +1,9 @@
-from dataclasses import dataclass
 
 from pydantic import BaseModel
 
 from config.camera import CameraConfig
 from config.calibration import (
     CalibrationConfig,
-    CheckerboardConfig,
 )
 from config.transformation import TransformationConfig
 

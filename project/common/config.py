@@ -8,7 +8,6 @@ from project.common.config_class.filters.weighted_avg_config import WeightedAvgC
 from project.common.config_class.pos_extrapolator import PosExtrapolatorConfig
 from project.common.debug import logger
 from project.common.config_class.profiler import ProfilerConfig
-from project.common.error.missing_key_error import MissingKeyError
 from project.common.debug.logger import LogLevel
 from project.common.config_class.autobahn import AutobahnConfig
 from project.common.config_class.image_recognition import ImageRecognitionConfig

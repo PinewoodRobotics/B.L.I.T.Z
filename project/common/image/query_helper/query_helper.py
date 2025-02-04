@@ -1,9 +1,5 @@
-import queue
-from typing import Callable, Awaitable
-from nats.aio.client import Client
-import numpy as np
-from nats.aio.msg import Msg
 import asyncio
+from typing import Callable, Awaitable
 
 from project.autobahn.autobahn_python.autobahn import Autobahn
 
