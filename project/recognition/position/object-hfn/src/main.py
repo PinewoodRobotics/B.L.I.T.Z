@@ -14,11 +14,10 @@ from project.common.camera.box_frustum_conversion import (
 )
 from project.common.camera.image_inference_helper import ImageInferenceHelper
 from project.common.camera.transform import unfisheye_image
-from project.generated.project.common.proto.Inference_pb2 import InferenceList
 from project.common.debug import profiler
 from project.common.config_class.profiler import ProfilerConfig
-from project.generated.project.common.proto.Image_pb2 import ImageMessage
-from project.generated.project.common.proto.Inference_pb2 import Inference
+from generated.Image_pb2 import ImageMessage
+from generated.Inference_pb2 import Inference
 from lidar_frustum import LidarPointsFrustum, Point3D
 
 camera_matrix = np.array(
@@ -82,7 +81,7 @@ async def main():
                 image=compressed_image.tobytes(),
                 camera_name="camera0",
                 is_gray=False,
-                id=image_id,
+                image_id=image_id,
                 height=frame.shape[0],
                 width=frame.shape[1],
                 timestamp=int(time.time() * 1000),

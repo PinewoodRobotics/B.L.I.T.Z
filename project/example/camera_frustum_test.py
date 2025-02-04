@@ -10,7 +10,7 @@ import random
 from project.common.camera.box_frustum_conversion import bbox_to_frustum
 from project.common.camera.image_inference_helper import ImageInferenceHelper
 from project.common.camera.transform import unfisheye_image
-from project.generated.project.common.proto.Image_pb2 import ImageMessage
+from generated.Image_pb2 import ImageMessage
 
 from open3d import visualization
 

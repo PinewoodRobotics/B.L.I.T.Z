@@ -3,6 +3,8 @@ import time
 import cv2
 import numpy as np
 
+from generated.vector_pb2 import Vector2
+from generated.position_pb2 import Position2d
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.common.config import Config, Module
 from project.common.config_class.filters.kalman_filter_config import MeasurementType
@@ -13,21 +15,21 @@ from project.common.util.math import (
     get_translation_rotation_components,
     get_world_pos,
 )
-from project.generated.project.common.proto.AprilTag_pb2 import AprilTags
-from project.generated.project.common.proto.Imu_pb2 import Imu
-from project.generated.project.common.proto.Odometry_pb2 import Odometry
-from project.recognition.position.pos_extrapolator.src.filter import FilterStrategy
-from project.recognition.position.pos_extrapolator.src.filters.average import (
+from generated.AprilTag_pb2 import AprilTags
+from generated.Imu_pb2 import Imu
+from generated.Odometry_pb2 import Odometry
+from filter import FilterStrategy
+from filters.average import (
     AverageFilter,
 )
-from project.recognition.position.pos_extrapolator.src.filters.weighted_average import (
+from filters.weighted_average import (
     WeightedAverageFilter,
 )
-from project.recognition.position.pos_extrapolator.src.filters.kalman import (
+from filters.kalman import (
     KalmanFilterStrategy,
 )
-from project.generated.project.common.proto.RobotPosition_pb2 import RobotPosition
-from project.recognition.position.pos_extrapolator.src.world_conversion import (
+from generated.RobotPosition_pb2 import RobotPosition
+from world_conversion import (
     WorldConversion,
 )
 
@@ -107,12 +109,16 @@ async def main():
                 camera_name=config.pos_extrapolator.cameras_to_analyze[0],
                 timestamp=time.time() * 1000,
                 confidence=world_conversion.get_confidence(),
-                estimated_position=(
-                    filtered_position[0],
-                    filtered_position[1],
-                    0,
+                estimated_position=Position2d(
+                    position=Vector2(
+                        x=filtered_position[0],
+                        y=filtered_position[1],
+                    ),
+                    direction=Vector2(
+                        x=np.sin(filtered_position[4]),
+                        y=np.cos(filtered_position[4]),
+                    ),
                 ),
-                estimated_rotation=[filtered_position[4]],
             ).SerializeToString(),
         )
 

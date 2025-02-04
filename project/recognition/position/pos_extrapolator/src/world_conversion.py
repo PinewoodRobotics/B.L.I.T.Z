@@ -9,11 +9,11 @@ from project.common.util.math import (
     get_translation_rotation_components,
     get_world_pos,
 )
-from project.generated.project.common.proto.AprilTag_pb2 import AprilTags
-from project.generated.project.common.proto.Imu_pb2 import Imu
-from project.generated.project.common.proto.Odometry_pb2 import Odometry
-from project.recognition.position.pos_extrapolator.src.filter import FilterStrategy
-from project.recognition.position.pos_extrapolator.src.filters.kalman import (
+from generated.AprilTag_pb2 import AprilTags
+from generated.Imu_pb2 import Imu
+from generated.Odometry_pb2 import Odometry
+from filter import FilterStrategy
+from filters.kalman import (
     KalmanFilterStrategy,
 )
 
@@ -109,11 +109,12 @@ class WorldConversion:
 
         self.filter_strategy.filter_data(
             [
-                data.x - imu_config.imu_local_position[0],
-                data.y - imu_config.imu_local_position[1],
-                data.velocity_x,
-                data.velocity_y,
-                data.yaw - imu_config.imu_yaw_offset,
+                data.position.position.x - imu_config.imu_local_position[0],
+                data.position.position.y - imu_config.imu_local_position[1],
+                data.velocity.x,
+                data.velocity.y,
+                np.arctan2(data.position.direction.x, data.position.direction.y)
+                - imu_config.imu_yaw_offset,
             ],
             MeasurementType.IMU,
         )
@@ -126,11 +127,12 @@ class WorldConversion:
 
         self.filter_strategy.filter_data(
             [
-                data.y - self.odometry_config[0],
-                data.x - self.odometry_config[1],
-                data.vy,
-                data.vx,
-                data.theta - self.odometry_config[2],
+                data.position.position.y - self.odometry_config[0],
+                data.position.position.x - self.odometry_config[1],
+                data.velocity.y,
+                data.velocity.x,
+                np.arctan2(data.position.direction.x, data.position.direction.y)
+                - self.odometry_config[2],
             ],
             MeasurementType.ODOMETRY,
         )

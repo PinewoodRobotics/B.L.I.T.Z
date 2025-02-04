@@ -4,8 +4,8 @@ import cv2
 import numpy as np
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.example.util.render.position_renderer import PositionVisualizer
-from project.generated.project.common.proto.Image_pb2 import ImageMessage
-from project.generated.project.common.proto.RobotPosition_pb2 import RobotPosition
+from generated.Image_pb2 import ImageMessage
+from generated.RobotPosition_pb2 import RobotPosition
 
 
 async def main():
@@ -21,9 +21,14 @@ async def main():
         position_renderer.update_poses(
             {
                 "robot": (
-                    robot_pos.estimated_position[0],
-                    robot_pos.estimated_position[1],
-                    robot_pos.estimated_rotation[0],
+                    robot_pos.estimated_position.position.x,
+                    robot_pos.estimated_position.position.y,
+                    np.degrees(
+                        np.arctan2(
+                            robot_pos.estimated_position.direction.y,
+                            robot_pos.estimated_position.direction.x,
+                        )
+                    ),
                 ),
             }
         )

@@ -8,10 +8,10 @@ from matplotlib.animation import FuncAnimation
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.common.config import Config, Module
 from project.example.util.render.position_renderer import PositionVisualizer
-from project.generated.project.common.proto.AprilTag_pb2 import AprilTags, Tag
-from project.generated.project.common.proto.Imu_pb2 import Imu
-from project.generated.project.common.proto.Odometry_pb2 import Odometry
-from project.generated.project.common.proto.RobotPosition_pb2 import RobotPosition
+from generated.AprilTag_pb2 import AprilTags, Tag
+from generated.Imu_pb2 import Imu
+from generated.Odometry_pb2 import Odometry
+from generated.RobotPosition_pb2 import RobotPosition
 from collections import defaultdict
 
 
@@ -185,9 +185,14 @@ async def main():
         running = visualizer.update_pos(
             "robot",
             (
-                robot_pos.estimated_position[0],
-                robot_pos.estimated_position[1],
-                robot_pos.estimated_rotation[1],
+                robot_pos.estimated_position.position.x,
+                robot_pos.estimated_position.position.y,
+                np.degrees(
+                    np.arctan2(
+                        robot_pos.estimated_position.direction.y,
+                        robot_pos.estimated_position.direction.x,
+                    )
+                ),
             ),
         )
 
@@ -214,16 +219,25 @@ async def main():
         tags.tags.append(tag)
 
         odometry = Odometry()
-        (odometry.x, odometry.y, odometry.vx, odometry.vy, odometry.theta) = (
-            fake_data_generator.next_odom()
-        )
+        (
+            odometry.position.position.x,
+            odometry.position.position.y,
+            odometry.velocity.x,
+            odometry.velocity.y,
+            odometry.position.direction.x,  # TODO: fix
+        ) = fake_data_generator.next_odom()
 
         visualizer.update_pos(
             "odometer",
             (
-                odometry.x,
-                odometry.y,
-                odometry.theta,
+                odometry.position.position.x,
+                odometry.position.position.y,
+                np.degrees(
+                    np.arctan2(
+                        odometry.position.direction.y,
+                        odometry.position.direction.x,
+                    )
+                ),
             ),
         )
 
@@ -237,16 +251,25 @@ async def main():
         )
 
         imu = Imu()
-        imu.x, imu.y, imu.yaw = fake_data_generator.next_imu()
-        imu.acceleration_x = 1.0
-        imu.acceleration_y = 1.0
+        (
+            imu.position.position.x,
+            imu.position.position.y,
+            imu.position.direction.x,  # TODO: fix
+        ) = fake_data_generator.next_imu()
+        imu.acceleration.x = 1.0
+        imu.acceleration.y = 1.0
 
         visualizer.update_pos(
             "imu",
             (
-                imu.x,
-                imu.y,
-                imu.yaw,
+                imu.position.position.x,
+                imu.position.position.y,
+                np.degrees(
+                    np.arctan2(
+                        imu.position.direction.y,
+                        imu.position.direction.x,
+                    )
+                ),
             ),
         )
 

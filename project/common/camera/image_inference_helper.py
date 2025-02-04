@@ -3,8 +3,8 @@ import time
 from typing import Tuple
 from nats.aio.client import Client
 from nats.aio.msg import Msg
-from project.generated.project.common.proto.Image_pb2 import ImageMessage
-from project.generated.project.common.proto.Inference_pb2 import InferenceList
+from generated.Image_pb2 import ImageMessage
+from generated.Inference_pb2 import InferenceList
 from cv2.typing import MatLike
 
 

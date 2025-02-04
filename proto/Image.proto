@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package proto;
+
 message ImageMessage {
     bytes image = 1;
     string camera_name = 2;

@@ -11,8 +11,8 @@ import numpy as np
 
 from project.example.util.render.render_2d import PygameWindow
 from project.example.util.render.render_helper import AsyncPyVistaVisualizer
-from project.generated.project.common.proto.AprilTag_pb2 import AprilTags
-from project.generated.project.common.proto.Image_pb2 import ImageMessage
+from generated.AprilTag_pb2 import AprilTags
+from generated.Image_pb2 import ImageMessage
 
 
 async def main():

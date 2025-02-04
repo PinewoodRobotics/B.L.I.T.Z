@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package proto;
+
+import "vector.proto";
+
+message Position3d {
+  Vector3 position = 1;
+  Vector3 direction = 2;
+}
+
+message Position2d {
+  Vector2 position = 1;
+  Vector2 direction = 2;
+}

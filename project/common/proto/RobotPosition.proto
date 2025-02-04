@@ -1,8 +1,0 @@
-message RobotPosition {
-    required string camera_name = 1;
-    required float timestamp = 2;
-    required float confidence = 3;
-    
-    repeated float estimated_position = 4;
-    repeated float estimated_rotation = 5;
-}

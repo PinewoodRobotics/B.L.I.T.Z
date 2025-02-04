@@ -5,9 +5,6 @@ initiate-project:
 	pip install -r requirements.txt
 	pip install -e .
 
-generate-proto: prepare
-	protoc --python_out=project/generated --pyi_out=project/generated project/common/proto/*.proto
-
 run-multiprocess-2-test:
 	python project/test/april/april_tag_mlti_process_2.py
 
@@ -21,14 +18,22 @@ ai-server:
 	cd project/recognition/detection/image-recognition && python src/main.py
 
 april-server:
-	cd project/recognition/position/april && python src/main.py
+	(cd project/recognition/position/april && python src/main.py)
 
 prepare:
-	if [ ! -d "project/generated" ]; then mkdir project/generated; fi
+	if [ ! -d "generated" ]; then mkdir generated; fi
 
 generate-proto-cpp-navx2:
 	mkdir -p project/hardware/navx2/include/proto
 	protoc --cpp_out=project/hardware/navx2/include/proto project/common/proto/*.proto
+
+generate-proto: prepare
+	protoc -I=proto \
+		--python_out=generated \
+		--pyi_out=generated \
+		$(shell find proto -name "*.proto")
+	
+	protol --create-package --in-place --python-out generated protoc --proto-path=proto/ $(shell find proto -name "*.proto")
 
 position-extrapolator:
 	cd project/recognition/position/pos_extrapolator/ && python src/main.py

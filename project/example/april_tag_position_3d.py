@@ -2,7 +2,7 @@ import asyncio
 import numpy as np
 import open3d as o3d
 from project.autobahn.autobahn_python.autobahn import Autobahn
-from project.generated.project.common.proto.AprilTag_pb2 import AprilTags
+from generated.AprilTag_pb2 import AprilTags
 from queue import Queue
 
 

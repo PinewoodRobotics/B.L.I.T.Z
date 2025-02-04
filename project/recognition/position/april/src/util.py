@@ -2,7 +2,7 @@ import numpy as np
 import pyapriltags
 
 from project.common.config import Config
-from project.generated.project.common.proto.AprilTag_pb2 import Tag
+from generated.AprilTag_pb2 import Tag
 
 
 def to_float_list(arr: np.ndarray) -> list:

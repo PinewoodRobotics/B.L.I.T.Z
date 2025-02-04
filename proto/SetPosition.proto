@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "position.proto";
+
+package proto;
+
+enum SetType {
+  IMU = 0;
+  ODOMETRY = 1;
+}
+
+message SetPosition {
+  int64 timestamp = 1;
+  Position3d new_position = 2;
+  SetType set_type = 3;
+}

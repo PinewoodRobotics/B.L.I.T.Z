@@ -1,7 +1,7 @@
 import zlib
 import cv2
 import numpy as np
-from project.generated.project.common.proto.Image_pb2 import ImageMessage
+from generated.Image_pb2 import ImageMessage
 
 
 def from_proto_to_cv2(image_message: ImageMessage) -> np.ndarray:

@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package proto;
+
 message Tag {
     string tag_family = 1;
     int32 tag_id = 2;

@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
-from project.generated.project.common.proto.AprilTag_pb2 import AprilTags
-from project.generated.project.common.proto.Inference_pb2 import InferenceList
+from generated.AprilTag_pb2 import AprilTags
 
 
 def render_april_tag(image: np.ndarray, tag_detection: AprilTags) -> np.ndarray:

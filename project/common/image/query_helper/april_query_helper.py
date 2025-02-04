@@ -10,8 +10,8 @@ from project.common.image.query_helper.query_helper import QueryHelper
 from nats.aio.client import Client
 from nats.aio.msg import Msg
 
-from project.generated.project.common.proto.AprilTag_pb2 import AprilTags
-from project.generated.project.common.proto.Image_pb2 import ImageMessage
+from generated.AprilTag_pb2 import AprilTags
+from generated.Image_pb2 import ImageMessage
 
 
 class AprilQueryHelper(QueryHelper):

@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package proto;
+
+import "vector.proto";
+import "position.proto";
+
+message Imu {
+    Position3d position = 1;
+    Vector3 velocity = 2;
+    Vector3 acceleration = 3;
+    int64 timestamp = 4;
+    string imu_id = 5;
+}

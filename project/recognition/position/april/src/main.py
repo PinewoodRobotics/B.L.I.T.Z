@@ -12,8 +12,8 @@ from pyinstrument import Profiler
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.common.config import Config, Module
 from project.common.config_class.camera_parameters import CameraParameters
-from project.generated.project.common.proto.AprilTag_pb2 import AprilTags, Tag
-from project.generated.project.common.proto.Image_pb2 import ImageMessage
+from generated.AprilTag_pb2 import AprilTags, Tag
+from generated.Image_pb2 import ImageMessage
 import msgpack_numpy as m
 from project.common.image.image_util import from_proto_to_cv2
 from project.recognition.position.april.src.camera import Camera

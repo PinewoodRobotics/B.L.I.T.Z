@@ -15,9 +15,9 @@ from project.common.debug import profiler
 from project.common.config import Config, Module
 from project.common.config_class.profiler import ProfilerConfig
 from project.common.image.image_util import from_proto_to_cv2
-from project.generated.project.common.proto.Image_pb2 import ImageMessage
-from project.generated.project.common.proto.Inference_pb2 import Inference
-from project.generated.project.common.proto.Inference_pb2 import InferenceList
+from generated.Image_pb2 import ImageMessage
+from generated.Inference_pb2 import Inference
+from generated.Inference_pb2 import InferenceList
 
 
 def input_thread(config: Config) -> None:
@@ -59,7 +59,6 @@ async def main() -> None:
     config = Config(
         "config.toml",
         exclude=[
-            Module.CAMERA_FEED_CLEANER,
             Module.APRIL_DETECTION,
             Module.PROFILER,
         ],

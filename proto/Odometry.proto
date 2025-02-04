@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package proto;
+
+import "position.proto";
+import "vector.proto";
+
+message Odometry {
+    Position2d position = 1;
+    Vector2 velocity = 2;
+    int64 timestamp = 3;
+}
