@@ -2,11 +2,11 @@ syntax = "proto3";
 
 package proto;
 
-import "position.proto";
+import "util/position.proto";
 
 message RobotPosition {
     string camera_name = 1;
     float timestamp = 2;
     float confidence = 3;
-    Position2d estimated_position = 4;
+    util.Position2d estimated_position = 4;
 }

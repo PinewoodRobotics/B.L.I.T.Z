@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package proto.util;
+
+import "util/vector.proto";
+
+message Position3d {
+  util.Vector3 position = 1;
+  util.Vector3 direction = 2;
+}
+
+message Position2d {
+  util.Vector2 position = 1;
+  util.Vector2 direction = 2;
+}

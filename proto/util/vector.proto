@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package proto;
+package proto.util;
 
 message Vector3 {
   float x = 1;
