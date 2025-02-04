@@ -156,7 +156,7 @@ class PositionVisualizer:
         if len(self.frame_times) == self.max_frame_times:
             avg_frame_time = sum(self.frame_times) / len(self.frame_times)
             print(
-                f"Average frame time: {avg_frame_time:.2f}ms ({1000/avg_frame_time:.1f} FPS)"
+                f"Average frame time: {avg_frame_time:.2f}ms ({1000 / avg_frame_time:.1f} FPS)"
             )
 
         return True

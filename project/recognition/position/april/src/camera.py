@@ -38,9 +38,7 @@ class Camera:
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
         new_frame = np.where(
             (gray_frame > min_color) & (gray_frame < max_color), 255, 0
-        ).astype(
-            np.uint8
-        )  # Apply threshold
+        ).astype(np.uint8)  # Apply threshold
 
         return got, new_frame
 

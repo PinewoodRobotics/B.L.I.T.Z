@@ -107,7 +107,11 @@ def render_april_tags(image: np.ndarray, tags: list[pyapriltags.Detection]):
             dist_coeffs = np.zeros(4)
 
             img_points, _ = cv2.projectPoints(
-                axis_points, rvec, tvec, camera_matrix, dist_coeffs  # type: ignore
+                axis_points,
+                rvec,
+                tvec,
+                camera_matrix,
+                dist_coeffs,  # type: ignore
             )  # type: ignore
             img_points = img_points.reshape(-1, 2)
 

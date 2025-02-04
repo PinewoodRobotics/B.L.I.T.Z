@@ -9,13 +9,12 @@ from nats.aio.msg import Msg
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 
-from project.common.debug import profiler
+from generated.Image_pb2 import ImageMessage
+from generated.Inference_pb2 import Inference, InferenceList
+from project.common.camera.transform import from_proto_to_cv2
 from project.common.config import Config, Module
 from project.common.config_class.profiler import ProfilerConfig
-from project.common.image.image_util import from_proto_to_cv2
-from generated.Image_pb2 import ImageMessage
-from generated.Inference_pb2 import Inference
-from generated.Inference_pb2 import InferenceList
+from project.common.debug import profiler
 
 
 def input_thread(config: Config) -> None:

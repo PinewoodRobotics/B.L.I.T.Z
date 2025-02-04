@@ -1,6 +1,7 @@
 import numpy as np
 import open3d as o3d
 
+
 def render_rgb_lines():
     """
     Returns a LineSet representing red, green, and blue lines.

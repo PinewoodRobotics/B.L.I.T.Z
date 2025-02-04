@@ -72,7 +72,11 @@ class CameraCalibratorCheckerboard:
 
         # Perform camera calibration
         ret, mtx, dist_coeff, R_vecs, T_vecs = cv2.calibrateCamera(
-            object_points, image_points, self.image_size, None, None  # type: ignore
+            object_points,
+            image_points,
+            self.image_size,
+            None,
+            None,  # type: ignore
         )  # type: ignore
         return mtx, dist_coeff
 
