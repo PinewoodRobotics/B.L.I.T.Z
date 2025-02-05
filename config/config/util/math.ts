@@ -1,5 +1,11 @@
-import { Matrix } from "../../schema/type-util/math-util";
+import type { Matrix } from "../../schema/type-util/math-util";
 
+/**
+ *
+ * @param type
+ * @param size
+ * @returns
+ */
 export function buildIdentityMatrix<T, N extends number>(
   type: T,
   size: N

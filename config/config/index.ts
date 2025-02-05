@@ -1,4 +1,4 @@
-import Config from "../schema";
+import type Config from "../schema";
 
 const config: Config = {
   name: "",

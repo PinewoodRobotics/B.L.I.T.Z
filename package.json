@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/PinewoodRobotics/B.L.I.T.Z#readme",
   "devDependencies": {
-    "@types/node": "^22.13.1"
+    "@types/node": "^22.13.1",
+    "tsx": "^4.19.2"
   }
 }
