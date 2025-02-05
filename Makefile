@@ -45,4 +45,4 @@ check-project:
 	ruff check project/
 
 run-config-ts:
-	npx tsc config/
+	npx tsx config/
