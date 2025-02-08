@@ -11,7 +11,7 @@ port = 8080
 
 [april-detection]
 cameras = ["custom-640-480"]
-tag-size = 0.20
+tag-size = 0.16
 family = "tag36h11"
 nthreads = 8
 quad_decimate = 2.0
@@ -56,6 +56,36 @@ camera-matrix = [
 ]
 rotation-vector = [0.0, 0.0, 0.0]
 translation-vector = [0.0, 0.0, 0.0]
+
+[camera-parameters.little-640-480]
+port = 0
+camera-matrix = [
+    [
+        237.77838627131314,
+        0.0,
+        316.53464563767864,
+    ],
+    [
+        0.0,
+        238.29351409325946,
+        228.68449045277708,
+    ],
+    [
+        0.0,
+        0.0,
+        1.0,
+    ],
+]
+dist-coeff = [
+    [
+        -0.01395491321028862,
+        0.0028030728002855997,
+        -0.0007039343648935099,
+        0.00035089582756309915,
+        -0.0069349252093022905,
+    ],
+]
+
 
 [camera-parameters.custom-640-480]
 port = 0

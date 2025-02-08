@@ -84,8 +84,11 @@ class WorldConversion:
                 get_translation_rotation_components(world_transform)
             )
 
-            # Extract yaw angle from rotation matrix
-            _ = np.arctan2(rotation_component[1, 0], rotation_component[0, 0])
+            # Extract yaw angle from rotation matrix (rotation around y-axis)
+            # For a y-up coordinate system, use arctan2(r31, r33)
+            # Since we have y-down, we negate the result
+            rotation = -np.arctan2(rotation_component[2, 0], rotation_component[2, 2])
+            print(rotation)
 
             self.filter_strategy.filter_data(
                 [
@@ -93,7 +96,7 @@ class WorldConversion:
                     translation_component[2],
                     0,
                     0,
-                    0,
+                    rotation,
                 ],
                 MeasurementType.APRIL_TAG,
             )

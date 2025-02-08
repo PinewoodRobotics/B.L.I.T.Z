@@ -22,11 +22,9 @@ async def main():
                 "robot": (
                     robot_pos.estimated_position.position.x,
                     robot_pos.estimated_position.position.y,
-                    np.degrees(
-                        np.arctan2(
-                            robot_pos.estimated_position.direction.y,
-                            robot_pos.estimated_position.direction.x,
-                        )
+                    np.arctan2(
+                        robot_pos.estimated_position.direction.y,
+                        robot_pos.estimated_position.direction.x,
                     ),
                 ),
             }

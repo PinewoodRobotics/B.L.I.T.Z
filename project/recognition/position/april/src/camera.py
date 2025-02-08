@@ -38,11 +38,13 @@ class Camera:
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
         new_frame = np.where(
             (gray_frame > min_color) & (gray_frame < max_color), 255, 0
-        ).astype(np.uint8)  # Apply threshold
+        ).astype(
+            np.uint8
+        )  # Apply threshold
 
         return got, new_frame
 
-    def read_with_cropping(self, min_color: np.ndarray, max_color: np.ndarray):
+    def read_with_cropping(self):
         got, frame = self.read()
         if not got:
             return None, None, None
@@ -53,13 +55,8 @@ class Camera:
             np.array(self.config.dist_coeff),
         )
 
-        # Create mask for the tag color range
-        tag_mask = cv2.inRange(unfisheye, min_color, max_color)
+        gray_unfisheye = cv2.cvtColor(
+            unfisheye, cv2.COLOR_BGR2GRAY
+        )  # Convert to grayscale
 
-        # Create white background
-        result = np.full_like(tag_mask, 255, dtype=np.uint8)
-
-        # Set masked areas to black (0)
-        result[tag_mask > 0] = 0
-
-        return got, result, new_mtrx
+        return got, gray_unfisheye, new_mtrx

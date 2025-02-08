@@ -68,7 +68,7 @@ def main():
         "--config_file", help="Path to JSON config file", default="camera_config.json"
     )
     parser.add_argument(
-        "--images_folder", help="Path to the file with the images", default="images"
+        "--images_folder", help="Path to the file with the images", default="captures"
     )
     args = parser.parse_args()
 

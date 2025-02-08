@@ -9,12 +9,14 @@ from util.camera import apply_all_transformations
 
 class Camera:
     def __init__(self, camera_port: int):
-        self.camera = cv2.VideoCapture(camera_port)
+        self.camera = cv2.VideoCapture(camera_port, cv2.CAP_AVFOUNDATION)
         self.frame: np.ndarray | None = None
         self.success: bool = False
         self._set_frame_lock = False
+
         self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.camera.set(cv2.CAP_PROP_FPS, 100)
 
     def read(self) -> tuple[bool, np.ndarray]:
         success, frame = self.camera.read()
