@@ -1,18 +1,32 @@
+from enum import Enum
 from pydantic import BaseModel
 
 
-class TrainerConfig(BaseModel):
-    name: str
+class Device(str, Enum):
+    CPU = "cpu"
+    GPU = "gpu"
+    MPS = "mps"
+
+
+class Mode(str, Enum):
+    TRAINING = "training"
+    DETECTION = "detection"
+
+
+class TrainingConfig(BaseModel):
     imgsz: int
     epochs: int
-    data_yaml_path: str
-    dataset_root_path: str
     batch_size: int
 
 
-class ImageRecognitionConfig(BaseModel):
+class DetectionConfig(BaseModel):
     image_input_topic: str
     image_output_topic: str
+
+
+class ImageRecognitionConfig(BaseModel):
     model: str
-    device: str
-    trainer: TrainerConfig
+    device: Device
+    mode: Mode
+    training: TrainingConfig
+    detection: DetectionConfig

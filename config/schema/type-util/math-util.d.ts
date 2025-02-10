@@ -28,3 +28,14 @@ export type Matrix<T, Width extends number, Height extends number> = Tuple<
   Tuple<T, Width>,
   Height
 >;
+
+/**
+ * Represents a vector of a specified length.
+ *
+ * @param T The type of each element in the vector.
+ * @param Length The length of the vector.
+ *
+ * This type uses Tuple to construct a vector. It first constructs a tuple of length Length to represent the vector,
+ * where each element is of type T.
+ */
+export type Vector<T, Length extends number> = Tuple<T, Length>;

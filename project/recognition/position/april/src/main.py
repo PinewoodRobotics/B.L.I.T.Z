@@ -1,15 +1,12 @@
 import asyncio
 import random
 import time
-import cv2
 import numpy as np
 import pyapriltags
 
 from project.autobahn.autobahn_python.autobahn import Autobahn
-from project.common.config import Config, Module
+from project.common.config import Config
 from generated.AprilTag_pb2 import AprilTags
-from generated.Image_pb2 import ImageMessage
-from project.recognition.position.april.src.camera import Camera
 from util import from_detection_to_proto
 
 
@@ -57,53 +54,17 @@ async def process_image(
 
 
 async def main():
-    config = Config(
-        "config.toml",
-        exclude=[
-            Module.IMAGE_RECOGNITION,
-            Module.PROFILER,
-            Module.KALMAN_FILTER,
-            Module.POS_EXTRAPOLATOR,
-            Module.WEIGHTED_AVG_FILTER,
-            Module.KALMAN_FILTER,
-        ],
-    )
-
-    detector = build_detector(config)
+    config = Config.load_config()
+    _detector = build_detector(config)
     autobahn_server = Autobahn("localhost", config.autobahn.port)
     await autobahn_server.begin()
 
-    cameras = [
-        (
-            camera_name,
-            Camera(config.camera_parameters.camera_parameters[camera_name]),
-        )
-        for camera_name in config.april_detection.cameras
-    ]
 
-    camera = cameras[0]
-    camera_name = camera[0]
+if __name__ == "__main__":
+    asyncio.run(main())
 
-    number_sent = 0
-    while True:
-        _process_start_time = time.time()
-        got, image, mtrx = camera[1].read_with_cropping(
-            np.array([0, 0, 0]), np.array([100, 100, 100])
-        )
-        # print((time.time() - process_start_time) * 1000)
-        # image = cv2.bitwise_not(image)
-        # print(f"Took {(time.time() - time_start) * 1000}")
 
-        if not got or image is None or mtrx is None:
-            if image is None:
-                camera[1].release()
-                cameras[0] = (
-                    camera_name,
-                    Camera(config.camera_parameters.camera_parameters[camera_name]),
-                )
-            continue
-
-        if number_sent > 5:
+"""
             await autobahn_server.publish(
                 config.april_detection.message.post_camera_output_topic,
                 ImageMessage(
@@ -116,24 +77,11 @@ async def main():
                     is_gray=False,
                 ).SerializeToString(),
             )
-            number_sent = 0
-        number_sent += 1
+"""
 
-        output = await process_image(
-            image,
-            mtrx,
-            detector,
-            config.april_detection.tag_size,
-            camera_name,
-        )
-
-        if len(output.tags) > 0:
-            print("Found!")
+"""
             await autobahn_server.publish(
                 config.april_detection.message.post_tag_output_topic,
                 output.SerializeToString(),
             )
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+"""

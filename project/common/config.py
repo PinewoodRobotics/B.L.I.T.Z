@@ -2,34 +2,29 @@ import subprocess
 import json
 from pydantic import BaseModel
 
-from project.common.config_class.camera_parameters import CameraParametersConfig
-from project.common.config_class.filters.kalman_filter_config import KalmanFilterConfig
-from project.common.config_class.filters.weighted_avg_config import WeightedAvgConfig
+from project.common.config_class.camera_parameters import (
+    CameraParameters,
+)
 from project.common.config_class.pos_extrapolator import PosExtrapolatorConfig
-from project.common.config_class.profiler import ProfilerConfig
-from project.common.debug.logger import LogLevel
+from project.common.config_class.profiler import LoggerConfig
 from project.common.config_class.autobahn import AutobahnConfig
 from project.common.config_class.image_recognition import ImageRecognitionConfig
 from project.common.config_class.april_detection import AprilDetectionConfig
 
 
 class Config(BaseModel):
-    measure_speed: bool
-    log_level: LogLevel
     autobahn: AutobahnConfig
-    image_recognition: ImageRecognitionConfig
-    camera_parameters: CameraParametersConfig
     pos_extrapolator: PosExtrapolatorConfig
-    kalman_filter: KalmanFilterConfig
-    weighted_avg_filter: WeightedAvgConfig
+    image_recognition: ImageRecognitionConfig
+    cameras: list[CameraParameters]
     april_detection: AprilDetectionConfig
-    profiler: ProfilerConfig
+    logger: LoggerConfig
 
     @classmethod
-    def load_config(cls) -> "Config":
+    def load_config(cls, config_path: str = "config/") -> "Config":
         try:
             result = subprocess.run(
-                ["npx", "tsx", "config/"], capture_output=True, text=True, check=True
+                ["npx", "tsx", config_path], capture_output=True, text=True, check=True
             )
             config_json = result.stdout
             return Config.model_validate_json(config_json)
