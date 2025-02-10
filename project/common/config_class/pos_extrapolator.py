@@ -1,10 +1,8 @@
 from enum import Enum
-import os
 from typing import Dict, Any
 
 import numpy as np
-from pydantic import BaseModel, computed_field
-from project.common.config_class.config_template import ConfigTemplate
+from pydantic import BaseModel
 from project.common.util.math import (
     make_transformation_matrix,
 )
@@ -36,78 +34,59 @@ class PositionExtrapolationMethod(Enum):
     KALMAN_LINEAR_FILTER = "kalman-linear-filter"
 
 
-class PosExtrapolatorMessageConfig(ConfigTemplate):
-    def __init__(self, config: Dict[str, str]) -> None:
-        self.check_config(config, required_keys_message, "PosExtrapolatorMessageConfig")
-        self.post_tag_input_topic = config["post-tag-input-topic"]
-        self.post_odometry_input_topic = config["post-odometry-input-topic"]
-        self.post_imu_input_topic = config["post-imu-input-topic"]
-        self.post_robot_position_output_topic = config[
-            "post-robot-position-output-topic"
-        ]
+class PosExtrapolatorMessageConfig(BaseModel):
+    post_tag_input_topic: str
+    post_odometry_input_topic: str
+    post_imu_input_topic: str
+    post_robot_position_output_topic: str
+
+    @classmethod
+    def validate_config(cls, config: Dict[str, str]) -> "PosExtrapolatorMessageConfig":
+        for key in required_keys_message:
+            if key not in config:
+                raise ValueError(f"Missing required key: {key}")
+        return cls(**config)
 
 
-class PosExtrapolatorConfig(ConfigTemplate):
-    def __init__(self, config: Dict[str, Any]) -> None:
-        self.check_config(config, required_keys, "PosExtrapolatorConfig")
-        self.cameras_to_analyze = config["cameras-to-analyze"]
-        self.imu_to_analyze = config["imu-to-analyze"]
+class PosExtrapolatorConfig(BaseModel):
+    cameras_to_analyze: str
+    imu_to_analyze: str
+    tag_position_config_folder: str
+    config_in_use: str
+    tag_position_config: Dict[str, "TagPositionConfig"]
+    tag_confidence_threshold: float
+    position_extrapolation_method: PositionExtrapolationMethod
+    message: PosExtrapolatorMessageConfig
+    odometry_global_position: str
+    imu_configs: Dict[str, "ImuConfig"]
 
-        tag_position_config = config["tag-position-config"]
-        self.tag_position_config_folder = tag_position_config[
-            "tag-position-config-folder"
-        ]
-
-        self.config_in_use = tag_position_config["config-in-use"]
-
-        tag_pos_files = os.listdir(self.tag_position_config_folder)
-        config_file = None
-        for file in tag_pos_files:
-            if os.path.splitext(file)[0] == self.config_in_use:
-                config_file = os.path.join(self.tag_position_config_folder, file)
-                break
-
-        if config_file is None:
-            raise ValueError(
-                f"Config file {self.config_in_use} not found in {self.tag_position_config_folder}"
-            )
-
-        with open(config_file) as f:
-            tag_pos_config = AprilTagGlobalPosConfig.model_validate_json(f.read())
-            self.tag_configs = tag_pos_config
-
-        self.tag_confidence_threshold: float = config["tag-confidence-threshold"]
-        self.position_extrapolation_method: PositionExtrapolationMethod = config[
-            "position-extrapolation-method"
-        ]
-
-        self.message = PosExtrapolatorMessageConfig(config["message"])
-
-        self.odometry_global_position = config["global-position-odometry"]
-        imus = config["imu-to-analyze"]
-        self.imu_configs: dict[str, ImuConfig] = {}
-        for imu in imus:
-            conf = ImuConfig(config[imu])
-            self.imu_configs[imu] = conf
+    @classmethod
+    def validate_config(cls, config: Dict[str, Any]) -> "PosExtrapolatorConfig":
+        for key in required_keys:
+            if key not in config:
+                raise ValueError(f"Missing required key: {key}")
+        return cls(**config)
 
 
-class ImuConfig(ConfigTemplate):
-    def __init__(self, config: Dict[str, Any]) -> None:
-        self.check_config(config, required_keys_imu, "ImuConfig")
-        self.imu_global_position = config["global-position"]
-        self.imu_local_position = config["local-position"]
-        self.imu_yaw_offset = config["yaw-offset"]
+class ImuConfig(BaseModel):
+    imu_global_position: str
+    imu_local_position: str
+    imu_yaw_offset: str
+
+    @classmethod
+    def validate_config(cls, config: Dict[str, Any]) -> "ImuConfig":
+        for key in required_keys_imu:
+            if key not in config:
+                raise ValueError(f"Missing required key: {key}")
+        return cls(**config)
 
 
 class TagPositionConfig(BaseModel):
-    model_config = {"arbitrary_types_allowed": True}
-
     x: float
     y: float
     z: float
     direction_vector: list[float]
 
-    @computed_field
     @property
     def transformation(self) -> np.ndarray:
         return make_transformation_matrix(

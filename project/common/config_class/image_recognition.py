@@ -1,35 +1,18 @@
-from project.common.config_class.config_template import ConfigTemplate
+from pydantic import BaseModel
 
 
-required_keys_main = ["image-input-topic", "image-output-topic", "model", "device"]
-
-required_keys_trainer = [
-    "name",
-    "imgsz",
-    "epochs",
-    "data-yaml-path",
-    "dataset-root-path",
-    "batch-size",
-]
+class TrainerConfig(BaseModel):
+    name: str
+    imgsz: int
+    epochs: int
+    data_yaml_path: str
+    dataset_root_path: str
+    batch_size: int
 
 
-class TrainerConfig(ConfigTemplate):
-    def __init__(self, config: dict):
-        self.check_config(config, required_keys_trainer, "TrainerConfig")
-        self.name = config["name"]
-        self.imgsz = config["imgsz"]
-        self.epochs = config["epochs"]
-        self.data_yaml_path = config["data-yaml-path"]
-        self.dataset_root_path = config["dataset-root-path"]
-        self.batch_size = config["batch-size"]
-
-
-class ImageRecognitionConfig(ConfigTemplate):
-    def __init__(self, config: dict):
-        self.check_config(config, required_keys_main, "ImageRecognitionConfig")
-        self.image_input_topic = config["image-input-topic"]
-        self.image_output_topic = config["image-output-topic"]
-        self.model = config["model"]
-        self.device = config["device"]
-
-        self.trainer = TrainerConfig(config["trainer"])
+class ImageRecognitionConfig(BaseModel):
+    image_input_topic: str
+    image_output_topic: str
+    model: str
+    device: str
+    trainer: TrainerConfig
