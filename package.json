@@ -1,0 +1,24 @@
+{
+  "name": "blitz",
+  "version": "1.0.0",
+  "description": "Battle-Linked Intelligent Tactical Pi Swarm",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PinewoodRobotics/B.L.I.T.Z.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/PinewoodRobotics/B.L.I.T.Z/issues"
+  },
+  "homepage": "https://github.com/PinewoodRobotics/B.L.I.T.Z#readme",
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "tsx": "^4.19.2"
+  }
+}

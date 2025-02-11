@@ -61,4 +61,5 @@ nats-server.conf
 tmp/
 temp/
 ./node_modules/
+./node_modules
 node_modules/

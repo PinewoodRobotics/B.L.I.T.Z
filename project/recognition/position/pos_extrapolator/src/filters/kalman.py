@@ -20,7 +20,7 @@ class KalmanFilterStrategy(FilterStrategy):
         self.kf.P = np.array(config.uncertainty_matrix)
         self.kf.Q = np.array(config.process_noise_matrix)
         self.kf.H = np.array(config.state_transition_matrix)
-        self.sensors = config.sensors_config
+        self.sensors = config.sensors
 
     def filter_data(self, data: list[float], data_type: MeasurementType) -> None:
         self.kf.update(

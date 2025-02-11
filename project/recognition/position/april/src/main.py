@@ -5,12 +5,10 @@ import cv2
 import numpy as np
 import pyapriltags
 
-from project.autobahn.autobahn_python.autobahn import Autobahn
-from project.common.config import Config, Module
-from generated.AprilTag_pb2 import AprilTags
 from generated.Image_pb2 import ImageMessage
-from project.recognition.position.april.src.camera import Camera
-from util import from_detection_to_proto
+from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.common.config import Config
+from project.recognition.position.april.src.camera import DetectionCamera
 
 
 def build_detector(config: Config):
@@ -25,112 +23,63 @@ def build_detector(config: Config):
     )
 
 
-async def process_image(
-    image: np.ndarray,
-    camera_matrix: np.ndarray,
-    detector: pyapriltags.Detector,
-    tag_size: float,
-    camera_name: str,
-):
-    fx, fy, cx, cy = (
-        camera_matrix[0, 0],
-        camera_matrix[1, 1],
-        camera_matrix[0, 2],
-        camera_matrix[1, 2],
-    )
-    output = AprilTags(
-        camera_name=camera_name,
-        image_id=random.randint(0, 1000000),
-        tags=[
-            from_detection_to_proto(tag)
-            for tag in detector.detect(
-                image,
-                estimate_tag_pose=True,
-                camera_params=((fx, fy, cx, cy)),
-                tag_size=tag_size,
-            )
-        ],
-        timestamp=int(time.time() * 1000),
-    )
-
-    return output
-
-
 async def main():
-    config = Config(
-        "config.toml",
-        exclude=[
-            Module.IMAGE_RECOGNITION,
-            Module.PROFILER,
-            Module.KALMAN_FILTER,
-            Module.POS_EXTRAPOLATOR,
-            Module.WEIGHTED_AVG_FILTER,
-            Module.KALMAN_FILTER,
-        ],
-    )
-
+    config = Config.load_config()
     detector = build_detector(config)
     autobahn_server = Autobahn("localhost", config.autobahn.port)
+
+    async def publish_image(image: np.ndarray, camera_name: str):
+        nonlocal autobahn_server, config
+        await autobahn_server.publish(
+            config.april_detection.message.post_camera_output_topic,
+            ImageMessage(
+                image_id=random.randint(0, 1000000),
+                image=cv2.imencode(".jpg", image)[1].tobytes(),
+                camera_name=camera_name,
+                timestamp=int(time.time() * 1000),
+                height=image.shape[0],
+                width=image.shape[1],
+                is_gray=False,
+            ).SerializeToString(),
+        )
+
     await autobahn_server.begin()
+    camera_detector_list = []
+    queue_tag = asyncio.Queue()
+    queue_image = asyncio.Queue()
 
-    cameras = [
-        (
-            camera_name,
-            Camera(config.camera_parameters.camera_parameters[camera_name]),
-        )
-        for camera_name in config.april_detection.cameras
-    ]
-
-    camera = cameras[0]
-    camera_name = camera[0]
-
-    number_sent = 0
-    while True:
-        _process_start_time = time.time()
-        got, image, mtrx = camera[1].read_with_cropping()
-        # print((time.time() - process_start_time) * 1000)
-        # image = cv2.bitwise_not(image)
-        # print(f"Took {(time.time() - time_start) * 1000}")
-
-        if not got or image is None or mtrx is None:
-            if image is None:
-                camera[1].release()
-                cameras[0] = (
-                    camera_name,
-                    Camera(config.camera_parameters.camera_parameters[camera_name]),
+    async def process_queue():
+        while True:
+            try:
+                tags = queue_tag.get_nowait()
+                await autobahn_server.publish(
+                    config.april_detection.message.post_tag_output_topic,
+                    tags.SerializeToString(),
                 )
-            continue
+            except asyncio.QueueEmpty:
+                pass
 
-        if number_sent > 5:
-            await autobahn_server.publish(
-                config.april_detection.message.post_camera_output_topic,
-                ImageMessage(
-                    image_id=random.randint(0, 1000000),
-                    image=cv2.imencode(".jpg", image)[1].tobytes(),
-                    camera_name=camera_name,
-                    timestamp=int(time.time() * 1000),
-                    height=image.shape[0],
-                    width=image.shape[1],
-                    is_gray=False,
-                ).SerializeToString(),
+            try:
+                queue_item = queue_image.get_nowait()
+                await publish_image(queue_item[0], queue_item[1])
+            except asyncio.QueueEmpty:
+                pass
+
+    for camera in config.cameras:
+        print(camera)
+        camera_detector_list.append(
+            DetectionCamera(
+                config=camera,
+                tag_size=config.april_detection.tag_size,
+                detector=detector,
+                publication_lambda=lambda tags: queue_tag.put_nowait(tags),
+                publication_image_lambda=lambda image: queue_image.put_nowait(
+                    (image, camera.name)
+                ),
             )
-            number_sent = 0
-        number_sent += 1
-
-        output = await process_image(
-            image,
-            mtrx,
-            detector,
-            config.april_detection.tag_size,
-            camera_name,
         )
 
-        if len(output.tags) > 0:
-            print("Found!")
-            await autobahn_server.publish(
-                config.april_detection.message.post_tag_output_topic,
-                output.SerializeToString(),
-            )
+    await process_queue()
 
 
 if __name__ == "__main__":

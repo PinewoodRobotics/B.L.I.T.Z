@@ -1,35 +1,32 @@
-from project.common.config_class.config_template import ConfigTemplate
+from enum import Enum
+from pydantic import BaseModel
 
 
-required_keys_main = ["image-input-topic", "image-output-topic", "model", "device"]
-
-required_keys_trainer = [
-    "name",
-    "imgsz",
-    "epochs",
-    "data-yaml-path",
-    "dataset-root-path",
-    "batch-size",
-]
+class Device(str, Enum):
+    CPU = "cpu"
+    GPU = "gpu"
+    MPS = "mps"
 
 
-class TrainerConfig(ConfigTemplate):
-    def __init__(self, config: dict):
-        self.check_config(config, required_keys_trainer, "TrainerConfig")
-        self.name = config["name"]
-        self.imgsz = config["imgsz"]
-        self.epochs = config["epochs"]
-        self.data_yaml_path = config["data-yaml-path"]
-        self.dataset_root_path = config["dataset-root-path"]
-        self.batch_size = config["batch-size"]
+class Mode(str, Enum):
+    TRAINING = "training"
+    DETECTION = "detection"
 
 
-class ImageRecognitionConfig(ConfigTemplate):
-    def __init__(self, config: dict):
-        self.check_config(config, required_keys_main, "ImageRecognitionConfig")
-        self.image_input_topic = config["image-input-topic"]
-        self.image_output_topic = config["image-output-topic"]
-        self.model = config["model"]
-        self.device = config["device"]
+class TrainingConfig(BaseModel):
+    imgsz: int
+    epochs: int
+    batch_size: int
 
-        self.trainer = TrainerConfig(config["trainer"])
+
+class DetectionConfig(BaseModel):
+    image_input_topic: str
+    image_output_topic: str
+
+
+class ImageRecognitionConfig(BaseModel):
+    model: str
+    device: Device
+    mode: Mode
+    training: TrainingConfig
+    detection: DetectionConfig

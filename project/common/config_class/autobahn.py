@@ -1,10 +1,6 @@
-from project.common.config_class.config_template import ConfigTemplate
+from pydantic import BaseModel
 
 
-required_keys = ["port"]
-
-
-class AutobahnConfig(ConfigTemplate):
-    def __init__(self, config: dict):
-        self.check_config(config, required_keys, "AutobahnConfig")
-        self.port = config["port"]
+class AutobahnConfig(BaseModel):
+    host: str
+    port: int
