@@ -1,6 +1,5 @@
 import numpy as np
 from enum import Enum
-from typing import Dict
 from pydantic import BaseModel
 from project.common.util.math import make_transformation_matrix
 from project.common.config_class.filters.kalman_filter_config import KalmanFilterConfig
@@ -22,6 +21,7 @@ class PosExtrapolatorMessageConfig(BaseModel):
 
 
 class ImuConfig(BaseModel):
+    name: str
     imu_global_position: list[float]
     imu_local_position: list[float]
     imu_yaw_offset: float
@@ -29,6 +29,7 @@ class ImuConfig(BaseModel):
 
 
 class OdomConfig(BaseModel):
+    name: str
     odom_global_position: list[float]
     odom_local_position: list[float]
     odom_yaw_offset: float
@@ -60,10 +61,3 @@ class PosExtrapolatorConfig(BaseModel):
     odom_configs: list[OdomConfig]
 
     kalman_filter: KalmanFilterConfig
-
-
-class AprilTagGlobalPosConfig(BaseModel):
-    config: Dict[str, TagPositionConfig]
-
-    def __getitem__(self, key: str) -> TagPositionConfig:
-        return self.config[key]

@@ -1,6 +1,8 @@
 import { Matrix, Vector } from "../type-util/math-util";
 
 export interface CameraParameters {
+  name: string;
+
   camera_matrix: Matrix<number, 3, 3>;
   dist_coeff: Vector<number, 5>;
   port: number;

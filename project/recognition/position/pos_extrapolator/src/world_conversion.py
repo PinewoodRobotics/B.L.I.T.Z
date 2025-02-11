@@ -2,7 +2,11 @@ import time
 
 import numpy as np
 from project.common.config_class.filters.kalman_filter_config import MeasurementType
-from project.common.config_class.pos_extrapolator import ImuConfig, TagPositionConfig
+from project.common.config_class.pos_extrapolator import (
+    ImuConfig,
+    OdomConfig,
+    TagPositionConfig,
+)
 from project.common.util.math import (
     create_transformation_matrix,
     from_float_list,
@@ -23,8 +27,8 @@ class WorldConversion:
         self,
         filter_strategy: FilterStrategy,
         tag_configs: dict[str, TagPositionConfig] | None = None,
-        imu_configs: dict[str, ImuConfig] | None = None,
-        odometry_config: list[float] | None = None,
+        imu_configs: list[ImuConfig] | None = None,
+        odometry_config: list[OdomConfig] | None = None,
     ):
         self.filter_strategy = filter_strategy
         self.tag_configs = tag_configs
@@ -102,10 +106,14 @@ class WorldConversion:
         if self.imu_configs is None:
             raise ValueError("Imu configs are not set")
 
-        if str(data.imu_id) not in self.imu_configs:
+        imu_config = None
+        for imu_config in self.imu_configs:
+            if imu_config.name == data.imu_id:
+                imu_config = imu_config
+                break
+        else:
+            # raise ValueError(f"Imu config for {data.imu_id} not found")
             return
-
-        imu_config = self.imu_configs[str(data.imu_id)]
 
         self.filter_strategy.filter_data(
             [
@@ -123,16 +131,16 @@ class WorldConversion:
         if self.odometry_config is None:
             raise ValueError("Odometry config is not set")
 
-        # print(f"{data}")
+        odom_config = self.odometry_config[0]
 
         self.filter_strategy.filter_data(
             [
-                data.position.position.y - self.odometry_config[0],
-                data.position.position.x - self.odometry_config[1],
+                data.position.position.y - odom_config.odom_local_position[0],
+                data.position.position.x - odom_config.odom_local_position[1],
                 data.velocity.y,
                 data.velocity.x,
                 np.arctan2(data.position.direction.x, data.position.direction.y)
-                - self.odometry_config[2],
+                - odom_config.odom_yaw_offset,
             ],
             MeasurementType.ODOMETRY,
         )

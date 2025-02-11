@@ -18,5 +18,5 @@ export interface PosExtrapolator {
   imu_configs: ImuConfig[];
   odom_configs: OdomConfig[];
 
-  kalman_filter: KalmanFilterConfig;
+  kalman_filter: KalmanFilterConfig<5>;
 }

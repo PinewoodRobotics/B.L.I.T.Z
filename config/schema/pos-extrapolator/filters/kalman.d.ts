@@ -17,6 +17,6 @@ export interface KalmanFilterConfig<N extends number = 3> {
   dim_x_z: [number, number];
   sensors: Record<
     "april-tag" | "odometry" | "imu",
-    KalmanFilterSensorConfig<N>[]
+    KalmanFilterSensorConfig<N>
   >;
 }

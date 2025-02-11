@@ -21,4 +21,4 @@ class KalmanFilterConfig(BaseModel):
     process_noise_matrix: list[list[float]]
     time_step_initial: float
     dim_x_z: list[int]
-    sensors: dict[MeasurementType, list[KalmanFilterSensorConfig]] = {}
+    sensors: dict[MeasurementType, KalmanFilterSensorConfig] = {}

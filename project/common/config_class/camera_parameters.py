@@ -4,6 +4,7 @@ from typing import List, Tuple
 
 
 class CameraParameters(BaseModel):
+    name: str
     camera_matrix: List[List[float]]
     dist_coeff: List[float]
     port: int

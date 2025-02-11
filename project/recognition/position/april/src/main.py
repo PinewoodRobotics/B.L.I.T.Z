@@ -1,13 +1,14 @@
 import asyncio
 import random
 import time
+import cv2
 import numpy as np
 import pyapriltags
 
+from generated.Image_pb2 import ImageMessage
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.common.config import Config
-from generated.AprilTag_pb2 import AprilTags
-from util import from_detection_to_proto
+from project.recognition.position.april.src.camera import DetectionCamera
 
 
 def build_detector(config: Config):
@@ -22,66 +23,64 @@ def build_detector(config: Config):
     )
 
 
-async def process_image(
-    image: np.ndarray,
-    camera_matrix: np.ndarray,
-    detector: pyapriltags.Detector,
-    tag_size: float,
-    camera_name: str,
-):
-    fx, fy, cx, cy = (
-        camera_matrix[0, 0],
-        camera_matrix[1, 1],
-        camera_matrix[0, 2],
-        camera_matrix[1, 2],
-    )
-    output = AprilTags(
-        camera_name=camera_name,
-        image_id=random.randint(0, 1000000),
-        tags=[
-            from_detection_to_proto(tag)
-            for tag in detector.detect(
-                image,
-                estimate_tag_pose=True,
-                camera_params=((fx, fy, cx, cy)),
-                tag_size=tag_size,
-            )
-        ],
-        timestamp=int(time.time() * 1000),
-    )
-
-    return output
-
-
 async def main():
     config = Config.load_config()
-    _detector = build_detector(config)
+    detector = build_detector(config)
     autobahn_server = Autobahn("localhost", config.autobahn.port)
+
+    async def publish_image(image: np.ndarray, camera_name: str):
+        nonlocal autobahn_server, config
+        await autobahn_server.publish(
+            config.april_detection.message.post_camera_output_topic,
+            ImageMessage(
+                image_id=random.randint(0, 1000000),
+                image=cv2.imencode(".jpg", image)[1].tobytes(),
+                camera_name=camera_name,
+                timestamp=int(time.time() * 1000),
+                height=image.shape[0],
+                width=image.shape[1],
+                is_gray=False,
+            ).SerializeToString(),
+        )
+
     await autobahn_server.begin()
+    camera_detector_list = []
+    queue_tag = asyncio.Queue()
+    queue_image = asyncio.Queue()
+
+    async def process_queue():
+        while True:
+            try:
+                tags = queue_tag.get_nowait()
+                await autobahn_server.publish(
+                    config.april_detection.message.post_tag_output_topic,
+                    tags.SerializeToString(),
+                )
+            except asyncio.QueueEmpty:
+                pass
+
+            try:
+                queue_item = queue_image.get_nowait()
+                await publish_image(queue_item[0], queue_item[1])
+            except asyncio.QueueEmpty:
+                pass
+
+    for camera in config.cameras:
+        print(camera)
+        camera_detector_list.append(
+            DetectionCamera(
+                config=camera,
+                tag_size=config.april_detection.tag_size,
+                detector=detector,
+                publication_lambda=lambda tags: queue_tag.put_nowait(tags),
+                publication_image_lambda=lambda image: queue_image.put_nowait(
+                    (image, camera.name)
+                ),
+            )
+        )
+
+    await process_queue()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-"""
-            await autobahn_server.publish(
-                config.april_detection.message.post_camera_output_topic,
-                ImageMessage(
-                    image_id=random.randint(0, 1000000),
-                    image=cv2.imencode(".jpg", image)[1].tobytes(),
-                    camera_name=camera_name,
-                    timestamp=int(time.time() * 1000),
-                    height=image.shape[0],
-                    width=image.shape[1],
-                    is_gray=False,
-                ).SerializeToString(),
-            )
-"""
-
-"""
-            await autobahn_server.publish(
-                config.april_detection.message.post_tag_output_topic,
-                output.SerializeToString(),
-            )
-"""

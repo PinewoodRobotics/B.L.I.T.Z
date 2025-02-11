@@ -18,7 +18,7 @@ ai-server:
 	cd project/recognition/detection/image-recognition && python src/main.py
 
 april-server:
-	(cd project/recognition/position/april && python src/main.py)
+	python project/recognition/position/april/src/main.py
 
 prepare:
 	if [ ! -d "generated" ]; then mkdir generated; fi
@@ -36,7 +36,7 @@ generate-proto: prepare
 	protol --create-package --in-place --python-out generated protoc --proto-path=proto/ $(shell find proto -name "*.proto")
 
 position-extrapolator:
-	cd project/recognition/position/pos_extrapolator/ && python src/main.py
+	python project/recognition/position/pos_extrapolator/src/main.py
 
 check-all:
 	ruff check .
