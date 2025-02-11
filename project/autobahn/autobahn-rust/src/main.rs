@@ -132,8 +132,8 @@ async fn main() {
                             Ok(Message::Ping(_)) => {}
                             Ok(msg) => {
                                 info!("Received: {:?}", msg);
-                                let msg = msg.into_data();
-                                match Msg::parse_message(msg) {
+                                let msg: Bytes = msg.into_data();
+                                match Msg::parse_message(msg.clone()) {
                                     Some(Msg::SUBSCRIBE(topic)) => {
                                         info!("Subscribing to topic: {}", topic);
                                         writers
@@ -144,22 +144,39 @@ async fn main() {
                                             .push(Writer::new(writer.clone(), id));
                                     }
                                     Some(Msg::UNSUBSCRIBE(topic)) => {
-                                        writers.lock().await.retain(|t, _| t != &topic);
-                                        /*for ext_writer in external_writers.lock().await.iter_mut() {
-                                            ext_writer.1.send(Message::Binary(msg.clone())).await;
-                                        }
+                                        // Remove local subscribers for this topic
+                                        writers.lock().await.retain(|t, writers_vec| {
+                                            if t == &topic {
+                                                writers_vec.retain(|w| w.id() != id);
+                                                !writers_vec.is_empty()
+                                            } else {
+                                                true
+                                            }
+                                        });
 
-                                        TODO: fix this when get to external
-                                        */
+                                        // Forward unsubscribe message to external nodes
+                                        for ext_writer in external_writers.lock().await.values_mut()
+                                        {
+                                            ext_writer.send(Message::Binary(msg.clone())).await;
+                                        }
                                     }
                                     Some(Msg::PUBLISH(topic, payload)) => {
+                                        let message = Msg::build_message(Msg::PUBLISH(
+                                            topic.clone(),
+                                            payload.clone(),
+                                        ));
+
+                                        // Send to local subscribers
                                         if let Some(writers) = writers.lock().await.get_mut(&topic)
                                         {
-                                            send_to_topic(
-                                                Msg::build_message(Msg::PUBLISH(topic, payload)),
-                                                writers,
-                                            )
-                                            .await;
+                                            send_to_topic(message.clone(), writers).await;
+                                        }
+
+                                        // Forward to external nodes that are subscribed to this topic
+                                        if let Some(ext_writer) =
+                                            external_writers.lock().await.get_mut(&topic)
+                                        {
+                                            ext_writer.send(Message::Binary(message)).await;
                                         }
                                     }
                                     None => {
