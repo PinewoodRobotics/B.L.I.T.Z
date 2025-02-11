@@ -96,7 +96,9 @@ async fn main() {
                                     }
                                     Some(Msg::PUBLISH(topic, payload)) => {
                                         info!("Publishing to topic: {}", topic);
-                                        if let Some(writers_vec) = writers.lock().await.get_mut(&topic) {
+                                        if let Some(writers_vec) =
+                                            writers.lock().await.get_mut(&topic)
+                                        {
                                             send_to_topic(payload, writers_vec).await;
                                         }
                                     }
@@ -113,7 +115,10 @@ async fn main() {
                     }
 
                     info!("Cleaning up writer for ID: {}", id);
-                    external_writers.lock().await.retain(|_, w| w.id() != id);
+                    external_writers.lock().await.retain(|_, writers| {
+                        writers.retain(|w| w.id() != id);
+                        !writers.is_empty()
+                    });
                 }
                 Err(_) => {
                     error!("Failed to connect!");
@@ -154,7 +159,9 @@ async fn main() {
                                             .push(Writer::new(writer.clone(), id));
 
                                         // Forward the subscribe message only to external nodes subscribed to this topic.
-                                        if let Some(ext_writers_vec) = external_writers.lock().await.get_mut(&topic) {
+                                        if let Some(ext_writers_vec) =
+                                            external_writers.lock().await.get_mut(&topic)
+                                        {
                                             for ext_writer in ext_writers_vec.iter_mut() {
                                                 ext_writer.send(Message::Binary(msg.clone())).await;
                                             }
@@ -172,7 +179,9 @@ async fn main() {
                                         });
 
                                         // Forward the unsubscribe message only to external nodes subscribed to this topic.
-                                        if let Some(ext_writers_vec) = external_writers.lock().await.get_mut(&topic) {
+                                        if let Some(ext_writers_vec) =
+                                            external_writers.lock().await.get_mut(&topic)
+                                        {
                                             for ext_writer in ext_writers_vec.iter_mut() {
                                                 ext_writer.send(Message::Binary(msg.clone())).await;
                                             }
@@ -185,14 +194,20 @@ async fn main() {
                                         ));
 
                                         // Send to local subscribers.
-                                        if let Some(writers_vec) = writers.lock().await.get_mut(&topic) {
+                                        if let Some(writers_vec) =
+                                            writers.lock().await.get_mut(&topic)
+                                        {
                                             send_to_topic(message.clone(), writers_vec).await;
                                         }
 
                                         // Forward to external nodes subscribed to this topic.
-                                        if let Some(ext_writers_vec) = external_writers.lock().await.get_mut(&topic) {
+                                        if let Some(ext_writers_vec) =
+                                            external_writers.lock().await.get_mut(&topic)
+                                        {
                                             for ext_writer in ext_writers_vec.iter_mut() {
-                                                ext_writer.send(Message::Binary(message.clone())).await;
+                                                ext_writer
+                                                    .send(Message::Binary(message.clone()))
+                                                    .await;
                                             }
                                         }
                                     }
