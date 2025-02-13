@@ -48,9 +48,10 @@ class Autobahn:
                         reader = io.BytesIO(msg)
 
                         _ = int.from_bytes(reader.read(1), byteorder="big")
-                        topic_length = int.from_bytes(reader.read(2), byteorder="big")
+                        topic_length = int.from_bytes(reader.read(4), byteorder="big")
                         topic = reader.read(topic_length).decode("utf-8")
-                        payload = reader.read()
+                        payload_length = int.from_bytes(reader.read(4), byteorder="big")
+                        payload = reader.read(payload_length)
 
                         for subscription_topic, callback in self.subscriptions.items():
                             if topic.startswith(subscription_topic):
