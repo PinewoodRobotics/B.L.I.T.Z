@@ -73,10 +73,15 @@ async fn main() {
                     let (write, mut read) = ws_stream.split();
                     let write = Arc::new(Mutex::new(write));
                     let id = rand::thread_rng().gen::<u32>() % 1000000;
+
+                    // Keep track of this client's subscriptions
+                    let mut client_topics: HashSet<String> = HashSet::new();
+
                     while let Some(msg) = read.next().await {
                         match msg {
                             Ok(Message::Close(_)) => {
-                                info!("Client closed connection");
+                                info!("Client closed connection gracefully");
+                                cleanup_subscriptions(&subscribers, &client_topics, id).await;
                                 break;
                             }
                             Ok(Message::Ping(_)) => {}
@@ -86,16 +91,17 @@ async fn main() {
                                 match Msg::parse_message(msg) {
                                     Some(msg_type) => match msg_type {
                                         Msg::SUBSCRIBE(topic) => {
+                                            client_topics.insert(topic.clone()); // Track subscription
                                             debug!("SUBSCRIBE: {}", topic);
                                             let addr = peer_addr.ip().to_string();
                                             if external_streams.lock().await.contains_key(&addr) {
+                                                debug!("SUBSCRIBE EXTERNAL: {}", topic);
                                                 let mut external_streams =
                                                     external_streams.lock().await;
                                                 let stream =
                                                     external_streams.get_mut(&addr).unwrap();
                                                 stream.0.insert(topic);
                                             } else {
-                                                debug!("SUBSCRIBE!: {}", topic);
                                                 let mut subscribers = subscribers.lock().await;
                                                 subscribers
                                                     .entry(topic.clone())
@@ -104,6 +110,7 @@ async fn main() {
                                                         write.clone(),
                                                         id,
                                                     ))));
+
                                                 debug!(
                                                     "Topic {} now has {} subscribers",
                                                     topic,
@@ -112,9 +119,11 @@ async fn main() {
                                             }
                                         }
                                         Msg::UNSUBSCRIBE(topic) => {
+                                            client_topics.remove(&topic); // Remove from tracking
                                             debug!("UNSUBSCRIBE: {}", topic);
                                             let addr = peer_addr.ip().to_string();
                                             if external_streams.lock().await.contains_key(&addr) {
+                                                debug!("UNSUBSCRIBE EXTERNAL: {}", topic);
                                                 let mut external_streams =
                                                     external_streams.lock().await;
                                                 let stream =
@@ -132,6 +141,7 @@ async fn main() {
                                                             },
                                                         )
                                                     });
+
                                                     debug!(
                                                         "Topic {} now has {} subscribers",
                                                         topic,
@@ -147,7 +157,7 @@ async fn main() {
                                                 subscribers.get_mut(&topic)
                                             {
                                                 for subscriber in topic_subscribers.iter() {
-                                                    debug!("PUBLISH!: {}", topic);
+                                                    // debug!("PUBLISH!: {}", topic);
                                                     subscriber
                                                         .lock()
                                                         .await
@@ -184,16 +194,22 @@ async fn main() {
                                     },
                                     None => {
                                         error!("Failed to parse message");
+                                        cleanup_subscriptions(&subscribers, &client_topics, id)
+                                            .await;
                                         break;
                                     }
                                 }
                             }
                             Err(e) => {
-                                error!("WebSocket error: {}", e);
+                                error!("WebSocket error: {}. Cleaning up subscriptions.", e);
+                                cleanup_subscriptions(&subscribers, &client_topics, id).await;
                                 break;
                             }
                         }
                     }
+
+                    // Clean up if the loop ends (connection dropped)
+                    cleanup_subscriptions(&subscribers, &client_topics, id).await;
                 }
                 Err(e) => {
                     error!("Error accepting connection: {}", e);
@@ -215,5 +231,26 @@ fn is_topic_match(topic: &str, msg: &Bytes) -> bool {
 async fn send_to_topic(msg: Bytes, writers: &mut Vec<Writer>) {
     for writer in writers.iter_mut() {
         writer.send(Message::Binary(msg.clone())).await;
+    }
+}
+
+async fn cleanup_subscriptions(
+    subscribers: &Arc<Mutex<HashMap<String, Vec<Arc<Mutex<Writer>>>>>>,
+    client_topics: &HashSet<String>,
+    client_id: u32,
+) {
+    let mut subscribers = subscribers.lock().await;
+    for topic in client_topics {
+        if let Some(topic_subscribers) = subscribers.get_mut(topic) {
+            let mut i = 0;
+            while i < topic_subscribers.len() {
+                let subscriber_id = topic_subscribers[i].lock().await.id();
+                if subscriber_id == client_id {
+                    topic_subscribers.swap_remove(i);
+                } else {
+                    i += 1;
+                }
+            }
+        }
     }
 }
