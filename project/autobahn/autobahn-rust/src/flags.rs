@@ -17,11 +17,8 @@ impl Msg {
         }
 
         let mut buf = data;
-
         let flag = buf.get_u8();
-
         let topic_len = buf.get_u32();
-
         let topic = String::from_utf8(buf.copy_to_bytes(topic_len as usize).to_vec()).ok()?;
 
         match flag {
@@ -47,8 +44,6 @@ impl Msg {
             buf.freeze()
         } else {
             Bytes::new()
-
-            // TODO: add a dedicated flag for sending message to client
         }
     }
 

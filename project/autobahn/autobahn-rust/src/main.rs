@@ -1,144 +1,79 @@
+use config::Config;
 use flags::Msg;
-use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::StreamExt;
-use log::{error, info};
+use log::{debug, error, info};
 use rand::Rng;
+use std::collections::HashSet;
+use std::net::{IpAddr, TcpStream};
 use std::sync::Arc;
 use std::{collections::HashMap, fs};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio_tungstenite::{accept_async, connect_async, tungstenite::protocol::Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::Bytes;
 use writer::Writer;
 
+mod config;
 mod flags;
 mod writer;
-#[derive(serde::Deserialize)]
-struct Config {
-    server: ServerConfig,
-    others: HashMap<String, OtherConfig>,
-    debug: Option<bool>,
-}
-
-#[derive(serde::Deserialize)]
-struct ServerConfig {
-    port: u16,
-}
-
-#[derive(serde::Deserialize)]
-struct OtherConfig {
-    port: u16,
-    url: String,
-}
 
 #[tokio::main]
 async fn main() {
     let toml_content = fs::read_to_string("config.toml").expect("Failed to read config.toml");
     let config: Config = toml::from_str(&toml_content).expect("Failed to parse config.toml");
-    let port = config.server.port;
-
-    let server = TcpListener::bind(format!("0.0.0.0:{}", port))
-        .await
-        .expect("Failed to bind server");
-
     let debug = config.debug.unwrap_or(false);
     if debug {
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
         info!("Debug mode enabled");
     }
 
-    info!("Server bound to {}", server.local_addr().unwrap());
+    // -----------------------------------------------
 
-    let writers: Arc<Mutex<HashMap<String, Vec<Writer>>>> = Arc::new(Mutex::new(HashMap::new()));
-    let external_writers: Arc<Mutex<HashMap<String, Vec<Writer>>>> =
+    let server = TcpListener::bind(format!("0.0.0.0:{}", config.server.port))
+        .await
+        .expect("Failed to bind server");
+
+    info!("Server bound to {}", server.local_addr().unwrap());
+    let mut external_streams: Arc<Mutex<HashMap<String, (HashSet<String>, Arc<Mutex<Writer>>)>>> =
+        Arc::new(Mutex::new(HashMap::new()));
+    let subscribers: Arc<Mutex<HashMap<String, Vec<Arc<Mutex<Writer>>>>>> =
         Arc::new(Mutex::new(HashMap::new()));
 
-    for (_, other) in config.others {
-        let writers = writers.clone();
-        let external_writers = external_writers.clone();
+    for (name, other) in config.others {
+        let external_streams = external_streams.clone();
         tokio::spawn(async move {
-            let url = format!("ws://{}:{}", other.url, other.port);
-            info!("Connecting to {}", url);
-            match connect_async(url).await {
-                Ok((ws_stream, _)) => {
-                    let (writer, mut reader) = ws_stream.split();
-                    let writer = Arc::new(Mutex::new(writer));
-                    let id = rand::thread_rng().gen::<u32>() % 1000000;
-
-                    while let Some(msg) = reader.next().await {
-                        match msg {
-                            Ok(Message::Close(_)) => {
-                                info!("Connection closed by peer");
-                                break;
-                            }
-                            Ok(Message::Ping(_)) => {}
-                            Ok(msg) => {
-                                let msg = msg.into_data();
-                                match Msg::parse_message(msg) {
-                                    Some(Msg::SUBSCRIBE(topic)) => {
-                                        info!("Subscribing to topic: {}", topic);
-                                        let mut ext_writers = external_writers.lock().await;
-                                        ext_writers
-                                            .entry(topic.clone())
-                                            .or_insert_with(Vec::new)
-                                            .push(Writer::new_with_connection(writer.clone(), id));
-                                    }
-                                    Some(Msg::UNSUBSCRIBE(topic)) => {
-                                        info!("Unsubscribing from topic: {}", topic);
-                                        let mut ext_writers = external_writers.lock().await;
-                                        if let Some(vec) = ext_writers.get_mut(&topic) {
-                                            vec.retain(|w| w.id() != id);
-                                            if vec.is_empty() {
-                                                ext_writers.remove(&topic);
-                                            }
-                                        }
-                                    }
-                                    Some(Msg::PUBLISH(topic, payload)) => {
-                                        info!("Publishing to topic: {}", topic);
-                                        if let Some(writers_vec) =
-                                            writers.lock().await.get_mut(&topic)
-                                        {
-                                            send_to_topic(payload, writers_vec).await;
-                                        }
-                                    }
-                                    None => {
-                                        error!("Invalid message");
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                error!("Error receiving message: {:?}", e);
-                                break;
-                            }
-                        }
-                    }
-
-                    info!("Cleaning up writer for ID: {}", id);
-                    external_writers.lock().await.retain(|_, writers| {
-                        writers.retain(|w| w.id() != id);
-                        !writers.is_empty()
-                    });
-                }
-                Err(_) => {
-                    error!("Failed to connect!");
-                }
-            }
+            let url = format!("ws://{}:{}", other.ip_addr_v4, other.port);
+            let (ws_stream, _) = connect_async(url).await.unwrap();
+            let mut external_streams = external_streams.lock().await;
+            let (writer, mut read) = ws_stream.split();
+            external_streams.insert(
+                other.ip_addr_v4,
+                (
+                    HashSet::new(),
+                    Arc::new(Mutex::new(Writer::new_with_connection(
+                        Arc::new(Mutex::new(writer)),
+                        0,
+                    ))),
+                ),
+            );
         });
     }
 
     while let Ok((stream, _)) = server.accept().await {
-        let writers = writers.clone();
-        let external_writers = external_writers.clone();
-        info!("Accepted connection");
+        let subscribers = subscribers.clone();
+        let peer_addr = stream
+            .peer_addr()
+            .unwrap_or_else(|_| "unknown".parse().unwrap());
+        info!("Accepted connection from {}", peer_addr);
+        let external_streams = external_streams.clone();
         tokio::spawn(async move {
             match accept_async(stream).await {
                 Ok(ws_stream) => {
-                    let (writer, mut reader) = ws_stream.split();
+                    let (write, mut read) = ws_stream.split();
+                    let write = Arc::new(Mutex::new(write));
                     let id = rand::thread_rng().gen::<u32>() % 1000000;
-                    let writer = Arc::new(Mutex::new(writer));
-
-                    while let Some(msg) = reader.next().await {
+                    while let Some(msg) = read.next().await {
                         match msg {
                             Ok(Message::Close(_)) => {
                                 info!("Client closed connection");
@@ -146,92 +81,122 @@ async fn main() {
                             }
                             Ok(Message::Ping(_)) => {}
                             Ok(msg) => {
-                                info!("Received: {:?}", msg);
-                                let msg: Bytes = msg.into_data();
-                                match Msg::parse_message(msg.clone()) {
-                                    Some(Msg::SUBSCRIBE(topic)) => {
-                                        info!("Subscribing to topic: {}", topic);
-                                        writers
-                                            .lock()
-                                            .await
-                                            .entry(topic.clone())
-                                            .or_insert_with(Vec::new)
-                                            .push(Writer::new(writer.clone(), id));
-
-                                        // Forward the subscribe message only to external nodes subscribed to this topic.
-                                        if let Some(ext_writers_vec) =
-                                            external_writers.lock().await.get_mut(&topic)
-                                        {
-                                            for ext_writer in ext_writers_vec.iter_mut() {
-                                                ext_writer.send(Message::Binary(msg.clone())).await;
-                                            }
-                                        }
-                                    }
-                                    Some(Msg::UNSUBSCRIBE(topic)) => {
-                                        // Remove local subscribers for this topic.
-                                        writers.lock().await.retain(|t, writers_vec| {
-                                            if t == &topic {
-                                                writers_vec.retain(|w| w.id() != id);
-                                                !writers_vec.is_empty()
+                                let msg = msg.into_data();
+                                debug!("Received message of length: {}", msg.len());
+                                match Msg::parse_message(msg) {
+                                    Some(msg_type) => match msg_type {
+                                        Msg::SUBSCRIBE(topic) => {
+                                            debug!("SUBSCRIBE: {}", topic);
+                                            let addr = peer_addr.ip().to_string();
+                                            if external_streams.lock().await.contains_key(&addr) {
+                                                let mut external_streams =
+                                                    external_streams.lock().await;
+                                                let stream =
+                                                    external_streams.get_mut(&addr).unwrap();
+                                                stream.0.insert(topic);
                                             } else {
-                                                true
-                                            }
-                                        });
-
-                                        // Forward the unsubscribe message only to external nodes subscribed to this topic.
-                                        if let Some(ext_writers_vec) =
-                                            external_writers.lock().await.get_mut(&topic)
-                                        {
-                                            for ext_writer in ext_writers_vec.iter_mut() {
-                                                ext_writer.send(Message::Binary(msg.clone())).await;
-                                            }
-                                        }
-                                    }
-                                    Some(Msg::PUBLISH(topic, payload)) => {
-                                        let message = Msg::build_message(Msg::PUBLISH(
-                                            topic.clone(),
-                                            payload.clone(),
-                                        ));
-
-                                        // Send to local subscribers.
-                                        if let Some(writers_vec) =
-                                            writers.lock().await.get_mut(&topic)
-                                        {
-                                            send_to_topic(message.clone(), writers_vec).await;
-                                        }
-
-                                        // Forward to external nodes subscribed to this topic.
-                                        if let Some(ext_writers_vec) =
-                                            external_writers.lock().await.get_mut(&topic)
-                                        {
-                                            for ext_writer in ext_writers_vec.iter_mut() {
-                                                ext_writer
-                                                    .send(Message::Binary(message.clone()))
-                                                    .await;
+                                                debug!("SUBSCRIBE!: {}", topic);
+                                                let mut subscribers = subscribers.lock().await;
+                                                subscribers
+                                                    .entry(topic.clone())
+                                                    .or_insert_with(Vec::new)
+                                                    .push(Arc::new(Mutex::new(Writer::new(
+                                                        write.clone(),
+                                                        id,
+                                                    ))));
+                                                debug!(
+                                                    "Topic {} now has {} subscribers",
+                                                    topic,
+                                                    subscribers.get_mut(&topic).unwrap().len()
+                                                );
                                             }
                                         }
-                                    }
+                                        Msg::UNSUBSCRIBE(topic) => {
+                                            debug!("UNSUBSCRIBE: {}", topic);
+                                            let addr = peer_addr.ip().to_string();
+                                            if external_streams.lock().await.contains_key(&addr) {
+                                                let mut external_streams =
+                                                    external_streams.lock().await;
+                                                let stream =
+                                                    external_streams.get_mut(&addr).unwrap();
+                                                stream.0.remove(&topic);
+                                            } else {
+                                                let mut subscribers = subscribers.lock().await;
+                                                if let Some(topic_subscribers) =
+                                                    subscribers.get_mut(&topic)
+                                                {
+                                                    topic_subscribers.retain(|subscriber| {
+                                                        tokio::runtime::Handle::current().block_on(
+                                                            async {
+                                                                subscriber.lock().await.id() != id
+                                                            },
+                                                        )
+                                                    });
+                                                    debug!(
+                                                        "Topic {} now has {} subscribers",
+                                                        topic,
+                                                        topic_subscribers.len()
+                                                    );
+                                                }
+                                            }
+                                        }
+                                        Msg::PUBLISH(topic, payload) => {
+                                            debug!("PUBLISH: {}", topic);
+                                            let mut subscribers = subscribers.lock().await;
+                                            if let Some(topic_subscribers) =
+                                                subscribers.get_mut(&topic)
+                                            {
+                                                for subscriber in topic_subscribers.iter() {
+                                                    debug!("PUBLISH!: {}", topic);
+                                                    subscriber
+                                                        .lock()
+                                                        .await
+                                                        .send(Message::Binary(Msg::build_message(
+                                                            Msg::PUBLISH(
+                                                                topic.clone(),
+                                                                payload.clone(),
+                                                            ),
+                                                        )))
+                                                        .await;
+                                                }
+                                            }
+
+                                            let external_streams = external_streams.clone();
+                                            let mut external_streams =
+                                                external_streams.lock().await;
+                                            for (addr, (topics, writer)) in
+                                                external_streams.iter_mut()
+                                            {
+                                                if topics.contains(&topic) {
+                                                    writer
+                                                        .lock()
+                                                        .await
+                                                        .send(Message::Binary(Msg::build_message(
+                                                            Msg::PUBLISH(
+                                                                topic.clone(),
+                                                                payload.clone(),
+                                                            ),
+                                                        )))
+                                                        .await;
+                                                }
+                                            }
+                                        }
+                                    },
                                     None => {
-                                        error!("Invalid message");
+                                        error!("Failed to parse message");
+                                        break;
                                     }
                                 }
                             }
                             Err(e) => {
-                                error!("Error reading message: {:?}", e);
+                                error!("WebSocket error: {}", e);
                                 break;
                             }
                         }
                     }
-
-                    info!("Cleaning up writer for ID: {}", id);
-                    let mut writers_lock = writers.lock().await;
-                    for writers_vec in writers_lock.values_mut() {
-                        writers_vec.retain(|w| w.id() != id);
-                    }
-                    writers_lock.retain(|_, writers_vec| !writers_vec.is_empty());
                 }
                 Err(e) => {
-                    eprintln!("Failed to accept WebSocket connection: {:?}", e);
+                    error!("Error accepting connection: {}", e);
                 }
             }
         });
