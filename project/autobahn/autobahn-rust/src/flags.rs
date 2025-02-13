@@ -1,4 +1,5 @@
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use log::debug;
 
 // TODO1: add proto-type handing where first byte is the type
 pub enum Msg {
@@ -38,9 +39,16 @@ impl Msg {
         if let Msg::PUBLISH(topic, payload) = flag {
             let mut buf = BytesMut::new();
             buf.put_u8(flag_bytes);
-            buf.put_u16(topic.len() as u16);
+            buf.put_u32(topic.len() as u32); // 4-byte topic length like Python
             buf.put_slice(topic.as_bytes());
+            buf.put_u32(payload.len() as u32); // 4-byte payload length like Python
             buf.put_slice(&payload);
+            buf.freeze()
+        } else if let Msg::SUBSCRIBE(topic) = flag {
+            let mut buf = BytesMut::new();
+            buf.put_u8(flag_bytes); // 1-byte flag
+            buf.put_u32(topic.len() as u32); // 4-byte topic length
+            buf.put_slice(topic.as_bytes()); // Topic string
             buf.freeze()
         } else {
             Bytes::new()
