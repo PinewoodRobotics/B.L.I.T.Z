@@ -7,25 +7,31 @@ const config: Config = {
     position_extrapolation_method: "kalman-linear-filter",
     message_config: {
       post_tag_input_topic: "apriltag/tag",
-      post_odometry_input_topic: "robot_odometry",
+      post_odometry_input_topic: "robot/odometry",
       post_imu_input_topic: "imu/imu",
       post_robot_position_output_topic: "pos-extrapolator/robot-position",
     },
     tag_position_config: {
       "11": {
-        x: -0.19383258436172301,
-        y: 0.3523404795499104,
-        z: 2.6891981053039884,
-        direction_vector: buildVector<number, 3>(
-          0.034734686359384384,
-          0.09612799602536522,
-          -0.994759940950026
-        ),
+        x: -0.28758490410570503,
+        y: 0.4010309507355102,
+        z: 2.171314532618703,
+        direction_vector: [
+          0.10165828535398637, 0.06647378710491299, -0.9925835234875711,
+        ],
       },
     },
     tag_confidence_threshold: 0,
     imu_configs: [],
-    odom_configs: [],
+    odom_configs: [
+      {
+        name: "odometry",
+        odom_global_position: [0.0, 0.0],
+        odom_local_position: [0.0, 0.0],
+        odom_yaw_offset: 0,
+        max_r2_drift: 0,
+      },
+    ],
     kalman_filter: {
       state_vector: buildVector<number, 5>(0.0, 0.0, 0.0, 0.0, 0.0), // [x, y, vx, vy, theta]
       time_step_initial: 0.1,
@@ -37,11 +43,11 @@ const config: Config = {
         [0.0, 0.0, 0.0, 0.0, 1.0],
       ]),
       uncertainty_matrix: buildMatrixFromArray<number, 5, 5>([
-        [500.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 500.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 500.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 500.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 500.0],
+        [100.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 100.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 100.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 100.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 10.0],
       ]),
       process_noise_matrix: buildMatrixFromArray<number, 5, 5>([
         [1.0, 0.0, 0.0, 0.0, 0.0],
@@ -62,11 +68,11 @@ const config: Config = {
             [0.0, 0.0, 0.0, 0.0, 1.0],
           ]),
           measurement_noise_matrix: buildMatrixFromArray<number, 5, 5>([
-            [500.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 500.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 500.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 10000.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 10000.0],
+            [10.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 10.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 10.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 10.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0],
           ]),
         },
         odometry: {
@@ -81,9 +87,9 @@ const config: Config = {
           measurement_noise_matrix: buildMatrixFromArray<number, 5, 5>([
             [0.5, 0.0, 0.0, 0.0, 0.0],
             [0.0, 0.5, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.5, 0.0, 0.0],
+            [0.0, 0.0, 0.2, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.2, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 0.2],
+            [0.0, 0.0, 0.0, 0.0, 0.5],
           ]),
         },
         imu: {
@@ -115,7 +121,7 @@ const config: Config = {
     tag_size: 0.2,
     family: "tag36h11",
     nthreads: 8,
-    quad_decimate: 2.0,
+    quad_decimate: 1.0,
     quad_sigma: 0.0,
     refine_edges: true,
     decode_sharpening: 0.25,

@@ -12,7 +12,7 @@ run-multiprocess:
 	python project/test/april/april_tag_mult_process.py
 
 autobahn:
-	cd project/autobahn/autobahn-rust && cargo run
+	cd project/autobahn/autobahn-rust && cargo run -- --config config.toml
 
 ai-server:
 	cd project/recognition/detection/image-recognition && python src/main.py

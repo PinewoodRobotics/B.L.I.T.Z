@@ -59,9 +59,11 @@ class DetectionCamera:
                     self.tag_size,
                     self.config.name,
                 )
+
                 if len(found_tags.tags) > 0:
                     self.publication_lambda(found_tags)
                     print(f"Found {len(found_tags.tags)} tags")
+
                 print(f"Time taken: {time.time() * 1000 - start}")
 
     def _transform_frame(self, frame: np.ndarray):

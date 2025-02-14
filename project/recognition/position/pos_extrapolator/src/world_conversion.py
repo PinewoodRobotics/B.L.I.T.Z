@@ -92,7 +92,6 @@ class WorldConversion:
             # For a y-up coordinate system, use arctan2(r31, r33)
             # Since we have y-down, we negate the result
             rotation = -np.arctan2(rotation_component[2, 0], rotation_component[2, 2])
-            print(rotation)
 
             self.filter_strategy.filter_data(
                 [
@@ -135,14 +134,15 @@ class WorldConversion:
             raise ValueError("Odometry config is not set")
 
         odom_config = self.odometry_config[0]
+        print(data.position.position.x, data.position.position.y)
 
         self.filter_strategy.filter_data(
             [
                 data.position.position.y - odom_config.odom_local_position[0],
                 data.position.position.x - odom_config.odom_local_position[1],
-                data.velocity.y,
-                data.velocity.x,
-                np.arctan2(data.position.direction.x, data.position.direction.y)
+                data.position.direction.x,
+                data.position.direction.y,
+                np.arctan2(data.rotation.x, data.rotation.y)
                 - odom_config.odom_yaw_offset,
             ],
             MeasurementType.ODOMETRY,

@@ -8,5 +8,6 @@ import "util/vector.proto";
 message Odometry {
     util.Position2d position = 1;
     util.Vector2 velocity = 2;
-    int64 timestamp = 3;
+    util.Vector2 rotation = 3;
+    int64 timestamp = 4;
 }
