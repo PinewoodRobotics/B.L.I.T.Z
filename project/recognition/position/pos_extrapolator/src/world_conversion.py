@@ -1,7 +1,9 @@
 import time
 
 import numpy as np
-from project.common.config_class.filters.kalman_filter_config import MeasurementType
+from project.common.config_class.filters.kalman_filter_config import (
+    MeasurementType,
+)
 from project.common.config_class.pos_extrapolator import (
     ImuConfig,
     OdomConfig,
@@ -34,6 +36,7 @@ class WorldConversion:
         self.tag_configs = tag_configs
         self.imu_configs = imu_configs
         self.odometry_config = odometry_config
+        self.odometry_reset_time = time.time()
         self.last_timestamps = {}
 
     def insert_data(self, data: AprilTags | Imu | Odometry):
@@ -92,7 +95,17 @@ class WorldConversion:
             # For a y-up coordinate system, use arctan2(r31, r33)
             # Since we have y-down, we negate the result
             rotation = -np.arctan2(rotation_component[2, 0], rotation_component[2, 2])
+            distance = tag.distance_to_camera
+            decision_margin = tag.decision_margin
 
+            if distance <= 0.1:
+                distance = 0.1
+
+            if decision_margin <= 0.01:
+                decision_margin = 0.01
+
+            noise_value = (distance**2) + (1.0 / decision_margin)
+            # print(noise_value)
             self.filter_strategy.filter_data(
                 [
                     translation_component[0],
@@ -102,6 +115,7 @@ class WorldConversion:
                     rotation,
                 ],
                 MeasurementType.APRIL_TAG,
+                noise_value,
             )
 
     def _insert_imu(self, data: Imu):
@@ -113,39 +127,39 @@ class WorldConversion:
             if imu_config.name == data.imu_id:
                 imu_config = imu_config
                 break
-        else:
-            # raise ValueError(f"Imu config for {data.imu_id} not found")
-            return
+
+        noise = time.time() - self.odometry_reset_time
 
         self.filter_strategy.filter_data(
             [
-                data.position.position.x - imu_config.imu_local_position[0],
-                data.position.position.y - imu_config.imu_local_position[1],
+                data.position.position.x,
+                data.position.position.y,
                 data.velocity.x,
                 data.velocity.y,
-                np.arctan2(data.position.direction.x, data.position.direction.y)
-                - imu_config.imu_yaw_offset,
+                np.arctan2(data.position.direction.x, data.position.direction.y),
             ],
             MeasurementType.IMU,
+            noise,
         )
 
     def _insert_odometry(self, data: Odometry):
         if self.odometry_config is None:
             raise ValueError("Odometry config is not set")
 
-        odom_config = self.odometry_config[0]
+        # odom_config = self.odometry_config[0]
         print(data.position.position.x, data.position.position.y)
+        noise = time.time() - self.odometry_reset_time
 
         self.filter_strategy.filter_data(
             [
-                data.position.position.y - odom_config.odom_local_position[0],
-                data.position.position.x - odom_config.odom_local_position[1],
+                data.position.position.y,
+                data.position.position.x,
                 data.position.direction.x,
                 data.position.direction.y,
-                np.arctan2(data.rotation.x, data.rotation.y)
-                - odom_config.odom_yaw_offset,
+                np.arctan2(data.rotation.x, data.rotation.y),
             ],
             MeasurementType.ODOMETRY,
+            noise,
         )
 
         self.last_timestamps[type(data)] = data.timestamp

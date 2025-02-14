@@ -2,6 +2,7 @@ from filterpy.kalman import KalmanFilter
 import numpy as np
 from project.common.config_class.filters.kalman_filter_config import (
     KalmanFilterConfig,
+    KalmanFilterSensorConfig,
     MeasurementType,
 )
 from project.recognition.position.pos_extrapolator.src.filter import FilterStrategy
@@ -22,10 +23,16 @@ class KalmanFilterStrategy(FilterStrategy):
         self.kf.H = np.array(config.state_transition_matrix)
         self.sensors = config.sensors
 
-    def filter_data(self, data: list[float], data_type: MeasurementType) -> None:
+    def get_sensor_config(self, data_type: MeasurementType) -> KalmanFilterSensorConfig:
+        return self.sensors[data_type]
+
+    def filter_data(
+        self, data: list[float], data_type: MeasurementType, noise: float
+    ) -> None:
+        # print(np.array(self.sensors[data_type].measurement_noise_matrix) * noise)
         self.kf.update(
             np.array(data),
-            np.array(self.sensors[data_type].measurement_noise_matrix),
+            np.array(self.sensors[data_type].measurement_noise_matrix) * noise,
             np.array(self.sensors[data_type].measurement_conversion_matrix),
         )
 

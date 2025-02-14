@@ -7,7 +7,9 @@ class FilterStrategy:
     def __init__(self, config):
         self.config = config
 
-    def filter_data(self, data: list[float], data_type: MeasurementType) -> None:
+    def filter_data(
+        self, data: list[float], data_type: MeasurementType, noise: float
+    ) -> None:
         raise NotImplementedError("Subclasses must implement filter_data()")
 
     def get_confidence(self) -> float:
