@@ -10,6 +10,7 @@ const config: Config = {
       post_odometry_input_topic: "robot/odometry",
       post_imu_input_topic: "imu/imu",
       post_robot_position_output_topic: "pos-extrapolator/robot-position",
+      set_position: "pos-extrapolator/set-position",
     },
     tag_position_config: {
       "11": {
