@@ -105,7 +105,6 @@ class WorldConversion:
                 decision_margin = 0.01
 
             noise_value = (distance**2) + (1.0 / decision_margin)
-            # print(noise_value)
             self.filter_strategy.filter_data(
                 [
                     translation_component[0],
@@ -128,27 +127,21 @@ class WorldConversion:
                 imu_config = imu_config
                 break
 
-        noise = time.time() - self.odometry_reset_time
-
         self.filter_strategy.filter_data(
             [
-                data.position.position.x,
-                data.position.position.y,
+                0,
+                0,
                 data.velocity.x,
                 data.velocity.y,
                 np.arctan2(data.position.direction.x, data.position.direction.y),
             ],
             MeasurementType.IMU,
-            noise,
+            1,
         )
 
     def _insert_odometry(self, data: Odometry):
         if self.odometry_config is None:
             raise ValueError("Odometry config is not set")
-
-        # odom_config = self.odometry_config[0]
-        print(data.position.position.x, data.position.position.y)
-        noise = time.time() - self.odometry_reset_time
 
         self.filter_strategy.filter_data(
             [
@@ -159,7 +152,7 @@ class WorldConversion:
                 np.arctan2(data.rotation.x, data.rotation.y),
             ],
             MeasurementType.ODOMETRY,
-            noise,
+            1,
         )
 
         self.last_timestamps[type(data)] = data.timestamp
