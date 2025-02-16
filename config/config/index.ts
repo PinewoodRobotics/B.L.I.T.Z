@@ -1,5 +1,5 @@
 import type Config from "../schema";
-import large640480 from "./cameras/large-640-480";
+import baseWhiteCam from "./cameras/base-white-cam";
 import { buildMatrixFromArray, buildVector } from "./util/math";
 
 const config: Config = {
@@ -13,12 +13,20 @@ const config: Config = {
       set_position: "pos-extrapolator/set-position",
     },
     tag_position_config: {
-      "11": {
-        x: -0.28758490410570503,
-        y: 0.4010309507355102,
-        z: 2.171314532618703,
+      "10": {
+        x: -0.6,
+        y: 2.5,
+        z: 2.4,
         direction_vector: [
-          0.10165828535398637, 0.06647378710491299, -0.9925835234875711,
+          0.9673151657158942, -0.08536151956757602, -0.23877440014008386,
+        ],
+      },
+      "20": {
+        x: 0.5,
+        y: 0.4632989420134449,
+        z: 3.4,
+        direction_vector: [
+          -0.20427371520546414, 0.042564280217927616, -0.9779338330806638,
         ],
       },
     },
@@ -44,11 +52,11 @@ const config: Config = {
         [0.0, 0.0, 0.0, 0.0, 1.0],
       ]),
       uncertainty_matrix: buildMatrixFromArray<number, 5, 5>([
-        [100.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 100.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 100.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 100.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 10.0],
+        [1.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 1.0],
       ]),
       process_noise_matrix: buildMatrixFromArray<number, 5, 5>([
         [1.0, 0.0, 0.0, 0.0, 0.0],
@@ -69,10 +77,10 @@ const config: Config = {
             [0.0, 0.0, 0.0, 0.0, 1.0],
           ]),
           measurement_noise_matrix: buildMatrixFromArray<number, 5, 5>([
-            [10.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 10.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 10.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 10.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0, 0.0],
             [0.0, 0.0, 0.0, 0.0, 1.0],
           ]),
         },
@@ -88,8 +96,8 @@ const config: Config = {
           measurement_noise_matrix: buildMatrixFromArray<number, 5, 5>([
             [0.5, 0.0, 0.0, 0.0, 0.0],
             [0.0, 0.5, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.2, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.2, 0.0],
+            [0.0, 0.0, 0.01, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.01, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.5],
           ]),
         },
@@ -105,8 +113,8 @@ const config: Config = {
           measurement_noise_matrix: buildMatrixFromArray<number, 5, 5>([
             [0.5, 0.0, 0.0, 0.0, 0.0],
             [0.0, 0.5, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.5, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.2, 0.0],
+            [0.0, 0.0, 0.01, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.01, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.2],
           ]),
         },
@@ -117,7 +125,7 @@ const config: Config = {
     host: "localhost",
     port: 8080,
   },
-  cameras: [large640480],
+  cameras: [baseWhiteCam],
   april_detection: {
     tag_size: 0.2,
     family: "tag36h11",
