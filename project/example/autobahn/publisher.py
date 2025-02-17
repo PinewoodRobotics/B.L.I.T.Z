@@ -1,15 +1,19 @@
 import asyncio
 
-from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.autobahn.autobahn_python.listener import Address, Listener
 
 
-autobahn = Autobahn(host="localhost", port=8080)
+client = Listener(
+    peer_addrs=[Address(host="localhost", port=8090)],
+    addr=Address(host="localhost", port=8080),
+)
 
 
 async def main():
-    await autobahn.begin()
+    asyncio.create_task(client.run())
+
     for i in range(100):
-        await autobahn.publish("test", f"Hello, world! {i}".encode())
+        await client.publish("test", f"Hello, world! {i}".encode())
         await asyncio.sleep(1)
 
 

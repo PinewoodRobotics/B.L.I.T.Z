@@ -42,17 +42,17 @@ def message(message: str):
 
 
 def error(message: str):
-    if LOG_LEVEL == LogLevel.ERROR:
+    if LOG_LEVEL == LogLevel.DEBUG:
         log(PREFIX, message, colorama.Fore.RED)
 
 
 def warning(message: str):
-    if LOG_LEVEL == LogLevel.WARNING:
+    if LOG_LEVEL == LogLevel.DEBUG:
         log(PREFIX, message, colorama.Fore.YELLOW)
 
 
 def info(message: str):
-    if LOG_LEVEL == LogLevel.INFO:
+    if LOG_LEVEL == LogLevel.DEBUG:
         log(PREFIX, message, colorama.Fore.CYAN)
 
 

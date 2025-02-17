@@ -1,8 +1,11 @@
 import asyncio
-from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.autobahn.autobahn_python.listener import Address, Listener
 
 
-autobahn = Autobahn(host="localhost", port=8080)
+client = Listener(
+    peer_addrs=[Address(host="localhost", port=8080)],
+    addr=Address(host="localhost", port=8090),
+)
 
 
 async def callback(message: bytes):
@@ -10,11 +13,8 @@ async def callback(message: bytes):
 
 
 async def main():
-    await autobahn.begin()
-    await autobahn.subscribe("test", callback)
-    await asyncio.sleep(2)
-    print("Unsubscribing")
-    await autobahn.unsubscribe("test")
+    asyncio.create_task(client.run())
+    await client.subscribe("test", callback)
     await asyncio.sleep(100)
 
 
