@@ -6,7 +6,7 @@ import numpy as np
 import pyapriltags
 
 from generated.Image_pb2 import ImageMessage
-from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.autobahn.autobahn_python.Listener import Autobahn
 from project.common.config import Config
 from project.recognition.position.april.src.camera import DetectionCamera
 

@@ -2,7 +2,7 @@ import asyncio
 import random
 import time
 import numpy as np
-from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.autobahn.autobahn_python.Listener import Autobahn
 from project.example.util.render.position_renderer import PositionVisualizer
 from generated.AprilTag_pb2 import AprilTags, Tag
 from generated.Imu_pb2 import Imu

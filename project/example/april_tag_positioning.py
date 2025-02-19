@@ -1,6 +1,6 @@
 import asyncio
 import cv2
-from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.autobahn.autobahn_python.Listener import Autobahn
 import numpy as np
 
 from project.example.util.render.render_2d import PygameWindow

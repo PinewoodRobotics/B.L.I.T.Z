@@ -4,7 +4,7 @@ import numpy as np
 
 from generated.util.vector_pb2 import Vector2
 from generated.util.position_pb2 import Position2d
-from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.autobahn.autobahn_python.Listener import Autobahn
 from project.common.config import Config
 from project.common.config_class.pos_extrapolator import PositionExtrapolationMethod
 from generated.AprilTag_pb2 import AprilTags

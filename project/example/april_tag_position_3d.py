@@ -1,7 +1,7 @@
 import asyncio
 import numpy as np
 import open3d as o3d
-from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.autobahn.autobahn_python.Listener import Autobahn
 from generated.AprilTag_pb2 import AprilTags
 from queue import Queue
 
