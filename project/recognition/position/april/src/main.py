@@ -6,7 +6,8 @@ import numpy as np
 import pyapriltags
 
 from generated.Image_pb2 import ImageMessage
-from project.autobahn.autobahn_python.Listener import Autobahn
+from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.autobahn.autobahn_python.util import Address
 from project.common.config import Config
 from project.recognition.position.april.src.camera import DetectionCamera
 
@@ -26,7 +27,7 @@ def build_detector(config: Config):
 async def main():
     config = Config.load_config()
     detector = build_detector(config)
-    autobahn_server = Autobahn("localhost", config.autobahn.port)
+    autobahn_server = Autobahn(Address("localhost", config.autobahn.port))
 
     async def publish_image(image: np.ndarray, camera_name: str):
         nonlocal autobahn_server, config

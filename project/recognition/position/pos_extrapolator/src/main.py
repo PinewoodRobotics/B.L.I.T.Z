@@ -4,7 +4,8 @@ import numpy as np
 
 from generated.util.vector_pb2 import Vector2
 from generated.util.position_pb2 import Position2d
-from project.autobahn.autobahn_python.Listener import Autobahn
+from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.autobahn.autobahn_python.util import Address
 from project.common.config import Config
 from project.common.config_class.pos_extrapolator import PositionExtrapolationMethod
 from generated.AprilTag_pb2 import AprilTags
@@ -26,7 +27,7 @@ from world_conversion import (
 async def main():
     config = Config.load_config()
 
-    autobahn_server = Autobahn("localhost", config.autobahn.port)
+    autobahn_server = Autobahn(Address("localhost", config.autobahn.port))
     await autobahn_server.begin()
 
     sensor_data_queue: asyncio.Queue[Odometry | AprilTags | Imu] = asyncio.Queue()

@@ -1,14 +1,15 @@
 import asyncio
 import cv2
 import numpy as np
-from project.autobahn.autobahn_python.Listener import Autobahn
+from project.autobahn.autobahn_python.autobahn import Autobahn
+from project.autobahn.autobahn_python.util import Address
 from project.example.util.render.position_renderer import PositionVisualizer
 from generated.Image_pb2 import ImageMessage
 from generated.RobotPosition_pb2 import RobotPosition
 
 
 async def main():
-    autobahn_server = Autobahn("localhost", 8080)
+    autobahn_server = Autobahn(Address("localhost", 8080))
     await autobahn_server.begin()
     stop_event = asyncio.Event()
 
