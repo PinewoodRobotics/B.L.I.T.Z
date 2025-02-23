@@ -16,8 +16,8 @@ def load_config(config_path="camera_config.json"):
 
 def plot_top_down_view(tags, camera_matrix, dist_coeffs, tag_size):
     plt.clf()
-    plt.xlim(-5, 5)
-    plt.ylim(-5, 5)
+    plt.xlim(-10, 10)
+    plt.ylim(-10, 10)
     plt.xlabel("X Position (m)")
     plt.ylabel("Z Position (m)")
     plt.title("Top-Down View of Detected Tags")

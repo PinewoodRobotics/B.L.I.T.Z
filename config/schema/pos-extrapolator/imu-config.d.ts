@@ -1,10 +1,10 @@
-import { Matrix } from "../type-util/math-util";
+import { type Vector } from "../type-util/math-util";
 
 export interface ImuConfig {
-  name: string;
-  imu_global_position: Matrix<number, 2, 1>;
-  imu_local_position: Matrix<number, 2, 1>;
+  use_rotation: boolean;
+  use_position: boolean;
+  use_velocity: boolean;
 
-  imu_yaw_offset: number;
-  max_r2_drift: number;
+  imu_robot_position: Vector<number, 2>;
+  imu_robot_direction_vector: Vector<number, 2>;
 }

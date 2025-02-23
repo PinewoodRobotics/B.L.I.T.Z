@@ -5,17 +5,10 @@ from project.common.config_class.filters.kalman_filter_config import (
     KalmanFilterSensorConfig,
     MeasurementType,
 )
-from project.recognition.position.pos_extrapolator.src.filter import FilterStrategy
 
 
-class KalmanFilterStrategy(FilterStrategy):
-    """
-    Basic kalman filter. Essentially you input a bunch of data and it outputs a kalman filtered position.
-    Note: this is much more accurate than the other filters (probably).
-    """
-
+class KalmanFilterStrategy:
     def __init__(self, config: KalmanFilterConfig):
-        super().__init__(config)
         self.kf = KalmanFilter(dim_x=config.dim_x_z[0], dim_z=config.dim_x_z[1])
         self.kf.x = np.array(config.state_vector)
         self.kf.P = np.array(config.uncertainty_matrix)
@@ -26,18 +19,27 @@ class KalmanFilterStrategy(FilterStrategy):
     def get_sensor_config(self, data_type: MeasurementType) -> KalmanFilterSensorConfig:
         return self.sensors[data_type]
 
-    def filter_data(
+    def insert_data(
         self, data: list[float], data_type: MeasurementType, noise: float
     ) -> None:
-        # print(np.array(self.sensors[data_type].measurement_noise_matrix) * noise)
+        z = np.array(data)
+
+        # Ensure theta difference (index 4) is wrapped to [-π, π]
+        if len(z) > 4:  # Only apply if theta is present
+            theta_residual = z[4] - self.kf.x[4]
+            z[4] = self.kf.x[4] + np.arctan2(
+                np.sin(theta_residual), np.cos(theta_residual)
+            )
+
         self.kf.update(
-            np.array(data),
+            z,
             np.array(self.sensors[data_type].measurement_noise_matrix) * noise,
             np.array(self.sensors[data_type].measurement_conversion_matrix),
         )
 
     def predict(self):
         self.kf.predict()
+        self.kf.x[4] = np.arctan2(np.sin(self.kf.x[4]), np.cos(self.kf.x[4]))
 
     def get_state(self) -> list[float]:
         return self.kf.x.tolist()
@@ -55,16 +57,10 @@ class KalmanFilterStrategy(FilterStrategy):
         return determinant
 
     def get_velocity_confidence(self) -> float:
-        P_velocity = self.kf.P[2:4, 2:4]
-
-        determinant = np.linalg.det(P_velocity)
-
-        return determinant
+        return np.linalg.det(self.kf.P[2:4, 2:4])
 
     def get_rotation_confidence(self) -> float:
-        P_theta = self.kf.P[4, 4]
-
-        return P_theta
+        return self.kf.P[4, 4]
 
     def get_confidence(self) -> float:
         return (
@@ -76,6 +72,6 @@ class KalmanFilterStrategy(FilterStrategy):
     def get_filtered_data(self) -> list[float]:
         return self.kf.x.tolist()
 
-    def update_state_transition_matrix_5_5(self, new_delta_t: float):
+    def update_transformation_delta_t(self, new_delta_t: float):
         self.kf.F[0][2] = new_delta_t
         self.kf.F[1][3] = new_delta_t

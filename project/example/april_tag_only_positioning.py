@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.autobahn.autobahn_python.util import Address
-from project.example.util.render.position_renderer import PositionVisualizer
+from project.example.util.render.position_render_game import PositionVisualizerGame
 from generated.Image_pb2 import ImageMessage
 from generated.RobotPosition_pb2 import RobotPosition
 
@@ -13,7 +13,7 @@ async def main():
     await autobahn_server.begin()
     stop_event = asyncio.Event()
 
-    position_renderer = PositionVisualizer(max_min_x=[-10, 10], max_min_y=[-10, 10])
+    position_renderer = PositionVisualizerGame(max_min_x=[-10, 10], max_min_y=[-10, 10])
 
     async def on_position_update(message: bytes):
         robot_pos = RobotPosition()
@@ -25,8 +25,8 @@ async def main():
                     robot_pos.estimated_position.position.y,
                     np.degrees(
                         np.arctan2(
-                            robot_pos.estimated_position.direction.y,
                             robot_pos.estimated_position.direction.x,
+                            robot_pos.estimated_position.direction.y,
                         )
                     ),
                 ),

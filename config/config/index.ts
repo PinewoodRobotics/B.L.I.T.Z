@@ -1,10 +1,10 @@
 import type Config from "../schema";
 import baseWhiteCam from "./cameras/base-white-cam";
+import { sac_config } from "./tag_config/sac";
 import { buildMatrixFromArray, buildVector } from "./util/math";
 
 const config: Config = {
   pos_extrapolator: {
-    position_extrapolation_method: "kalman-linear-filter",
     message_config: {
       post_tag_input_topic: "apriltag/tag",
       post_odometry_input_topic: "robot/odometry",
@@ -12,35 +12,23 @@ const config: Config = {
       post_robot_position_output_topic: "pos-extrapolator/robot-position",
       set_position: "pos-extrapolator/set-position",
     },
-    tag_position_config: {
-      "10": {
-        x: -0.6,
-        y: 2.5,
-        z: 2.4,
-        direction_vector: [
-          0.9673151657158942, -0.08536151956757602, -0.23877440014008386,
-        ],
-      },
-      "20": {
-        x: 0.5,
-        y: 0.4632989420134449,
-        z: 3.4,
-        direction_vector: [
-          -0.20427371520546414, 0.042564280217927616, -0.9779338330806638,
-        ],
+    tag_position_config: sac_config,
+    tag_confidence_threshold: 0,
+    imu_configs: {
+      one: {
+        use_position: true,
+        use_rotation: true,
+        use_velocity: true,
+        imu_robot_position: [0.0, 0.0],
+        imu_robot_direction_vector: [0.0, 0.0],
       },
     },
-    tag_confidence_threshold: 0,
-    imu_configs: [],
-    odom_configs: [
-      {
-        name: "odometry",
-        odom_global_position: [0.0, 0.0],
-        odom_local_position: [0.0, 0.0],
-        odom_yaw_offset: 0,
-        max_r2_drift: 0,
-      },
-    ],
+    odom_configs: {
+      use_position: true,
+      use_rotation: true,
+      odom_robot_position: [0, 0, 0],
+      odom_robot_rotation: [0, 0, 0],
+    },
     kalman_filter: {
       state_vector: buildVector<number, 5>(0.0, 0.0, 0.0, 0.0, 0.0), // [x, y, vx, vy, theta]
       time_step_initial: 0.1,
@@ -120,6 +108,15 @@ const config: Config = {
         },
       },
     },
+    camera_configs: {
+      "base-white-cam": {
+        camera_robot_position: buildVector<number, 3>(0.1, 0.0, 0.0),
+        camera_robot_direction: buildVector<number, 3>(-1.0, 0.0, 0.0),
+      },
+    },
+    enable_imu: false,
+    enable_odom: true,
+    enable_tags: false,
   },
   autobahn: {
     host: "localhost",

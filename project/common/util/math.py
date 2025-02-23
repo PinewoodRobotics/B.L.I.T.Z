@@ -51,10 +51,14 @@ def make_transformation_matrix(
 
 def get_world_pos(
     T_tag_camera: np.ndarray,
+    T_camera_robot: np.ndarray,
     T_tag_world: np.ndarray,
 ) -> np.ndarray:
     T_camera_tag = np.linalg.inv(T_tag_camera)
-    return np.matmul(T_tag_world, T_camera_tag)
+    T_camera_world = np.matmul(T_tag_world, T_camera_tag)
+    T_world_camera = np.linalg.inv(T_camera_world)
+    _T_world_robot = np.matmul(T_world_camera, T_camera_robot)
+    return np.linalg.inv(T_world_camera)
 
 
 def from_float_list(flat_list: list, rows: int, cols: int) -> np.ndarray:
