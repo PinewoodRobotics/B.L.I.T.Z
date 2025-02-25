@@ -1,6 +1,7 @@
 import asyncio
 import cv2
 import numpy as np
+from generated.util.position_pb2 import Position2d
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.autobahn.autobahn_python.util import Address
 from project.example.util.render.position_render_game import PositionVisualizerGame
@@ -13,7 +14,48 @@ async def main():
     await autobahn_server.begin()
     stop_event = asyncio.Event()
 
-    position_renderer = PositionVisualizerGame(max_min_x=[-10, 10], max_min_y=[-10, 10])
+    # Store target position, direction, and waiting state
+    target_position = [0, 0]
+    target_direction = [1, 0]  # Default direction vector
+    waiting_for_direction = [False]
+
+    async def async_on_click(x: float, y: float):
+        nonlocal target_position, target_direction
+
+        if not waiting_for_direction[0]:
+            # First click - set position
+            target_position[0] = x
+            target_position[1] = y
+            waiting_for_direction[0] = True
+            print(f"Set target position: ({x}, {y}). Click again to set direction.")
+        else:
+            # Second click - calculate direction vector
+            dx = x - target_position[0]
+            dy = y - target_position[1]
+            # Normalize the direction vector
+            magnitude = np.sqrt(dx * dx + dy * dy)
+            if magnitude > 0:  # Avoid division by zero
+                dx /= magnitude
+                dy /= magnitude
+                target_direction[0] = dx
+                target_direction[1] = dy
+
+            # Create and send message with position and direction
+            pos_msg = Position2d()
+            pos_msg.position.x = target_position[0]
+            pos_msg.position.y = target_position[1]
+            pos_msg.direction.x = target_direction[0]
+            pos_msg.direction.y = target_direction[1]
+            await autobahn_server.publish("auto/command", pos_msg.SerializeToString())
+            waiting_for_direction[0] = False
+            print(f"Set direction: ({dx:.2f}, {dy:.2f})")
+
+    def on_click(x: float, y: float):
+        asyncio.create_task(async_on_click(x, y))
+
+    position_renderer = PositionVisualizerGame(
+        max_min_x=[-10, 10], max_min_y=[-10, 10], click_callback=on_click
+    )
 
     async def on_position_update(message: bytes):
         robot_pos = RobotPosition()
@@ -29,6 +71,11 @@ async def main():
                             robot_pos.estimated_position.direction.y,
                         )
                     ),
+                ),
+                "target": (
+                    target_position[0],
+                    target_position[1],
+                    np.degrees(np.arctan2(target_direction[1], target_direction[0])),
                 ),
             }
         )

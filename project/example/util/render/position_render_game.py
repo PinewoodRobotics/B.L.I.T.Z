@@ -1,5 +1,5 @@
 import pygame
-from typing import Dict
+from typing import Dict, Callable, Optional, Tuple
 import time
 import math
 
@@ -11,6 +11,7 @@ class PositionVisualizerGame:
         max_min_x=(-20, 20),
         max_min_y=(-20, 20),
         trail_length=25,
+        click_callback: Optional[Callable[[float, float], None]] = None,
     ):
         pygame.init()
         self.screen = pygame.display.set_mode(
@@ -54,6 +55,9 @@ class PositionVisualizerGame:
         # Margin for axes
         self.margin = 40
 
+        # Click callback
+        self.click_callback = click_callback
+
     def world_to_screen(self, x: float, y: float) -> tuple[int, int]:
         """Convert world coordinates to screen coordinates"""
         screen_x = int(self.margin + (x - self.max_min_x[0]) * self.scale_x)
@@ -62,6 +66,15 @@ class PositionVisualizerGame:
             self.window_size[1] - self.margin - (y - self.max_min_y[0]) * self.scale_y
         )
         return (screen_x, screen_y)
+
+    def screen_to_world(self, screen_x: int, screen_y: int) -> Tuple[float, float]:
+        """Convert screen coordinates to world coordinates"""
+        world_x = (screen_x - self.margin) / self.scale_x + self.max_min_x[0]
+        # Flip y-axis since pygame's origin is top-left
+        world_y = (
+            self.window_size[1] - self.margin - screen_y
+        ) / self.scale_y + self.max_min_y[0]
+        return (world_x, world_y)
 
     def update_pos(self, name: str, position: tuple[float, float, float]):
         """Update position for a named entity"""
@@ -95,6 +108,20 @@ class PositionVisualizerGame:
             if event.type == pygame.QUIT:
                 self.close()
                 return False
+            elif (
+                event.type == pygame.MOUSEBUTTONDOWN and self.click_callback is not None
+            ):
+                # Only handle left clicks
+                if event.button == 1:
+                    mouse_x, mouse_y = pygame.mouse.get_pos()
+                    # Convert screen coordinates to world coordinates
+                    world_x, world_y = self.screen_to_world(mouse_x, mouse_y)
+                    # Only trigger callback if click is within the plotting area
+                    if (
+                        self.margin <= mouse_x <= self.window_size[0] - self.margin
+                        and self.margin <= mouse_y <= self.window_size[1] - self.margin
+                    ):
+                        self.click_callback(world_x, world_y)
 
         # Clear screen
         self.screen.fill((255, 255, 255))  # White background

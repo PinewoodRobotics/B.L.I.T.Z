@@ -51,10 +51,10 @@ class PositionExtrapolator:
         if isinstance(data, AprilTags):
             self.sensor_completions[0] = True
             self._insert_april_tags(data, data.camera_name)
-        elif isinstance(data, Imu):
+        elif isinstance(data, Imu) and self.config.enable_imu:
             self.sensor_completions[1] = True
             self._insert_imu(data)
-        elif isinstance(data, Odometry):
+        elif isinstance(data, Odometry) and self.config.enable_odom:
             self.sensor_completions[2] = True
             self._insert_odometry(data)
 
@@ -63,17 +63,12 @@ class PositionExtrapolator:
         Note: this will take the timestamp of the last predict point.
         """
 
-        if self.sensor_completions == [
-            True,
-            self.config.enable_imu,
-            self.config.enable_odom,
-        ]:
-            self.filter_strategy.update_transformation_delta_t(
-                time.time() - self.last_predict
-            )
-            self.filter_strategy.predict()
-            self.last_predict = time.time()
-            self.sensor_completions = [True, False, False]
+        self.filter_strategy.update_transformation_delta_t(
+            time.time() - self.last_predict
+        )
+        self.filter_strategy.predict()
+        self.last_predict = time.time()
+        self.sensor_completions = [True, False, False]
 
     def get_position(self) -> list[float]:
         return self.filter_strategy.get_filtered_data()
@@ -130,7 +125,8 @@ class PositionExtrapolator:
             if decision_margin <= 0.01:
                 decision_margin = 0.01
 
-            noise_value = (distance**2) + (1.0 / decision_margin)
+            noise_value = exponential_noise_scaling(distance)
+
             self.filter_strategy.insert_data(
                 [
                     translation_component[0],
@@ -142,16 +138,6 @@ class PositionExtrapolator:
                 MeasurementType.APRIL_TAG,
                 noise_value,
             )
-
-    """
-    class ImuConfig(BaseModel):
-        use_rotation: bool
-        use_position: bool
-        use_velocity: bool
-
-        imu_robot_position: List[float]
-        imu_robot_rotation: List[float]
-    """
 
     def _insert_imu(self, data: Imu):
         if self.imu_configs is None:
@@ -188,3 +174,7 @@ class PositionExtrapolator:
             MeasurementType.ODOMETRY,
             1,
         )
+
+
+def exponential_noise_scaling(distance, a=0.2, b=0.7):
+    return a * np.exp(b * distance)

@@ -1,6 +1,6 @@
 import type Config from "../schema";
 import baseWhiteCam from "./cameras/base-white-cam";
-import { sac_config } from "./tag_config/sac";
+import { home_1 } from "./tag_config/home_1";
 import { buildMatrixFromArray, buildVector } from "./util/math";
 
 const config: Config = {
@@ -12,7 +12,7 @@ const config: Config = {
       post_robot_position_output_topic: "pos-extrapolator/robot-position",
       set_position: "pos-extrapolator/set-position",
     },
-    tag_position_config: sac_config,
+    tag_position_config: home_1,
     tag_confidence_threshold: 0,
     imu_configs: {
       one: {
@@ -40,16 +40,16 @@ const config: Config = {
         [0.0, 0.0, 0.0, 0.0, 1.0],
       ]),
       uncertainty_matrix: buildMatrixFromArray<number, 5, 5>([
-        [1.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 1.0, 0.0],
+        [10.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 10.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 5.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 5.0, 0.0],
         [0.0, 0.0, 0.0, 0.0, 1.0],
       ]),
       process_noise_matrix: buildMatrixFromArray<number, 5, 5>([
-        [1.0, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.0, 0.0],
+        [0.1, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.1, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.1, 0.0, 0.0],
         [0.0, 0.0, 0.0, 0.1, 0.0],
         [0.0, 0.0, 0.0, 0.0, 0.1],
       ]),
@@ -65,10 +65,10 @@ const config: Config = {
             [0.0, 0.0, 0.0, 0.0, 1.0],
           ]),
           measurement_noise_matrix: buildMatrixFromArray<number, 5, 5>([
-            [0.2, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.2, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.2, 0.0],
+            [1, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 1, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 10000.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 10000.0, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.2],
           ]),
         },
@@ -82,8 +82,8 @@ const config: Config = {
             [0.0, 0.0, 0.0, 0.0, 1.0],
           ]),
           measurement_noise_matrix: buildMatrixFromArray<number, 5, 5>([
-            [0.5, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.5, 0.0, 0.0, 0.0],
+            [1, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 1, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.01, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.01, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.5],
@@ -110,13 +110,13 @@ const config: Config = {
     },
     camera_configs: {
       "base-white-cam": {
-        camera_robot_position: buildVector<number, 3>(0.1, 0.0, 0.0),
-        camera_robot_direction: buildVector<number, 3>(-1.0, 0.0, 0.0),
+        camera_robot_position: buildVector<number, 3>(0.0, 0.0, 0.1),
+        camera_robot_direction: buildVector<number, 3>(0.0, 0.0, -1.0),
       },
     },
     enable_imu: false,
-    enable_odom: true,
-    enable_tags: false,
+    enable_odom: false,
+    enable_tags: true,
   },
   autobahn: {
     host: "localhost",
