@@ -9,6 +9,7 @@ export interface PosExtrapolator {
   message_config: PosExtrapolatorMessageConfig;
   tag_position_config: Record<string, Position3D>;
   tag_confidence_threshold: number;
+  april_tag_discard_distance: number;
 
   enable_imu: boolean;
   enable_odom: boolean;

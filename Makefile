@@ -23,9 +23,9 @@ april-server:
 prepare:
 	if [ ! -d "generated" ]; then mkdir generated; fi
 
-generate-proto-cpp-navx2:
-	mkdir -p project/hardware/navx2/include/proto
-	protoc --cpp_out=project/hardware/navx2/include/proto project/common/proto/*.proto
+generate-proto-cpp-lidar:
+	mkdir -p project/hybrid-frustum-pointnet/lidar/include/proto
+	protoc -I=proto --cpp_out=project/hybrid-frustum-pointnet/lidar/include/proto $(shell find proto -name "*.proto")
 
 generate-proto: prepare
 	protoc -I=proto \

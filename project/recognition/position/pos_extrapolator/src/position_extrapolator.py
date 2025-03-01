@@ -87,7 +87,10 @@ class PositionExtrapolator:
             )
             raise ValueError("Tag configs are not set")
 
+        cur_state = self.filter_strategy.get_state()
+
         for tag in data.tags:
+            print(cur_state, tag.decision_margin)
             if str(tag.tag_id) not in self.tag_configs:
                 continue
 
@@ -124,6 +127,14 @@ class PositionExtrapolator:
 
             if decision_margin <= 0.01:
                 decision_margin = 0.01
+
+            if (
+                distance2d(
+                    cur_state[:2], [translation_component[0], translation_component[2]]
+                )
+                > self.config.april_tag_discard_distance
+            ):
+                continue
 
             noise_value = exponential_noise_scaling(distance)
 
@@ -176,5 +187,9 @@ class PositionExtrapolator:
         )
 
 
-def exponential_noise_scaling(distance, a=0.2, b=0.7):
+def exponential_noise_scaling(distance, a=1, b=0.7):
     return a * np.exp(b * distance)
+
+
+def distance2d(pos1: list[float], pos2: list[float]) -> float:
+    return np.sqrt((pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2)

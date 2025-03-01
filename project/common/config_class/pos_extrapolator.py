@@ -63,6 +63,8 @@ class PosExtrapolatorConfig(BaseModel):
     ]  # Matches `Record<string, Position3D>`
     tag_confidence_threshold: float
 
+    april_tag_discard_distance: float
+
     enable_imu: bool
     enable_odom: bool
     enable_tags: bool

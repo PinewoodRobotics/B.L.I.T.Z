@@ -9,6 +9,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(jsoncpp REQUIRED)
 find_package(tomlplusplus REQUIRED)
 find_package(flann REQUIRED)
+find_package(websocketpp REQUIRED)
+find_package(Protobuf REQUIRED)
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIRS})
 include_directories(${FLANN_INCLUDE_DIRS})
 find_package(PCL REQUIRED COMPONENTS
     common
@@ -20,6 +24,9 @@ find_package(PCL REQUIRED COMPONENTS
     kdtree
     search
 )
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 # Add external dependencies
 
@@ -41,10 +48,13 @@ set_target_properties(unitree_lidar_sdk PROPERTIES
 )
 
 # Include directories
+
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/unitree_lidar/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include/cpp-httplib/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/proto
     ${PCL_INCLUDE_DIRS}
+    ${Protobuf_INCLUDE_DIRS}
 )
 
 # Link libraries
@@ -52,11 +62,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     JsonCpp::JsonCpp
     tomlplusplus::tomlplusplus
     unitree_lidar_sdk
+    websocketpp::websocketpp
+    protobuf::libprotobuf
     ${PCL_LIBRARIES}
 )
 
 # Apply PCL definitions
 add_definitions(${PCL_DEFINITIONS})
 
-add_subdirectory("lidar-test")
-add_subdirectory("tests")
+# add_subdirectory("lidar-test")
+# add_subdirectory("tests")

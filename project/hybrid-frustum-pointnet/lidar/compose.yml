@@ -6,7 +6,5 @@ services:
     ports:
       - "8080:8080"
       - "12345:12345"
-    devices:
-      - /dev/tty.usbserial-02AF546E:/dev/ttyUSB0
     privileged: true
     entrypoint: "sleep inf"

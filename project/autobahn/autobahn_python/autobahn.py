@@ -8,7 +8,7 @@ import asyncio
 class Autobahn:
     def __init__(self, address: Address):
         self.address = address
-        self.websocket = None
+        self.websocket: websockets.ClientConnection | None = None
         self.first_subscription = True
         self.callbacks = {}
 
@@ -19,6 +19,12 @@ class Autobahn:
             raise ConnectionError(
                 f"Failed to connect to WebSocket at {self.address}: {str(e)}"
             )
+
+    async def ping(self):
+        if self.websocket is None:
+            raise ConnectionError("WebSocket not connected. Call begin() first.")
+
+        await self.websocket.ping()
 
     async def publish(self, topic: str, payload: bytes):
         if self.websocket is None:

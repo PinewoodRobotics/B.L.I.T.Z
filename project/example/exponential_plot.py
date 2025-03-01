@@ -6,7 +6,7 @@ x = np.linspace(-2, 8, 100)  # Extended x range to better show the behavior
 
 # Parameters for the exponential function
 a = 1.0  # y-intercept scaling
-b = 0.3  # growth rate (smaller means slower growth)
+b = 0.6  # growth rate (smaller means slower growth)
 
 # Calculate exponential function y = a * e^(bx)
 y = a * np.exp(b * x)

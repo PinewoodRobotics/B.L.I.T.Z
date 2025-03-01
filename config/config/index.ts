@@ -1,10 +1,11 @@
 import type Config from "../schema";
-import baseWhiteCam from "./cameras/base-white-cam";
-import { home_1 } from "./tag_config/home_1";
+import prod1 from "./cameras/prod_1";
+import { comp_lab } from "./tag_config/comp_lab";
 import { buildMatrixFromArray, buildVector } from "./util/math";
 
 const config: Config = {
   pos_extrapolator: {
+    april_tag_discard_distance: 10,
     message_config: {
       post_tag_input_topic: "apriltag/tag",
       post_odometry_input_topic: "robot/odometry",
@@ -12,8 +13,8 @@ const config: Config = {
       post_robot_position_output_topic: "pos-extrapolator/robot-position",
       set_position: "pos-extrapolator/set-position",
     },
-    tag_position_config: home_1,
-    tag_confidence_threshold: 0,
+    tag_position_config: comp_lab,
+    tag_confidence_threshold: 1,
     imu_configs: {
       one: {
         use_position: true,
@@ -47,46 +48,46 @@ const config: Config = {
         [0.0, 0.0, 0.0, 0.0, 1.0],
       ]),
       process_noise_matrix: buildMatrixFromArray<number, 5, 5>([
-        [0.1, 0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.1, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.1, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.1, 0.0],
-        [0.0, 0.0, 0.0, 0.0, 0.1],
+        [0.01, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.01, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.01, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.01, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.01],
       ]),
       dim_x_z: [5, 5],
       sensors: {
         "april-tag": {
           name: "april-tag",
           measurement_conversion_matrix: buildMatrixFromArray<number, 5, 5>([
-            [1.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 1.0],
-          ]),
-          measurement_noise_matrix: buildMatrixFromArray<number, 5, 5>([
             [1, 0.0, 0.0, 0.0, 0.0],
             [0.0, 1, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 10000.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 10000.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 0.2],
+            [0.0, 0.0, 1, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1],
+          ]),
+          measurement_noise_matrix: buildMatrixFromArray<number, 5, 5>([
+            [0.5, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.5, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1000, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1000, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1],
           ]),
         },
         odometry: {
           name: "odometry",
           measurement_conversion_matrix: buildMatrixFromArray<number, 5, 5>([
-            [1.0, 0.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 1.0],
-          ]),
-          measurement_noise_matrix: buildMatrixFromArray<number, 5, 5>([
             [1, 0.0, 0.0, 0.0, 0.0],
             [0.0, 1, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1],
+          ]),
+          measurement_noise_matrix: buildMatrixFromArray<number, 5, 5>([
+            [0.05, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.05, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.01, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.01, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 0.5],
+            [0.0, 0.0, 0.0, 0.0, 0.02],
           ]),
         },
         imu: {
@@ -113,22 +114,28 @@ const config: Config = {
         camera_robot_position: buildVector<number, 3>(0.0, 0.0, 0.1),
         camera_robot_direction: buildVector<number, 3>(0.0, 0.0, -1.0),
       },
+      prod_1: {
+        camera_robot_position: buildVector<number, 3>(0.0, 0.0, 0),
+        camera_robot_direction: buildVector<number, 3>(0.0, 0.0, -1.0),
+        /*        camera_robot_position: buildVector<number, 3>(0.62, 0.0, 0.75),
+        camera_robot_direction: buildVector<number, 3>(0.0, 0.0, -1.0),*/
+      },
     },
     enable_imu: false,
-    enable_odom: false,
+    enable_odom: true,
     enable_tags: true,
   },
   autobahn: {
     host: "localhost",
     port: 8080,
   },
-  cameras: [baseWhiteCam],
+  cameras: [prod1],
   april_detection: {
-    tag_size: 0.2,
+    tag_size: 0.16,
     family: "tag36h11",
-    nthreads: 8,
-    quad_decimate: 1.0,
-    quad_sigma: 0.0,
+    nthreads: 2,
+    quad_decimate: 1,
+    quad_sigma: 0,
     refine_edges: true,
     decode_sharpening: 0.25,
     searchpath: "apriltags",

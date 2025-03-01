@@ -58,7 +58,7 @@ def get_world_pos(
     T_camera_world = np.matmul(T_tag_world, T_camera_tag)
     T_world_camera = np.linalg.inv(T_camera_world)
     _T_world_robot = np.matmul(T_world_camera, T_camera_robot)
-    return np.linalg.inv(_T_world_robot)
+    return np.linalg.inv(T_world_camera)
 
 
 def from_float_list(flat_list: list, rows: int, cols: int) -> np.ndarray:
