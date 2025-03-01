@@ -3,4 +3,7 @@ port_names = ["/dev/ttyUSB0"]
 cloud_scan_num = 16              # higher = more points but slower
 max_point_existence_time_ms = 1000.0 # higher = more points but slower and more memory and less accuracy 
 server_port = 8080
-
+autobahn_host = "127.0.0.1"
+autobahn_port = "8080"
+min_height = -0.5
+max_height = 1.0

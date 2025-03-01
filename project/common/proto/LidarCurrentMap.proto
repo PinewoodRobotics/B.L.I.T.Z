@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+// [x, y, z, timestamp]
+message LidarCurrentMap {
+    repeated float points = 1;
+}

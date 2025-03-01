@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+message Vector3 {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+message QueryFrustumRequest {
+  Vector3 origin = 1;
+  repeated Vector3 directions = 2;  // Must contain exactly 4 directions
+}
+
+message TimestampedPoint {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+  int64 timestamp = 4;
+}
+
+message QueryFrustumResponse {
+  repeated TimestampedPoint points = 1;
+}

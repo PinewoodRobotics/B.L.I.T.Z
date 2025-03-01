@@ -23,26 +23,9 @@ april-server:
 prepare:
 	if [ ! -d "generated" ]; then mkdir generated; fi
 
-generate-proto-cpp-lidar:
-	mkdir -p project/hybrid-frustum-pointnet/lidar/include/proto
-	protoc -I=proto --cpp_out=project/hybrid-frustum-pointnet/lidar/include/proto $(shell find proto -name "*.proto")
-
-generate-proto: prepare
-	protoc -I=proto \
-		--python_out=generated \
-		--pyi_out=generated \
-		$(shell find proto -name "*.proto")
-	
-	protol --create-package --in-place --python-out generated protoc --proto-path=proto/ $(shell find proto -name "*.proto")
-
 position-extrapolator:
-	python project/recognition/position/pos_extrapolator/src/main.py
+	cd project/recognition/position/pos_extrapolator/ && python src/main.py
 
-check-all:
-	ruff check .
-
-check-project:
-	ruff check project/
-
-run-config-ts:
-	npx tsx config/
+generate-proto-lidar:
+	mkdir -p project/hybrid-frustum-pointnet/lidar/include/proto
+	protoc --cpp_out=project/hybrid-frustum-pointnet/lidar/include/proto project/common/proto/*.proto

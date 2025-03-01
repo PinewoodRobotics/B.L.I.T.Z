@@ -52,7 +52,7 @@ set_target_properties(unitree_lidar_sdk PROPERTIES
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/unitree_lidar/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include/cpp-httplib/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/proto
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/proto/project/common/proto
     ${PCL_INCLUDE_DIRS}
     ${Protobuf_INCLUDE_DIRS}
 )
