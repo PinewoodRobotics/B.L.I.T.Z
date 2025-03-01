@@ -34,14 +34,6 @@ class LidarConfig {
       this->max_point_existence_time_ms =
           lidar["max_point_existence_time_ms"].as_floating_point()->get();
       this->server_port = lidar["server_port"].as_integer()->get();
-
-      // Parse autobahn configuration
-      this->autobahn_host = lidar["autobahn_host"].as_string()->get();
-      this->autobahn_port = lidar["autobahn_port"].as_string()->get();
-
-      this->min_height = lidar["min_height"].as_floating_point()->get();
-      this->max_height = lidar["max_height"].as_floating_point()->get();
-
       std::cout << "TOML parsing succeeded." << std::endl;
     } catch (const toml::v3::ex::parse_error &err) {
       std::cerr << "Parsing failed: " << err << "\n";
@@ -53,10 +45,6 @@ class LidarConfig {
   int cloud_scan_num = 0;
   double max_point_existence_time_ms = 0;
   int server_port = 0;
-  std::string autobahn_host = "";
-  std::string autobahn_port = "";
-  float min_height = 0;
-  float max_height = 0;
 };
 
 #endif  // LIDAR_CONFIG_H

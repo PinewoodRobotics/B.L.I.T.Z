@@ -4,4 +4,3 @@
 - [ ] add a pathplanner. This should include both the hybrid a* and normal a*. Add path follower logic.
 - [ ] add autobahn for both c++ and rust
 - [ ] explore the possibility of using a EKF instead of a standard kalman filter
-- [ ] add a proto for the frustum points
