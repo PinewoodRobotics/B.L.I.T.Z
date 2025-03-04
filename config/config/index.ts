@@ -1,6 +1,6 @@
 import type Config from "../schema";
 import prod1 from "./cameras/prod_1";
-import { comp_lab } from "./tag_config/comp_lab";
+import { home_1 } from "./tag_config/home_1";
 import { buildMatrixFromArray, buildVector } from "./util/math";
 
 const config: Config = {
@@ -13,7 +13,7 @@ const config: Config = {
       post_robot_position_output_topic: "pos-extrapolator/robot-position",
       set_position: "pos-extrapolator/set-position",
     },
-    tag_position_config: comp_lab,
+    tag_position_config: home_1,
     tag_confidence_threshold: 1,
     imu_configs: {
       one: {

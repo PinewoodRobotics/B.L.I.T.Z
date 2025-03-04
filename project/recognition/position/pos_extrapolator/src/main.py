@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import time
 import numpy as np
@@ -18,9 +19,13 @@ from project.recognition.position.pos_extrapolator.src.position_extrapolator imp
     PositionExtrapolator,
 )
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--config", type=str, default=None)
+
 
 async def main():
-    config = Config.load_config()
+    args = parser.parse_args()
+    config = Config.from_uncertainty_config(args.config)
 
     autobahn_server = Autobahn(Address("localhost", config.autobahn.port))
     await autobahn_server.begin()

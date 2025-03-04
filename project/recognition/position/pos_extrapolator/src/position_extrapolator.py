@@ -176,8 +176,8 @@ class PositionExtrapolator:
 
         self.filter_strategy.insert_data(
             [
-                data.position.position.y,
                 data.position.position.x,
+                data.position.position.y,
                 data.position.direction.x,
                 data.position.direction.y,
                 data.rotation_rads,

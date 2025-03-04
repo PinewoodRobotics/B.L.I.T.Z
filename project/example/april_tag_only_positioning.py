@@ -44,11 +44,13 @@ async def main():
             pos_msg = Position2d()
             pos_msg.position.x = target_position[0]
             pos_msg.position.y = target_position[1]
-            pos_msg.direction.x = target_direction[0]
-            pos_msg.direction.y = target_direction[1]
+            # Calculate angle and use trig functions for direction
+            angle = np.arctan2(dy, dx)
+            pos_msg.direction.x = np.cos(angle)  # sin component
+            pos_msg.direction.y = np.sin(angle)  # cos component
             await autobahn_server.publish("auto/command", pos_msg.SerializeToString())
             waiting_for_direction[0] = False
-            print(f"Set direction: ({dx:.2f}, {dy:.2f})")
+            print(f"Set direction: (sin={np.sin(angle):.2f}, cos={np.cos(angle):.2f})")
 
     def on_click(x: float, y: float):
         asyncio.create_task(async_on_click(x, y))

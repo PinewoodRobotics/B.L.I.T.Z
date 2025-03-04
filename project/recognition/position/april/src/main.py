@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import random
 import time
@@ -9,7 +10,11 @@ from generated.Image_pb2 import ImageMessage
 from project.autobahn.autobahn_python.autobahn import Autobahn
 from project.autobahn.autobahn_python.util import Address
 from project.common.config import Config
+from project.common.config_class.name import get_system_name
 from project.recognition.position.april.src.camera import DetectionCamera
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--config", type=str, default=None)
 
 
 def build_detector(config: Config):
@@ -25,7 +30,9 @@ def build_detector(config: Config):
 
 
 async def main():
-    config = Config.load_config()
+    args = parser.parse_args()
+    config = Config.from_uncertainty_config(args.config)
+
     detector = build_detector(config)
     autobahn_server = Autobahn(Address("localhost", config.autobahn.port))
 
@@ -67,7 +74,9 @@ async def main():
                 pass
 
     for camera in config.cameras:
-        print(camera)
+        if camera.pi_to_run_on != get_system_name():
+            continue
+
         camera_detector_list.append(
             DetectionCamera(
                 config=camera,

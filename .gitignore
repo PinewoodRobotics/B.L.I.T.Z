@@ -63,3 +63,8 @@ temp/
 ./node_modules/
 ./node_modules
 node_modules/
+
+name.txt
+
+# Logs
+logs/

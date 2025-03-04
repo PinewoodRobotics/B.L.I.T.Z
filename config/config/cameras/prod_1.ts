@@ -2,6 +2,7 @@ import type { CameraParameters } from "../../schema/camera";
 import { buildMatrixFromArray, buildVector } from "../util/math";
 
 const prod1: CameraParameters = {
+  pi_to_run_on: "Tripoli",
   name: "prod_1",
   port: 0,
   flags: 120,
@@ -20,8 +21,6 @@ const prod1: CameraParameters = {
     0.00056713,
     0.00574621
   ),
-  direction_vector: buildVector<number, 3>(0.0, 0.0, -1.0), // From rotation-vector in config
-  position: buildVector<number, 3>(0.0, 0.0, 0.0), // From translation-vector in config
 };
 
 export default prod1;

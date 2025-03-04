@@ -32,3 +32,17 @@ class Config(BaseModel):
             raise RuntimeError(f"Failed to run 'tsc config/': {e}")
         except json.JSONDecodeError as e:
             raise RuntimeError(f"Invalid JSON output from tsc: {e}")
+
+    @classmethod
+    def from_json(cls, file_path: str) -> "Config":
+        with open(file_path, "r") as f:
+            config_json = f.read()
+
+        return Config.model_validate_json(config_json)
+
+    @classmethod
+    def from_uncertainty_config(cls, file_path: str | None = None) -> "Config":
+        if file_path is None:
+            return cls.load_config()
+
+        return cls.from_json(file_path)
