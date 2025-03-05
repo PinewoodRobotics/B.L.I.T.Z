@@ -5,6 +5,7 @@ export interface LidarConfig {
   port: string;
   baudrate: number;
   name: string;
+  is_2d: boolean;
 
   min_distance_meters: number;
   max_distance_meters: number;

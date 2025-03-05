@@ -22,3 +22,6 @@ filterpy
 protobuf
 ruff
 pre-commit
+rplidar-roboticia
+pyinstrument
+protolitrate

@@ -9,7 +9,7 @@ from project.common.autobahn_python.autobahn import Autobahn
 from project.common.autobahn_python.util import Address
 from project.common.config import Config
 from project.common.config_class.name import get_system_name
-from project.lidar_2d.lidar_bridge import LidarBridge
+from project.lidar.lidar_2d.lidar_bridge import LidarBridge
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=str, default=None)
@@ -60,7 +60,9 @@ async def main():
 
         lidar_msg = LidarMessage2d(name=lidar_name, point_cloud=pt_cloud)
 
-        await autobahn.publish("lidar/scan", lidar_msg.SerializeToString())
+        await autobahn.publish(
+            get_system_name() + "/lidar/scan", lidar_msg.SerializeToString()
+        )
 
     while True:
         try:

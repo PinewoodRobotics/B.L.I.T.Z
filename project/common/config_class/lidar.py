@@ -10,6 +10,7 @@ class LidarConfig(BaseModel):
     port: str
     baudrate: int
     name: str
+    is_2d: bool
 
     min_distance_meters: float
     max_distance_meters: float

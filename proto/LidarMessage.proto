@@ -4,6 +4,10 @@ package proto;
 
 import "lidar/lidar.proto";
 
+message LidarMessage {
+    string name = 1;
+}
+
 message LidarMessage2d {
     string name = 1;
     lidar.PointCloud2d point_cloud = 2;
