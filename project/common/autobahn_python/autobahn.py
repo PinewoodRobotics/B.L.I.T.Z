@@ -7,19 +7,58 @@ from project.common.autobahn_python.util import Address
 
 
 class Autobahn:
-    def __init__(self, address: Address):
+    def __init__(
+        self,
+        address: Address,
+        reconnect: bool = True,
+        reconnect_interval_seconds: float = 1.0,
+    ):
         self.address = address
         self.websocket: websockets.ClientConnection | None = None
         self.first_subscription = True
         self.callbacks = {}
+        self.reconnect = reconnect
+        self.reconnect_interval_seconds = reconnect_interval_seconds
 
     async def begin(self):
         try:
-            self.websocket = await websockets.connect(self.address.make_url())
-        except Exception as e:
-            raise ConnectionError(
-                f"Failed to connect to WebSocket at {self.address}: {str(e)}"
-            )
+            self.websocket = await self.__connect()
+        except OSError as e :
+            print(f"Failed to connect to WebSocket at {self.address}: {str(e)}")
+        
+        if self.reconnect:
+            asyncio.create_task(self.__maintain_connection())
+
+
+    async def __connect(self) -> websockets.ClientConnection:    
+        websocket = await websockets.connect(self.address.make_url())
+        
+        if self.callbacks and not self.first_subscription:
+            asyncio.create_task(self.__listener())
+
+        return websocket
+
+    async def __maintain_connection(self):
+        while True:
+            try:
+                if self.websocket is None:
+                    self.websocket = await self.__connect()
+                    
+                    for topic in self.callbacks.keys():
+                        await self.websocket.send(
+                            TopicMessage(
+                                message_type=MessageType.SUBSCRIBE, topic=topic
+                            ).SerializeToString()
+                        )
+                else:
+                    try:
+                        await self.websocket.ping()
+                    except websockets.exceptions.ConnectionClosed | OSError | Exception:
+                        self.websocket = None
+                await asyncio.sleep(self.reconnect_interval_seconds)
+            except Exception as e:
+                print(f"Reconnection attempt failed: {str(e)}")
+                await asyncio.sleep(self.reconnect_interval_seconds)
 
     async def ping(self):
         if self.websocket is None:
@@ -28,19 +67,29 @@ class Autobahn:
         await self.websocket.ping()
 
     async def publish(self, topic: str, payload: bytes):
-        if self.websocket is None:
+        if self.websocket is None and not self.reconnect:
             raise ConnectionError("WebSocket not connected. Call begin() first.")
-
-        message_proto = PublishMessage(
-            message_type=MessageType.PUBLISH,
-            topic=topic,
-            payload=payload,
-        )
-        await self.websocket.send(message_proto.SerializeToString())
+        
+        if self.websocket is not None:
+            message_proto = PublishMessage(
+                message_type=MessageType.PUBLISH,
+                topic=topic,
+                payload=payload,
+            )
+            
+            try:
+                await self.websocket.send(message_proto.SerializeToString())
+            except Exception as e:
+                print(f"Error sending message: {str(e)}")
+                self.websocket = None
 
     async def __listener(self):
-        while self.websocket is not None:
+        while True:
             try:
+                if self.websocket is None:
+                    await asyncio.sleep(0.5)
+                    continue
+
                 message = await self.websocket.recv()
                 if isinstance(message, str):
                     continue
@@ -54,15 +103,17 @@ class Autobahn:
                 break
 
     async def subscribe(self, topic: str, callback: Callable[[bytes], Awaitable[None]]):
-        if self.websocket is None:
+        if self.websocket is None and not self.reconnect:
             raise ConnectionError("WebSocket not connected. Call begin() first.")
-
+        
         self.callbacks[topic] = callback
-        await self.websocket.send(
-            TopicMessage(
-                message_type=MessageType.SUBSCRIBE, topic=topic
-            ).SerializeToString()
-        )
+        
+        if self.websocket is not None:
+            await self.websocket.send(
+                TopicMessage(
+                    message_type=MessageType.SUBSCRIBE, topic=topic
+                ).SerializeToString()
+            )
 
         if self.first_subscription:
             asyncio.create_task(self.__listener())

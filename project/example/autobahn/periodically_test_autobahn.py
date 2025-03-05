@@ -3,8 +3,9 @@ import time
 from collections import deque
 from statistics import mean
 
-from project.autobahn.autobahn_python.autobahn import Autobahn
-from project.autobahn.autobahn_python.util import Address
+from project.common.autobahn_python.autobahn import Autobahn
+from project.common.autobahn_python.util import Address
+
 
 # Store last N measurements for moving average
 WINDOW_SIZE = 10
@@ -29,6 +30,7 @@ async def on_ping_received(payload: bytes):
 async def main():
     autobahn = Autobahn(Address("localhost", 8080))
     await autobahn.begin()
+    
     await autobahn.subscribe("pong", on_ping_received)
 
     try:
