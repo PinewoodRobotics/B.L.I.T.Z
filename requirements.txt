@@ -1,6 +1,4 @@
 colorama
-pyzmq
-toml
 numpy
 opencv-python
 torch
@@ -10,29 +8,17 @@ pyapriltags
 requests
 dataclasses
 Flask
-keyboard
 nats-py
-pyinstrument
-dill
-msgpack_numpy
-msgpack
-protobuf
-opencv-contrib-python
 asyncio
 nest_asyncio
-# open3d # this is a pain to install!
 flask-socketio
 websockets
 pydantic
-construct
 flask-cors
 pyvista
 pygame
 pyserial
 filterpy
-protoletariat
+protobuf
 ruff
 pre-commit
-rplidar-roboticia
-
-# todo: remove bloat

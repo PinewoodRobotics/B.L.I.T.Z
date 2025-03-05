@@ -26,8 +26,6 @@ The documentation of each "module" can be found in the corresponding folders whe
 
 ### Read Me
 
-1. [Autobahn](autobahn/README.md)
-
 ## Goal
 
 The main goal of this is to create a code base such that we can put it on a raspberry pi, run one command, and everything is up and running.
