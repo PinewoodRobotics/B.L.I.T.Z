@@ -10,6 +10,7 @@ export default interface Config {
   pos_extrapolator: PosExtrapolator;
   image_recognition: ImageDetectionConfig;
   cameras: CameraParameters[];
+  lidar_configs: LidarConfig[];
   april_detection: AprilDetectionConfig;
   logger: LoggerConfig;
 }

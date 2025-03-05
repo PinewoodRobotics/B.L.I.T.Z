@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from project.common.config_class.camera_parameters import (
     CameraParameters,
 )
+from project.common.config_class.lidar import LidarConfig
 from project.common.config_class.pos_extrapolator import PosExtrapolatorConfig
 from project.common.config_class.profiler import LoggerConfig
 from project.common.config_class.autobahn import AutobahnConfig
@@ -19,6 +20,7 @@ class Config(BaseModel):
     cameras: list[CameraParameters]
     april_detection: AprilDetectionConfig
     logger: LoggerConfig
+    lidar_configs: list[LidarConfig]
 
     @classmethod
     def load_config(cls, config_path: str = "config/") -> "Config":

@@ -169,6 +169,18 @@ const config: Config = {
       image_output_topic: "",
     },
   },
+  lidar_configs: [
+    {
+      pi_to_run_on: "pi-1",
+      port: "/dev/ttyUSB0",
+      baudrate: 115200,
+      name: "lidar-1",
+      min_distance_meters: 0.1,
+      max_distance_meters: 10.0,
+      position_in_robot: buildVector<number, 3>(0.0, 0.0, 0.0),
+      rotation_in_robot: buildVector<number, 3>(0.0, 0.0, 0.0),
+    },
+  ],
 };
 
 export default config;

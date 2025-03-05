@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package proto;
+
+import "lidar/lidar.proto";
+
+message LidarMessage2d {
+    string name = 1;
+    lidar.PointCloud2d point_cloud = 2;
+}
+
+

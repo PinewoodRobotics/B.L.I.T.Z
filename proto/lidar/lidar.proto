@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package proto.lidar;
+
+message Scan2d {
+    float position_x = 1;
+    float position_y = 2;
+}
+
+message Scan3d {
+    float position_x = 1;
+    float position_y = 2;
+    float position_z = 3;
+}
+
+message PointCloud2d {
+    repeated Scan2d ranges = 1;
+}
+
+message PointCloud3d {
+    repeated Scan3d ranges = 1;
+}
+
+message Health {
+    int32 status = 1;
+    string message = 2;
+}
+

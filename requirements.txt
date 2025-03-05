@@ -33,5 +33,6 @@ filterpy
 protoletariat
 ruff
 pre-commit
+rplidar-roboticia
 
 # todo: remove bloat
