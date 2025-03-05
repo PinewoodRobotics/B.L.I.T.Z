@@ -1,4 +1,4 @@
-from generated.Startup_pb2 import ProcessType
+from generated.WatchDogMessage_pb2 import ProcessType
 import subprocess
 from typing import Optional, List
 
@@ -8,6 +8,10 @@ def start_process(process_type: ProcessType, config_path: str):
     match process_type:
         case ProcessType.POS_EXTRAPOLATOR:
             return start_process_make("position-extrapolator", args)
+        case ProcessType.LIDAR_READER_2D:
+            return start_process_make("lidar-reader-2d", args)
+        case ProcessType.LIDAR_POINT_PROCESSOR:
+            return start_process_make("lidar-point-processor", args)
         case ProcessType.LIDAR_PROCESSING:
             return start_process_make("lidar-processing", args)
         case ProcessType.CAMERA_PROCESSING:
@@ -39,5 +43,5 @@ def start_process_make(process_name: str, extra_args: Optional[List[str]] = None
 
         return process
     except subprocess.SubprocessError as e:
-        print(f"Failed to start position extrapolator: {str(e)}")
+        print(f"Failed to start {process_name}: {str(e)}")
         return None

@@ -14,6 +14,12 @@ ai-server:
 april-server:
 	$(VENV_PYTHON) project/recognition/position/april/src/main.py $(ARGS)
 
+lidar-reader-2d:
+	$(VENV_PYTHON) project/lidar/lidar_2d/main.py $(ARGS)
+
+lidar-point-processor:
+	$(VENV_PYTHON) project/lidar/lidar_point_processor/main.py $(ARGS)
+
 prepare:
 	if [ ! -d "generated" ]; then mkdir generated; fi
 

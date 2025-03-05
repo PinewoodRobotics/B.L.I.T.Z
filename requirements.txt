@@ -24,4 +24,4 @@ ruff
 pre-commit
 rplidar-roboticia
 pyinstrument
-protolitrate
+protoletariat
