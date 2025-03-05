@@ -40,7 +40,7 @@ position-extrapolator:
 	python project/pos_extrapolator/src/main.py $(ARGS)
 
 watchdog:
-	python project/watchdog/src/main.py
+	python project/watchdog/main.py
 
 flash:
 	./scripts/flash.bash $(ARGS)
