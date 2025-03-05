@@ -1,32 +1,25 @@
 export PYTHONPATH := $(shell pwd)
 ARGS ?=
 
+VENV_PYTHON := .venv/bin/python
+
 initiate-project:
-	python -m venv .venv
-	pip install -r requirements.txt
-	pip install -e .
-
-run-multiprocess-2-test:
-	python project/test/april/april_tag_mlti_process_2.py $(ARGS)
-
-run-multiprocess:
-	python project/test/april/april_tag_mult_process.py $(ARGS)
-
-autobahn:
-	cd project/autobahn/autobahn-rust && cargo run -- --config config.toml
+	if [ ! -d ".venv" ]; then python3 -m venv .venv; fi
+	$(VENV_PYTHON) -m pip install -r requirements.txt
+	$(VENV_PYTHON) -m pip install -e .
 
 ai-server:
-	cd project/recognition/detection/image-recognition && python src/main.py $(ARGS)
-
+	cd project/recognition/detection/image-recognition && $(VENV_PYTHON) src/main.py $(ARGS)
+	
 april-server:
-	python project/recognition/position/april/src/main.py $(ARGS)
+	$(VENV_PYTHON) project/recognition/position/april/src/main.py $(ARGS)
 
 prepare:
 	if [ ! -d "generated" ]; then mkdir generated; fi
 
 generate-proto-cpp-lidar:
 	mkdir -p project/hybrid-frustum-pointnet/lidar/include/proto
-	protoc -I=proto --cpp_out=project/hybrid-frustum-pointnet/lidar/include/proto $(shell find proto -name "*.proto")
+	protoc -I=proto --cpp_out=project/hybrid-frustum-pointnet/lidar/include/proto$(find proto -name "*.proto")
 
 generate-proto: prepare
 	protoc -I=proto \
@@ -34,13 +27,13 @@ generate-proto: prepare
 		--pyi_out=generated \
 		$(shell find proto -name "*.proto")
 	
-	protol --create-package --in-place --python-out generated protoc --proto-path=proto/ $(shell find proto -name "*.proto")
+	.venv/bin/protol --create-package --in-place --python-out generated protoc --proto-path=proto/ $(shell find proto -name "*.proto")
 
 position-extrapolator:
-	python project/pos_extrapolator/src/main.py $(ARGS)
+	$(VENV_PYTHON) project/pos_extrapolator/src/main.py $(ARGS)
 
 watchdog:
-	python project/watchdog/main.py
+	$(VENV_PYTHON) project/watchdog/main.py
 
 flash:
 	./scripts/flash.bash $(ARGS)
@@ -53,3 +46,4 @@ check-project:
 
 run-config-ts:
 	npx tsx config/ $(ARGS)
+

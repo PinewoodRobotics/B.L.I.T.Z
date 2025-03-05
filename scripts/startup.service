@@ -5,13 +5,9 @@ After=network.target
 [Service]
 Type=simple
 User=ubuntu
-Environment=PROJECT_DIR=%h/Documents/BLITZ
-WorkingDirectory=%h/Documents/BLITZ
-ExecStart=%h/Documents/BLITZ/scripts/startup.bash
+ExecStart=bash /home/ubuntu/Documents/B.L.I.T.Z/scripts/startup.sh
 Restart=always
 RestartSec=3
-StandardOutput=append:%h/Documents/BLITZ/logs/startup.log
-StandardError=append:%h/Documents/BLITZ/logs/startup.error.log
 
 [Install]
-WantedBy=multi-user.target 
+WantedBy=multi-user.target

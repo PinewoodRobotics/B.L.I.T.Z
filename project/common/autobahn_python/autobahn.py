@@ -1,8 +1,9 @@
 from typing import Awaitable, Callable
 import websockets
 from generated.autobahn.message_pb2 import MessageType, PublishMessage, TopicMessage
-from project.autobahn.autobahn_python.util import Address
 import asyncio
+
+from project.common.autobahn_python.util import Address
 
 
 class Autobahn:

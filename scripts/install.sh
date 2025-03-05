@@ -31,7 +31,10 @@ echo "${name}" > "${output_file}"
 
 echo "Successfully created ${output_file}"
 
-sudo cp startup.service /etc/systemd/system/
+make initiate-project
+make generate-proto
+
+sudo cp scripts/startup.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable startup.service
-sudo systemctl start startup.service
+sudo systemctl enable startup
+sudo systemctl restart startup

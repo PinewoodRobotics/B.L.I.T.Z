@@ -20,7 +20,7 @@ protobuf
 opencv-contrib-python
 asyncio
 nest_asyncio
-open3d
+# open3d # this is a pain to install!
 flask-socketio
 websockets
 pydantic
@@ -33,3 +33,5 @@ filterpy
 protoletariat
 ruff
 pre-commit
+
+# todo: remove bloat
