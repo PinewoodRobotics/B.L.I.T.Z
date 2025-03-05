@@ -1,14 +1,12 @@
 import asyncio
-from typing import Awaitable, Callable, Dict, List
 import subprocess
-from project.autobahn.autobahn_python.autobahn import Autobahn
-from project.autobahn.autobahn_python.util import Address
+from typing import Awaitable, Callable, Dict, List
+
+from generated.Startup_pb2 import (MessageRetrievalConfirmation, ProcessType,
+                                   StartupMessage)
+from project.common.autobahn_python.autobahn import Autobahn
+from project.common.autobahn_python.util import Address
 from project.watchdog.process_starter import start_process, start_process_make
-from generated.Startup_pb2 import (
-    MessageRetrievalConfirmation,
-    ProcessType,
-    StartupMessage,
-)
 
 CONFIG_PATH = "config/"
 AUTOBAHN_RETRY_THRESHOLD = 2

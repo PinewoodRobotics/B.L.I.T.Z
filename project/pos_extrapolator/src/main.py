@@ -1,23 +1,21 @@
 import argparse
 import asyncio
 import time
+
 import numpy as np
 
-from generated.util.vector_pb2 import Vector2
-from generated.util.position_pb2 import Position2d
-from project.autobahn.autobahn_python.autobahn import Autobahn
-from project.autobahn.autobahn_python.util import Address
-from project.common.config import Config
 from generated.AprilTag_pb2 import AprilTags
 from generated.Imu_pb2 import Imu
 from generated.Odometry_pb2 import Odometry
-from project.recognition.position.pos_extrapolator.src.kalman_filter import (
-    KalmanFilterStrategy,
-)
 from generated.RobotPosition_pb2 import RobotPosition
-from project.recognition.position.pos_extrapolator.src.position_extrapolator import (
-    PositionExtrapolator,
-)
+from generated.util.position_pb2 import Position2d
+from generated.util.vector_pb2 import Vector2
+from project.common.autobahn_python.autobahn import Autobahn
+from project.common.autobahn_python.util import Address
+from project.common.config import Config
+from project.pos_extrapolator.src.kalman_filter import KalmanFilterStrategy
+from project.pos_extrapolator.src.position_extrapolator import \
+    PositionExtrapolator
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=str, default=None)

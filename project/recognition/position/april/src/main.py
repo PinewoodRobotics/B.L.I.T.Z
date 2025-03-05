@@ -2,13 +2,14 @@ import argparse
 import asyncio
 import random
 import time
+
 import cv2
 import numpy as np
 import pyapriltags
 
 from generated.Image_pb2 import ImageMessage
-from project.autobahn.autobahn_python.autobahn import Autobahn
-from project.autobahn.autobahn_python.util import Address
+from project.common.autobahn_python.autobahn import Autobahn
+from project.common.autobahn_python.util import Address
 from project.common.config import Config
 from project.common.config_class.name import get_system_name
 from project.recognition.position.april.src.camera import DetectionCamera

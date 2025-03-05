@@ -37,7 +37,7 @@ generate-proto: prepare
 	protol --create-package --in-place --python-out generated protoc --proto-path=proto/ $(shell find proto -name "*.proto")
 
 position-extrapolator:
-	python project/recognition/position/pos_extrapolator/src/main.py $(ARGS)
+	python project/pos_extrapolator/src/main.py $(ARGS)
 
 watchdog:
 	python project/watchdog/src/main.py
