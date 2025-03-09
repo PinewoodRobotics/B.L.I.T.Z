@@ -1,4 +1,4 @@
-import math
+import time
 import cv2
 import numpy as np
 import pyapriltags
@@ -17,9 +17,6 @@ real_world_corners = np.array([
     [TAG_SIZE_M / 2, TAG_SIZE_M / 2], # bottom right
 ], dtype=np.float32)
 
-VISUALIZATION_SCALE = 100  # pixels per meter
-VIS_SIZE = 400  # pixels
-
 def get_detector():
     return pyapriltags.Detector(
         families="tag36h11",
@@ -28,15 +25,31 @@ def get_detector():
         quad_sigma=0.0,
     )
 
+def solve_position(corners: np.ndarray, tag_size: float, camera_matrix: np.ndarray, dist_coeff: np.ndarray):
+    # start_time = time.time()
+    undistorted_points = cv2.undistortPoints(corners, camera_matrix, dist_coeff)
+    undistorted_points = (undistorted_points @ camera_matrix[:2, :2].T) + camera_matrix[:2, 2]
+    
+    obj_pts = np.array([
+        [-tag_size/2, -tag_size/2, 0],
+        [ tag_size/2, -tag_size/2, 0],
+        [ tag_size/2,  tag_size/2, 0],
+        [-tag_size/2,  tag_size/2, 0]
+    ], dtype=np.float32)
+
+    ret, rvec, tvec = cv2.solvePnP(obj_pts, undistorted_points.reshape(4,1,2), camera_matrix, dist_coeff, flags=cv2.SOLVEPNP_ITERATIVE)
+    tvec = tvec.flatten() if tvec is not None else None
+    rvec = rvec.flatten() if rvec is not None else None
+    _ = time.time()
+    print(undistorted_points)
+    return tvec, rvec
+
 def main():
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv2.CAP_PROP_FPS, 30)
     detector = get_detector()
-
-    # Create top-down visualization window
-    vis = np.ones((VIS_SIZE, VIS_SIZE, 3), dtype=np.uint8) * 255
     
     while True:
         ret, frame = cap.read()
@@ -47,49 +60,25 @@ def main():
             CAMERA_MATRIX[0, 2],
             CAMERA_MATRIX[1, 2],
         )
-        tags = detector.detect(gray, estimate_tag_pose=True, camera_params=(fx, fy, cx, cy), tag_size=TAG_SIZE_M)
-
-        # Clear visualization
-        vis.fill(255)
-        # Draw coordinate system
-        center = VIS_SIZE // 2
-        cv2.line(vis, (center, 0), (center, VIS_SIZE), (200, 200, 200), 1)
-        cv2.line(vis, (0, center), (VIS_SIZE, center), (200, 200, 200), 1)
-
+        unfisheye_image = cv2.undistort(gray, CAMERA_MATRIX, DIST_COEFF)
+        tags = detector.detect(unfisheye_image, estimate_tag_pose=True, camera_params=((fx, fy, cx, cy)), tag_size=TAG_SIZE_M)
+        tags1 = detector.detect(gray)
         for tag in tags:
             for corner in tag.corners:
                 cv2.circle(frame, (int(corner[0]), int(corner[1])), 5, (0, 0, 255), -1)
-            
-            camera_position, rot_matrix = tag.pose_t, tag.pose_R
-            if camera_position is not None and rot_matrix is not None:
-                # Camera view text
-                text = f"x: {float(camera_position[0]):.2f}, y: {float(camera_position[1]):.2f}, z: {float(camera_position[2]):.2f}"
-                cv2.putText(frame, text, (int(tag.corners[0][0]), int(tag.corners[0][1])), 
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-                # Top-down view
-                px = int(center + camera_position[0] * VISUALIZATION_SCALE)
-                py = int(center - camera_position[2] * VISUALIZATION_SCALE)  # Using z for forward direction
-                
-                # Draw camera position
-                cv2.circle(vis, (px, py), 5, (0, 0, 255), -1)
-                
-                # Calculate heading from rotation matrix
-                heading = math.atan2(rot_matrix[2, 0], rot_matrix[0, 0])
-                
-                # Draw camera direction
-                direction_x = int(20 * math.cos(heading))
-                direction_y = int(-20 * math.sin(heading))
-                cv2.line(vis, (px, py), (px + direction_x, py + direction_y), (0, 0, 255), 2)
-                
-                # Draw tag ID
-                cv2.putText(vis, f"Tag {tag.tag_id}", (px + 10, py + 10), 
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+            if tag.pose_t is not None and tag.pose_R is not None:
+                text1 = f"x: {float(tag.pose_t[0]):.4f}, y: {float(tag.pose_t[1]):.4f}, z: {float(tag.pose_t[2]):.4f}"
+                cv2.putText(frame, text1, (int(tag.corners[0][0]) + 20, int(tag.corners[0][1]) + 20), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         
-        cv2.imshow("Camera View", frame)
-        cv2.imshow("Top-Down View", vis)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        for tag in tags1:
+            tvec, rvec = solve_position(tag.corners, TAG_SIZE_M, CAMERA_MATRIX, DIST_COEFF)
+            text = f"x: {float(tvec[0]):.4f}, y: {float(tvec[1]):.4f}, z: {float(tvec[2]):.4f}"
+            cv2.putText(frame, text, (int(tag.corners[0][0]), int(tag.corners[0][1])), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            # cv2.circle(frame, (int(corner[0]), int(corner[1])), 5, (0, 0, 255), -1)
+        cv2.imshow("frame", frame)
+        cv2.waitKey(1)
 
 if __name__ == "__main__":
     main()

@@ -6,11 +6,23 @@ import cv2
 import numpy as np
 import pyapriltags
 from generated.AprilTag_pb2 import AprilTags
-from project.common.camera.transform import unfisheye_image
 from project.common.config_class.camera_parameters import (
     CameraParameters,
 )
 from project.recognition.position.april.src.util import from_detection_to_proto
+
+def solve_position(corners: np.ndarray, tag_size: float, camera_matrix: np.ndarray, dist_coeff: np.ndarray):
+    obj_pts = np.array([
+        [-tag_size/2, -tag_size/2, 0],
+        [ tag_size/2, -tag_size/2, 0],
+        [ tag_size/2,  tag_size/2, 0],
+        [-tag_size/2,  tag_size/2, 0]
+    ], dtype=np.float32)
+
+    ret, rvec, tvec = cv2.solvePnP(obj_pts, corners.reshape(4,1,2), camera_matrix, dist_coeff, flags=cv2.SOLVEPNP_IPPE_SQUARE)
+    tvec = tvec.flatten() if tvec is not None else None
+    rvec = rvec.flatten() if rvec is not None else None
+    return tvec, rvec
 
 
 ## TODO: add a config for removing colors.
@@ -74,7 +86,7 @@ class DetectionCamera:
         new_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         newcameramtx = None
         if undistort:
-            new_frame, newcameramtx = unfisheye_image(
+            new_frame, newcameramtx = cv2.undistort(
                 new_frame, self.get_matrix(), self.get_dist_coeff()
             )
         
