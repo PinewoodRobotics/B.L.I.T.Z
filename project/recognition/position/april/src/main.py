@@ -60,7 +60,7 @@ async def main():
     async def process_queue():
         while True:
             try:
-                tags = queue_tag.get_nowait()
+                tags = await queue_tag.get()
                 await autobahn_server.publish(
                     config.april_detection.message.post_tag_output_topic,
                     tags.SerializeToString(),

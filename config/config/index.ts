@@ -174,6 +174,7 @@ const config: Config = {
       pi_to_run_on: "pi-1",
       port: "/dev/ttyUSB0",
       baudrate: 115200,
+      is_2d: false,
       name: "lidar-1",
       min_distance_meters: 0.1,
       max_distance_meters: 10.0,

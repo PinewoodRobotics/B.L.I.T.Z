@@ -28,14 +28,16 @@ class DetectionCamera:
         self.tag_size = tag_size
         self.publication_lambda = publication_lambda
         self.publication_image_lambda = publication_image_lambda
-        self.video_capture = cv2.VideoCapture(
-            self.config.port, cv2.CAP_AVFOUNDATION
-        )  # AVFOUNDATION = 120
+        
+        self.video_capture = cv2.VideoCapture(self.config.port)
+        self.video_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG')) # type: ignore
         self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)  # 640
         self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.height)  # 480
         self.video_capture.set(cv2.CAP_PROP_FPS, self.config.max_fps)  # 100
 
         self.ret, self.frame = self.video_capture.read()
+        
+        self.last_frame_date = 0
 
         self.running = True
         self.thread = threading.Thread(target=self._update)
@@ -48,31 +50,35 @@ class DetectionCamera:
     def _update(self):
         while self.running:
             self.ret, self.frame = self.video_capture.read()
-            if self.ret:
-                self.publication_image_lambda(self.frame)
-                start = time.time() * 1000
-                gray, newcameramtx = self._transform_frame(self.frame)
-                found_tags = self.process_image(
-                    gray,
-                    newcameramtx,
-                    self.detector,
-                    self.tag_size,
-                    self.config.name,
-                )
+            
+            if not self.ret or time.time() * 1000 - self.last_frame_date < (1000 / self.config.max_fps) - 5:
+                continue
+            
+            self.last_frame_date = time.time() * 1000
+            
+            
+            gray, newcameramtx = self._transform_frame(self.frame)
+            found_tags = self.process_image(
+                gray,
+                self.get_matrix() if newcameramtx is None else newcameramtx,
+                self.detector,
+                self.tag_size,
+                self.config.name,
+            )
 
-                if len(found_tags.tags) > 0:
-                    self.publication_lambda(found_tags)
-                    print(f"Found {len(found_tags.tags)} tags")
+            if len(found_tags.tags) > 0:
+                self.publication_lambda(found_tags)
+                print(f"Found {len(found_tags.tags)} tags")
 
-                print(f"Time taken: {time.time() * 1000 - start}")
-
-    def _transform_frame(self, frame: np.ndarray):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        undistorted, newcameramtx = unfisheye_image(
-            gray, self.get_matrix(), self.get_dist_coeff()
-        )
-
-        return undistorted, newcameramtx
+    def _transform_frame(self, frame: np.ndarray, undistort: bool = True):
+        new_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        newcameramtx = None
+        if undistort:
+            new_frame, newcameramtx = unfisheye_image(
+                new_frame, self.get_matrix(), self.get_dist_coeff()
+            )
+        
+        return new_frame, newcameramtx
 
     def process_image(
         self,

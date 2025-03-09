@@ -53,10 +53,11 @@ class Autobahn:
                 else:
                     try:
                         await self.websocket.ping()
-                    except websockets.exceptions.ConnectionClosed | OSError | Exception:
+                    except websockets.exceptions.ConnectionClosed:
                         self.websocket = None
+                        print("Reconnecting...")
                 await asyncio.sleep(self.reconnect_interval_seconds)
-            except Exception as e:
+            except ConnectionError as e:
                 print(f"Reconnection attempt failed: {str(e)}")
                 await asyncio.sleep(self.reconnect_interval_seconds)
 

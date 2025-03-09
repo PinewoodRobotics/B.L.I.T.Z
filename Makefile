@@ -12,7 +12,7 @@ ai-server:
 	cd project/recognition/detection/image-recognition && $(VENV_PYTHON) src/main.py $(ARGS)
 	
 april-server:
-	$(VENV_PYTHON) project/recognition/position/april/src/main.py $(ARGS)
+	$(VENV_PYTHON) -u project/recognition/position/april/src/main.py $(ARGS)
 
 lidar-reader-2d:
 	$(VENV_PYTHON) project/lidar/lidar_2d/main.py $(ARGS)
@@ -36,10 +36,10 @@ generate-proto: prepare
 	.venv/bin/protol --create-package --in-place --python-out generated protoc --proto-path=proto/ $(shell find proto -name "*.proto")
 
 position-extrapolator:
-	$(VENV_PYTHON) project/pos_extrapolator/src/main.py $(ARGS)
+	$(VENV_PYTHON) -u project/pos_extrapolator/src/main.py $(ARGS)
 
 watchdog:
-	$(VENV_PYTHON) project/watchdog/main.py
+	$(VENV_PYTHON) -u project/watchdog/main.py
 
 flash:
 	./scripts/flash.bash $(ARGS)
