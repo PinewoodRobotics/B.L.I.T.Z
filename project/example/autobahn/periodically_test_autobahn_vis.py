@@ -4,8 +4,9 @@ from collections import deque
 from statistics import mean
 import pygame
 
-from project.autobahn.autobahn_python.autobahn import Autobahn
-from project.autobahn.autobahn_python.util import Address
+from project.common.autobahn_python.autobahn import Autobahn
+from project.common.autobahn_python.util import Address
+
 
 # Store last N measurements for moving average
 WINDOW_SIZE = 100

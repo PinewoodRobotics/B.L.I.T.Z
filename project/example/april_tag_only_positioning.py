@@ -2,15 +2,15 @@ import asyncio
 import cv2
 import numpy as np
 from generated.util.position_pb2 import Position2d
-from project.autobahn.autobahn_python.autobahn import Autobahn
-from project.autobahn.autobahn_python.util import Address
+from project.common.autobahn_python.autobahn import Autobahn
+from project.common.autobahn_python.util import Address
 from project.example.util.render.position_render_game import PositionVisualizerGame
 from generated.Image_pb2 import ImageMessage
 from generated.RobotPosition_pb2 import RobotPosition
 
 
 async def main():
-    autobahn_server = Autobahn(Address("localhost", 8080))
+    autobahn_server = Autobahn(Address("10.47.65.7", 8080))
     await autobahn_server.begin()
     stop_event = asyncio.Event()
 
