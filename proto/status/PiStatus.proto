@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package proto.status;
+
+message PiProcess {
+    string name = 1;
+    int32 pid = 2;
+    float cpu_usage = 3;
+}
+
+message PiStatus {
+    string pi_name = 1;
+
+    repeated float cpu_usage_cores = 3;
+    float cpu_usage_total = 4;
+
+    float memory_usage = 5;
+    float disk_usage = 6;
+
+    float net_usage_in = 7;
+    float net_usage_out = 8;
+
+    repeated PiProcess top_10_processes = 9;
+}

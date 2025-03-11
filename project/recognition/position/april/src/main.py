@@ -1,7 +1,9 @@
 import argparse
 import asyncio
+from multiprocessing import Queue
 import random
 import time
+import signal
 
 import cv2
 import numpy as np
@@ -35,7 +37,7 @@ async def main():
     config = Config.from_uncertainty_config(args.config)
 
     detector = build_detector(config)
-    autobahn_server = Autobahn(Address("localhost", config.autobahn.port))
+    autobahn_server = Autobahn(Address(config.autobahn.host, config.autobahn.port))
 
     async def publish_image(image: np.ndarray, camera_name: str):
         nonlocal autobahn_server, config
@@ -54,25 +56,16 @@ async def main():
 
     await autobahn_server.begin()
     camera_detector_list = []
-    queue_tag = asyncio.Queue()
-    queue_image = asyncio.Queue()
-
-    async def process_queue():
-        while True:
-            try:
-                tags = await queue_tag.get()
-                await autobahn_server.publish(
-                    config.april_detection.message.post_tag_output_topic,
-                    tags.SerializeToString(),
-                )
-            except asyncio.QueueEmpty:
-                pass
-
-            try:
-                queue_item = queue_image.get_nowait()
-                await publish_image(queue_item[0], queue_item[1])
-            except asyncio.QueueEmpty:
-                pass
+    
+    def signal_handler(signum, frame):
+        nonlocal running
+        running = False
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    queue_tag = Queue()
+    queue_image = Queue()
 
     for camera in config.cameras:
         if camera.pi_to_run_on != get_system_name():
@@ -83,14 +76,33 @@ async def main():
                 config=camera,
                 tag_size=config.april_detection.tag_size,
                 detector=detector,
-                publication_lambda=lambda tags: queue_tag.put_nowait(tags),
-                publication_image_lambda=lambda image: queue_image.put_nowait(
+                publication_lambda=lambda tags: queue_tag.put(tags),
+                publication_image_lambda=lambda image: queue_image.put(
                     (image, camera.name)
                 ),
             )
         )
+        
+    running = True
+    while running:
+        try:
+            tags = await asyncio.to_thread(queue_tag.get)
+            await autobahn_server.publish(
+                config.april_detection.message.post_tag_output_topic,
+                tags.SerializeToString(),
+            )
+        except Exception:
+            if not running:
+                break
+            continue
 
-    await process_queue()
+        '''
+        try:
+            queue_item = queue_image.get_nowait()
+            await publish_image(queue_item[0], queue_item[1])
+        except asyncio.QueueEmpty:
+            pass
+        '''
 
 
 if __name__ == "__main__":

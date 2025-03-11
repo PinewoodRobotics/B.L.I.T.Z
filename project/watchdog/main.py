@@ -8,21 +8,29 @@ import psutil
 from generated.WatchDogMessage_pb2 import (AbortMessage,
                                            MessageRetrievalConfirmation,
                                            ProcessType, StartupMessage)
+from generated.status.PiStatus_pb2 import PiProcess, PiStatus
 from project.common.autobahn_python.autobahn import Autobahn
 from project.common.autobahn_python.util import Address
+from project.common.config import Config
 from project.common.config_class.name import get_system_name
 from project.watchdog.process_starter import start_process
 
 CONFIG_PATH = "config/config.json"
 LOGGING = True
 
+def get_top_10_processes() -> list[psutil.Process]:
+    processes = sorted(
+        psutil.process_iter(attrs=['pid', 'name', 'cpu_percent']),
+        key=lambda p: p.info['cpu_percent'],
+        reverse=True
+    )
+    
+    return processes[:10]
 
 def log(message: str):
     global LOGGING
     if LOGGING:
         sys.stderr.write(message + "\n")
-
-
 class ProcessMonitor:
     def __init__(self):
         self.processes: Dict[ProcessType, subprocess.Popen] = {}
@@ -37,6 +45,18 @@ class ProcessMonitor:
         if process:
             self.processes[process_type] = process
             asyncio.create_task(self.monitor_process(process_type))
+    
+    def ping_processes_and_get_alive(self):
+        alive_processes = []
+        for process_type, process in self.processes.items():
+            try:
+                process.poll()
+                if process.poll() is None:
+                    alive_processes.append(process_type)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                log(f"Process {process_type} already dead or inaccessible")
+
+        return alive_processes
 
 
     def stop_process(self, process_type: ProcessType):
@@ -100,14 +120,19 @@ async def main():
     autobahn_server = Autobahn(Address("localhost", 8080))
     process_monitor = ProcessMonitor()
     await autobahn_server.begin()
+    
+    config: Config | None = None
 
     async def config_input(data: bytes):
-        log("Received config")
+        nonlocal config
+        
         startup_message = StartupMessage()
         startup_message.ParseFromString(data)
 
         with open(CONFIG_PATH, "w") as f:
             f.write(startup_message.json_config)
+        
+        config = Config.from_json(CONFIG_PATH)
 
         if startup_message.abort_previous:
             log("Aborting previous processes")
@@ -117,11 +142,38 @@ async def main():
             log("Starting process " + str(process_type))
             await process_monitor.start_and_monitor_process(process_type, CONFIG_PATH)
 
-        log("Sent out!")
         await autobahn_server.publish(
             get_system_name() + "/watchdog/message_retrieval_confirmation",
             MessageRetrievalConfirmation(received=True).SerializeToString(),
         )
+        
+    async def process_watcher():
+        while True:
+            if config and config.watchdog.send_stats:
+                cpu_per_core = psutil.cpu_percent(interval=1, percpu=True)
+                cpu_usage_total = psutil.cpu_percent(interval=1)
+                memory = psutil.virtual_memory()
+                disk_info = psutil.disk_usage('/')
+                net_info = psutil.net_io_counters()
+                top_10_processes = get_top_10_processes()
+                pi_status = PiStatus(
+                    pi_name=get_system_name(),
+                    cpu_usage_cores=cpu_per_core,
+                    cpu_usage_total=cpu_usage_total,
+                    memory_usage=memory.percent,
+                    disk_usage=disk_info.percent,
+                    net_usage_in=net_info.bytes_recv,
+                    net_usage_out=net_info.bytes_sent,
+                    top_10_processes=[PiProcess(name=process.name(), pid=process.pid, cpu_usage=process.cpu_percent()) for process in top_10_processes],
+                )
+                
+                await autobahn_server.publish(
+                    config.watchdog.stats_publish_topic,
+                    pi_status.SerializeToString(),
+                )
+                
+            
+            await asyncio.sleep(config.watchdog.stats_interval_seconds if config and config.watchdog.send_stats else 1)
 
     async def abort_input(data: bytes):
         abort_message = AbortMessage()
@@ -134,8 +186,7 @@ async def main():
     await autobahn_server.subscribe("config", config_input)
     await autobahn_server.subscribe("abort", abort_input)
 
-    while True:
-        await asyncio.sleep(1)
+    await process_watcher()
 
 
 if __name__ == "__main__":

@@ -25,3 +25,6 @@ pre-commit
 rplidar-roboticia
 pyinstrument
 protoletariat
+psutil
+plotly
+dash

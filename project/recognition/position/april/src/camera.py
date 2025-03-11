@@ -11,21 +11,6 @@ from project.common.config_class.camera_parameters import (
 )
 from project.recognition.position.april.src.util import from_detection_to_proto
 
-def solve_position(corners: np.ndarray, tag_size: float, camera_matrix: np.ndarray, dist_coeff: np.ndarray):
-    obj_pts = np.array([
-        [-tag_size/2, -tag_size/2, 0],
-        [ tag_size/2, -tag_size/2, 0],
-        [ tag_size/2,  tag_size/2, 0],
-        [-tag_size/2,  tag_size/2, 0]
-    ], dtype=np.float32)
-
-    ret, rvec, tvec = cv2.solvePnP(obj_pts, corners.reshape(4,1,2), camera_matrix, dist_coeff, flags=cv2.SOLVEPNP_IPPE_SQUARE)
-    tvec = tvec.flatten() if tvec is not None else None
-    rvec = rvec.flatten() if rvec is not None else None
-    return tvec, rvec
-
-
-## TODO: add a config for removing colors.
 class DetectionCamera:
     def __init__(
         self,
@@ -63,16 +48,12 @@ class DetectionCamera:
         while self.running:
             self.ret, self.frame = self.video_capture.read()
             
-            if not self.ret or time.time() * 1000 - self.last_frame_date < (1000 / self.config.max_fps) - 5:
-                continue
+            self.publication_image_lambda(self.frame)
             
-            self.last_frame_date = time.time() * 1000
-            
-            
-            gray, newcameramtx = self._transform_frame(self.frame)
+            gray = self._transform_frame(self.frame)
             found_tags = self.process_image(
                 gray,
-                self.get_matrix() if newcameramtx is None else newcameramtx,
+                self.get_matrix(),
                 self.detector,
                 self.tag_size,
                 self.config.name,
@@ -80,17 +61,14 @@ class DetectionCamera:
 
             if len(found_tags.tags) > 0:
                 self.publication_lambda(found_tags)
-                print(f"Found {len(found_tags.tags)} tags")
 
-    def _transform_frame(self, frame: np.ndarray, undistort: bool = True):
+    def _transform_frame(self, frame: np.ndarray):
         new_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        newcameramtx = None
-        if undistort:
-            new_frame, newcameramtx = cv2.undistort(
-                new_frame, self.get_matrix(), self.get_dist_coeff()
-            )
+        new_frame = cv2.undistort(
+            new_frame, self.get_matrix(), self.get_dist_coeff()
+        )
         
-        return new_frame, newcameramtx
+        return new_frame
 
     def process_image(
         self,

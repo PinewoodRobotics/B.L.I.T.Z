@@ -182,6 +182,11 @@ const config: Config = {
       rotation_in_robot: buildVector<number, 3>(0.0, 0.0, 0.0),
     },
   ],
+  watchdog: {
+    send_stats: true,
+    stats_interval_seconds: 1,
+    stats_publish_topic: "stats/publish",
+  },
 };
 
 export default config;

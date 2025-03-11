@@ -11,9 +11,11 @@ from project.common.config_class.profiler import LoggerConfig
 from project.common.config_class.autobahn import AutobahnConfig
 from project.common.config_class.image_recognition import ImageRecognitionConfig
 from project.common.config_class.april_detection import AprilDetectionConfig
+from project.common.config_class.watchdog import WatchdogConfig
 
 
 class Config(BaseModel):
+    watchdog: WatchdogConfig
     autobahn: AutobahnConfig
     pos_extrapolator: PosExtrapolatorConfig
     image_recognition: ImageRecognitionConfig
