@@ -101,7 +101,7 @@ class Autobahn:
                         await self.callbacks[message_proto.topic](message_proto.payload)
             except Exception as e:
                 print(f"Error in listener: {str(e)}")
-                break
+                continue
 
     async def subscribe(self, topic: str, callback: Callable[[bytes], Awaitable[None]]):
         if self.websocket is None and not self.reconnect:
