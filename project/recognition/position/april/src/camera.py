@@ -71,10 +71,6 @@ class DetectionCamera:
 
             if len(found_tags.tags) > 0:
                 self.publication_lambda(found_tags.SerializeToString())
-            
-            if self.frame_counter >= 100:
-                self.detector = self.detector_builder()
-                self.frame_counter = 0
                 
     def process_image(
         self,

@@ -66,14 +66,11 @@ async def main():
         # Clean up queues
         while not queue_tag.empty():
             queue_tag.get()
-        while not queue_image.empty():
-            queue_image.get()
     
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
     queue_tag = Queue()
-    queue_image = Queue()
 
     for camera in config.cameras:
         if camera.pi_to_run_on != get_system_name():
@@ -87,9 +84,7 @@ async def main():
                 tag_size=config.april_detection.tag_size,
                 detector_builder=lambda: build_detector(config),
                 publication_lambda=lambda tags: queue_tag.put(tags),
-                publication_image_lambda=lambda image: queue_image.put(
-                    (image, camera.name)
-                ),
+                publication_image_lambda=lambda image: None,
             )
         )
         
@@ -103,11 +98,13 @@ async def main():
                 tags,
             )
 
+            '''
             try:
                 queue_item = await asyncio.to_thread(lambda: queue_image.get(timeout=0.05))
                 await publish_image(queue_item[0], queue_item[1])
             except Exception:
                 pass
+            '''
 
         except Exception:
             if not running:
