@@ -13,6 +13,10 @@ class Mode(str, Enum):
     DETECTION = "detection"
 
 
+class MessageConfig(BaseModel):
+    image_input_topic: str
+    inference_output_topic: str
+
 class TrainingConfig(BaseModel):
     imgsz: int
     epochs: int
@@ -22,6 +26,10 @@ class TrainingConfig(BaseModel):
 class DetectionConfig(BaseModel):
     image_input_topic: str
     image_output_topic: str
+    
+    conf_threshold: float = 0.25  # Default confidence threshold
+    iou_threshold: float = 0.45   # Default IOU threshold
+    batch_size: int = 1           # Default batch size
 
 
 class ImageRecognitionConfig(BaseModel):
@@ -30,3 +38,6 @@ class ImageRecognitionConfig(BaseModel):
     mode: Mode
     training: TrainingConfig
     detection: DetectionConfig
+    throwaway_time_ms: int = 250
+    
+    message_config: MessageConfig
