@@ -36,7 +36,6 @@ async def main():
     args = parser.parse_args()
     config = Config.from_uncertainty_config(args.config)
 
-    detector = build_detector(config)
     autobahn_server = Autobahn(Address("10.47.65.7", config.autobahn.port))
 
     async def publish_image(image: np.ndarray, camera_name: str):
@@ -86,7 +85,7 @@ async def main():
             DetectionCamera(
                 config=camera,
                 tag_size=config.april_detection.tag_size,
-                detector=detector,
+                detector_builder=lambda: build_detector(config),
                 publication_lambda=lambda tags: queue_tag.put(tags),
                 publication_image_lambda=lambda image: queue_image.put(
                     (image, camera.name)
@@ -98,14 +97,14 @@ async def main():
     while running:
         try:
             # Use timeout to allow checking running flag
-            tags = await asyncio.to_thread(lambda: queue_tag.get(timeout=0.1))
+            tags = await asyncio.to_thread(lambda: queue_tag.get(timeout=0.05))
             await autobahn_server.publish(
                 config.april_detection.message.post_tag_output_topic,
                 tags.SerializeToString(),
             )
 
             try:
-                queue_item = await asyncio.to_thread(lambda: queue_image.get_nowait())
+                queue_item = await asyncio.to_thread(lambda: queue_image.get(timeout=0.05))
                 await publish_image(queue_item[0], queue_item[1])
             except Exception:
                 pass

@@ -98,7 +98,7 @@ async def main():
 
 if __name__ == "__main__":
     # Run the Dash app in a separate thread
-    dashboard_thread = threading.Thread(target=app.run_server, daemon=True)
+    dashboard_thread = threading.Thread(target=app.run_server, daemon=False)
     dashboard_thread.start()
     
     try:

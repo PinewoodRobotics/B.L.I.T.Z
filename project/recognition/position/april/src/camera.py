@@ -16,12 +16,13 @@ class DetectionCamera:
         self,
         config: CameraParameters,
         tag_size: float,
-        detector: pyapriltags.Detector,
+        detector_builder: Callable[[], pyapriltags.Detector],
         publication_lambda: Callable[[AprilTags], None],
         publication_image_lambda: Callable[[np.ndarray], None],
     ):
         self.config = config
-        self.detector = detector
+        self.detector_builder = detector_builder
+        self.detector = detector_builder()
         self.tag_size = tag_size
         self.publication_lambda = publication_lambda
         self.publication_image_lambda = publication_image_lambda
@@ -36,6 +37,7 @@ class DetectionCamera:
         self.ret, self.frame = self.video_capture.read()
         
         self.last_frame_date = 0
+        self.frame_counter = 0
 
         self.running = True
         self.thread = threading.Thread(target=self._update)
@@ -51,11 +53,14 @@ class DetectionCamera:
             
             if not self.ret or self.frame is None:
                 continue
-            print(self.frame.shape)
             
-            self.publication_image_lambda(self.frame)
+            new_frame = cv2.undistort(
+                self.frame, self.get_matrix(), self.get_dist_coeff()
+            )
             
-            gray = self._transform_frame(self.frame)
+            self.publication_image_lambda(new_frame)
+            
+            gray = cv2.cvtColor(new_frame, cv2.COLOR_BGR2GRAY)
             found_tags = self.process_image(
                 gray,
                 self.get_matrix(),
@@ -66,15 +71,11 @@ class DetectionCamera:
 
             if len(found_tags.tags) > 0:
                 self.publication_lambda(found_tags)
-
-    def _transform_frame(self, frame: np.ndarray):
-        new_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        new_frame = cv2.undistort(
-            new_frame, self.get_matrix(), self.get_dist_coeff()
-        )
-        
-        return new_frame
-
+            
+            if self.frame_counter >= 100:
+                self.detector = self.detector_builder()
+                self.frame_counter = 0
+                
     def process_image(
         self,
         image: np.ndarray,
@@ -110,8 +111,6 @@ class DetectionCamera:
     def release(self):
         print(f"Releasing camera on port {self.config.port}")
         self.running = False
-        if hasattr(self, "thread"):
-            self.thread.join(timeout=1.0)  # Add timeout to prevent hanging
         self.video_capture.release()
 
     def get_matrix(self) -> np.ndarray:
