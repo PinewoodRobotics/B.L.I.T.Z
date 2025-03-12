@@ -100,7 +100,7 @@ async def main():
             tags = await asyncio.to_thread(lambda: queue_tag.get(timeout=0.05))
             await autobahn_server.publish(
                 config.april_detection.message.post_tag_output_topic,
-                tags.SerializeToString(),
+                tags,
             )
 
             try:

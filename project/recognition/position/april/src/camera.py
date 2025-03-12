@@ -17,7 +17,7 @@ class DetectionCamera:
         config: CameraParameters,
         tag_size: float,
         detector_builder: Callable[[], pyapriltags.Detector],
-        publication_lambda: Callable[[AprilTags], None],
+        publication_lambda: Callable[[bytes], None],
         publication_image_lambda: Callable[[np.ndarray], None],
     ):
         self.config = config
@@ -70,7 +70,7 @@ class DetectionCamera:
             )
 
             if len(found_tags.tags) > 0:
-                self.publication_lambda(found_tags)
+                self.publication_lambda(found_tags.SerializeToString())
             
             if self.frame_counter >= 100:
                 self.detector = self.detector_builder()
