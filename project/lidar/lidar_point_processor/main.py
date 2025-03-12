@@ -23,7 +23,6 @@ async def main():
     await autobahn.begin()
 
     async def process_incoming_point_cloud(point_cloud: bytes):
-
         pass
 
     await autobahn.subscribe(

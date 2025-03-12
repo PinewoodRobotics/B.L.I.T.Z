@@ -28,3 +28,4 @@ protoletariat
 psutil
 plotly
 dash
+pytest
