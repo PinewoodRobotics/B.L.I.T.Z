@@ -179,7 +179,7 @@ class PositionExtrapolator:
         )
 
 
-def exponential_noise_scaling(distance, a=1, b=0.7):
+def exponential_noise_scaling(distance, a=0.03, b=0.3):
     return a * np.exp(b * abs(distance))
 
 
