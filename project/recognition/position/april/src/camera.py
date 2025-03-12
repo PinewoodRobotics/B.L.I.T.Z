@@ -27,6 +27,7 @@ class DetectionCamera:
         self.publication_image_lambda = publication_image_lambda
         
         self.video_capture = cv2.VideoCapture(self.config.port)
+        print(f"Opening camera on port {self.config.port}: {self.video_capture.isOpened()}")
         self.video_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG')) # type: ignore
         self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)  # 640
         self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.height)  # 480
@@ -47,6 +48,10 @@ class DetectionCamera:
     def _update(self):
         while self.running:
             self.ret, self.frame = self.video_capture.read()
+            
+            if not self.ret or self.frame is None:
+                continue
+            print(self.frame.shape)
             
             self.publication_image_lambda(self.frame)
             
@@ -103,9 +108,10 @@ class DetectionCamera:
         return output
 
     def release(self):
+        print(f"Releasing camera on port {self.config.port}")
         self.running = False
         if hasattr(self, "thread"):
-            self.thread.join()
+            self.thread.join(timeout=1.0)  # Add timeout to prevent hanging
         self.video_capture.release()
 
     def get_matrix(self) -> np.ndarray:

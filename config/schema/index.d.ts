@@ -2,6 +2,7 @@ import { AprilDetectionConfig } from "./apriltag";
 import { AutobahnConfig } from "./autobahn";
 import { CameraParameters } from "./camera";
 import { ImageDetectionConfig } from "./image-recognition";
+import { LidarConfig } from "./lidar";
 import { LoggerConfig } from "./logging/logger";
 import { PosExtrapolator } from "./pos-extrapolator";
 import { WatchdogConfig } from "./watchdog";

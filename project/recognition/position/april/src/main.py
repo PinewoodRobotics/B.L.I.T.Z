@@ -37,7 +37,7 @@ async def main():
     config = Config.from_uncertainty_config(args.config)
 
     detector = build_detector(config)
-    autobahn_server = Autobahn(Address(config.autobahn.host, config.autobahn.port))
+    autobahn_server = Autobahn(Address("10.47.65.7", config.autobahn.port))
 
     async def publish_image(image: np.ndarray, camera_name: str):
         nonlocal autobahn_server, config
@@ -59,7 +59,16 @@ async def main():
     
     def signal_handler(signum, frame):
         nonlocal running
+        print("\nReceived signal to terminate. Cleaning up...")
         running = False
+        # Clean up cameras
+        for camera in camera_detector_list:
+            camera.release()
+        # Clean up queues
+        while not queue_tag.empty():
+            queue_tag.get()
+        while not queue_image.empty():
+            queue_image.get()
     
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -70,6 +79,8 @@ async def main():
     for camera in config.cameras:
         if camera.pi_to_run_on != get_system_name():
             continue
+        
+        print(camera.name)
 
         camera_detector_list.append(
             DetectionCamera(
@@ -86,23 +97,30 @@ async def main():
     running = True
     while running:
         try:
-            tags = await asyncio.to_thread(queue_tag.get)
+            # Use timeout to allow checking running flag
+            tags = await asyncio.to_thread(lambda: queue_tag.get(timeout=0.1))
             await autobahn_server.publish(
                 config.april_detection.message.post_tag_output_topic,
                 tags.SerializeToString(),
             )
+
+            try:
+                queue_item = await asyncio.to_thread(lambda: queue_image.get_nowait())
+                await publish_image(queue_item[0], queue_item[1])
+            except Exception:
+                pass
+
         except Exception:
             if not running:
                 break
+            # Add small sleep to prevent CPU spinning
+            await asyncio.sleep(0.01)
             continue
 
-        '''
-        try:
-            queue_item = queue_image.get_nowait()
-            await publish_image(queue_item[0], queue_item[1])
-        except asyncio.QueueEmpty:
-            pass
-        '''
+    print("Main loop ended, cleaning up...")
+    # Final cleanup
+    for camera in camera_detector_list:
+        camera.release()
 
 
 if __name__ == "__main__":
