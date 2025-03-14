@@ -54,9 +54,12 @@ def get_world_pos(
     T_camera_robot: np.ndarray,
     T_tag_world: np.ndarray,
 ) -> np.ndarray:
-    T_camera_tag = np.linalg.inv(T_tag_camera)
-    T_camera_world = T_camera_tag @ T_tag_world
-    return np.linalg.inv(T_camera_robot) @ T_camera_world
+    # The chain should be:
+    # 1. Where is the tag in world? (T_tag_world)
+    # 2. Where does camera see the tag? (T_tag_camera)
+    # 3. Where is camera mounted on robot? (T_camera_robot)
+    T_robot_world = T_tag_world @ np.linalg.inv(T_tag_camera) @ np.linalg.inv(T_camera_robot)
+    return T_robot_world
 
 
 def from_float_list(flat_list: list, rows: int, cols: int) -> np.ndarray:
