@@ -1,0 +1,14 @@
+[package]
+name = "lidar-rs"
+version = "0.1.0"
+edition = "2021"
+links = "unitree_lidar_sdk"
+
+[dependencies]
+libc = "0.2"
+cxx = "1.0"
+
+[build-dependencies]
+bindgen = "0.71.1"
+cc = "1.0"
+cxx-build = "1.0"
