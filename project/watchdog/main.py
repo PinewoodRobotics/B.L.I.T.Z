@@ -91,7 +91,9 @@ class ProcessMonitor:
 
     def abort_all_processes(self):
         log("Start Abort!")
-        for process_type in self.processes:
+        # Create a copy of the processes dictionary to avoid modification during iteration
+        processes_to_abort = list(self.processes.keys())
+        for process_type in processes_to_abort:
             self.stop_process(process_type)
         
         log("Aborted Sucessfully!")
@@ -125,6 +127,10 @@ async def main():
 
     async def config_input(data: bytes):
         nonlocal config
+        await autobahn_server.publish(
+            get_system_name() + "/watchdog/message_retrieval_confirmation",
+            MessageRetrievalConfirmation(received=True).SerializeToString(),
+        )
         
         startup_message = StartupMessage()
         startup_message.ParseFromString(data)
@@ -141,11 +147,6 @@ async def main():
         for process_type in startup_message.py_tasks:
             log("Starting process " + str(process_type))
             await process_monitor.start_and_monitor_process(process_type, CONFIG_PATH)
-
-        await autobahn_server.publish(
-            get_system_name() + "/watchdog/message_retrieval_confirmation",
-            MessageRetrievalConfirmation(received=True).SerializeToString(),
-        )
         
     async def process_watcher():
         while True:
