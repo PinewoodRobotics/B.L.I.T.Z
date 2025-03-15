@@ -54,27 +54,12 @@ def get_world_pos(
     T_camera_robot: np.ndarray,
     T_tag_world: np.ndarray,
 ) -> np.ndarray:
-    # Check if camera is forward or backward facing by looking at z-direction
-    camera_direction = T_camera_robot[:3, 2]  # Get z-axis of camera frame
-    is_forward_facing = camera_direction[2] < 0  # True if z points forward (negative in robot frame)
-    
     # The chain should be:
     # 1. Where is the tag in world? (T_tag_world)
     # 2. Where does camera see the tag? (T_tag_camera)
     # 3. Where is camera mounted on robot? (T_camera_robot)
     T_robot_world = T_tag_world @ np.linalg.inv(T_tag_camera) @ np.linalg.inv(T_camera_robot)
-    
-    # For forward-facing cameras, we need to rotate the final transform by 180 degrees around Y
-    if is_forward_facing:
-        # Create 180-degree rotation around Y axis
-        rot_180_y = np.array([
-            [-1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, -1, 0],
-            [0, 0, 0, 1]
-        ])
-        T_robot_world = T_robot_world @ rot_180_y
-    
+    print(T_robot_world)
     return T_robot_world
 
 
