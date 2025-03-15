@@ -56,7 +56,7 @@ async def main():
         asyncio.create_task(async_on_click(x, y))
 
     position_renderer = PositionVisualizerGame(
-        max_min_x=[-2, 2], max_min_y=[-2, 2], click_callback=on_click
+        max_min_x=[-10, 10], max_min_y=[-10, 10], click_callback=on_click
     )
 
     async def on_position_update(message: bytes):

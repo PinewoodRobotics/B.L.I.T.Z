@@ -28,10 +28,11 @@ async def on_ping_received(payload: bytes):
 
 
 async def main():
-    autobahn = Autobahn(Address("10.47.65.7", 8080))
+    autobahn = Autobahn(Address("10.47.65.11", 8080))
     await autobahn.begin()
     
     await autobahn.subscribe("pong", on_ping_received)
+    await autobahn.publish("config", b"")
 
     try:
         while True:

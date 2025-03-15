@@ -32,6 +32,7 @@ echo "${name}" > "${output_file}"
 echo "Successfully created ${output_file}"
 
 make initiate-project
+sudo apt install -y protobuf-compiler
 make generate-proto
 
 sudo cp scripts/startup.service /etc/systemd/system/
