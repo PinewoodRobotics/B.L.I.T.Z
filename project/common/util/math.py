@@ -54,13 +54,33 @@ def get_world_pos(
     T_camera_robot: np.ndarray,
     T_tag_world: np.ndarray,
 ) -> np.ndarray:
-    # The chain should be:
-    # 1. Where is the tag in world? (T_tag_world)
-    # 2. Where does camera see the tag? (T_tag_camera)
-    # 3. Where is camera mounted on robot? (T_camera_robot)
-    T_robot_world = T_tag_world @ np.linalg.inv(T_tag_camera) @ np.linalg.inv(T_camera_robot)
-    print(T_robot_world)
-    return T_robot_world
+    """
+    Calculate the robot's position in the world frame given:
+    - T_tag_camera: Tag's pose in camera frame (from AprilTag detection)
+    - T_camera_robot: Camera's pose in robot frame (from calibration)
+    - T_tag_world: Tag's pose in world frame (from configuration)
+
+    Note: When the robot turns left, the tag appears to move right in the camera frame.
+    We need to invert this to get the correct robot rotation in world frame.
+    """
+    # First get robot's pose in tag frame
+    T_robot_tag = np.linalg.inv(T_tag_camera @ T_camera_robot)
+    
+    # Then transform to world frame
+    # We use T_tag_world to get the final position in world coordinates
+    T_robot_world = T_tag_world @ T_robot_tag
+    
+    # Invert the rotation component to match the actual robot rotation
+    # (when robot turns left, tag appears to move right in camera frame)
+    R = T_robot_world[:3, :3]
+    t = T_robot_world[:3, 3]
+    
+    # Create the corrected transformation matrix
+    T_robot_world_corrected = np.eye(4)
+    T_robot_world_corrected[:3, :3] = R.T  # Transpose to invert rotation
+    T_robot_world_corrected[:3, 3] = t     # Keep position the same
+    
+    return T_robot_world_corrected
 
 
 def from_float_list(flat_list: list, rows: int, cols: int) -> np.ndarray:

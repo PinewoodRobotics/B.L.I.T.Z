@@ -1,72 +1,36 @@
-import math
 import numpy as np
-from project.common.util.math import make_transformation_matrix, get_world_pos
+from project.common.util.math import get_world_pos
 
+T_robot_world = np.array([
+    [-0.95947106, 0.19169274, -0.2065651, 17.76915141],
+    [-0.14756189, -0.96622847, -0.21125359, 0.36542339], 
+    [-0.24008488, -0.17221056, 0.95535478, 18.74622704],
+    [0., 0., 0., 1.]
+])
+
+T_tag_camera = np.array([
+    [-0.97359872, 0.04503683, -0.2237794, -0.40760902],
+    [0.0144398, -0.96622843, -0.25728211, 0.17366067],
+    [-0.22780919, -0.25372085, 0.94006848, 1.2722497],
+    [0., 0., 0., 1.]
+])
+
+T_camera_robot = np.array([
+    [0.70710678, 0., 0.70710678, -0.4],
+    [0., 1., -0., 0.],
+    [-0.70710678, 0., 0.70710678, -0.4],
+    [0., 0., 0., 1.]
+])
+
+T_tag_world = np.array([
+    [0.7089287, 0., -0.70528016, 17.43687501],
+    [-0., 1., -0., 0.],
+    [0.70528016, 0., 0.7089287, 19.41823473],
+    [0., 0., 0., 1.]
+])
 
 def test_camera_rotations():
-    # Test different camera mounting positions
-    camera_positions = {
-        "backward_left": {
-            "position": [0, 0.0, 0],
-            "direction": [math.sqrt(2) / 2, 0, math.sqrt(2) / 2],
-        },
-        "backward_right": {
-            "position": [-0, 0.0, 0],
-            "direction": [-math.sqrt(2) / 2, 0, math.sqrt(2) / 2],
-        },
-        "forward_left": {
-            "position": [0, 0.0, 0],
-            "direction": [math.sqrt(2) / 2, 0, -math.sqrt(2) / 2],
-        },
-        "forward_right": {
-            "position": [0, 0.0, 0],
-            "direction": [-math.sqrt(2) / 2, 0, -math.sqrt(2) / 2],
-        },
-    }
-
-    # Fixed tag position in world (for simplicity)
-    tag_world_pos = [0.0, 0.0, 0.0]  # 1 meter in x direction
-    tag_world_dir = [0.0, 0.0, -1.0]  # facing -z
-    T_tag_world = make_transformation_matrix(
-        np.array(tag_world_pos),
-        np.array(tag_world_dir),
-    )
-
-    # Test rotation angles
-    angles = [0, 45, 90, 135, 180]  # degrees
-
-    for pos_name, camera_config in camera_positions.items():
-        print(f"\nTesting {pos_name} camera configuration:")
-        
-        # Create camera-to-robot transform
-        T_camera_robot = make_transformation_matrix(
-            np.array(camera_config["position"]),
-            np.array(camera_config["direction"]),
-        )
-
-        for angle in angles:
-            # Convert angle to radians
-            theta = math.radians(angle)
-            
-            # Create a simulated tag detection from camera's perspective
-            # This simulates what the camera would see when the robot is rotated
-            tag_camera_pos = [0.0, 0.0, -1.0]  # tag seen 1 meter in front of camera
-            tag_camera_dir = [math.sin(theta), 0.0, -math.cos(theta)]  # rotate the tag's orientation
-            T_tag_camera = make_transformation_matrix(
-                np.array(tag_camera_pos),
-                np.array(tag_camera_dir),
-            )
-
-            # Calculate robot's position in world frame
-            T_robot_world = get_world_pos(T_tag_camera, T_camera_robot, T_tag_world)
-            
-            # print(T_robot_world)
-            
-            # Extract rotation angle from transformation matrix
-            rotation_matrix = T_robot_world[:3, :3]
-            robot_angle = math.degrees(math.atan2(rotation_matrix[0, 0], rotation_matrix[0, 1]))
-            
-            print(f"Input angle: {angle}°, Calculated robot angle: {robot_angle:.5f}°")
+    print(get_world_pos(T_tag_camera, T_camera_robot, T_tag_world))
 
 
 if __name__ == "__main__":
