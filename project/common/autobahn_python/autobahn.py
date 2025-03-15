@@ -99,8 +99,14 @@ class Autobahn:
                 if message_proto.message_type == MessageType.PUBLISH:
                     if message_proto.topic in self.callbacks:
                         await self.callbacks[message_proto.topic](message_proto.payload)
+            except websockets.exceptions.ConnectionClosed:
+                print("WebSocket connection closed, waiting for reconnection...")
+                self.websocket = None
+                await asyncio.sleep(0.5)
+                continue
             except Exception as e:
                 print(f"Error in listener: {str(e)}")
+                await asyncio.sleep(0.5)
                 continue
 
     async def subscribe(self, topic: str, callback: Callable[[bytes], Awaitable[None]]):
