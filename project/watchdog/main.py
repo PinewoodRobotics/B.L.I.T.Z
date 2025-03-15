@@ -183,8 +183,8 @@ async def main():
         for process_type in abort_message.py_tasks:
             process_monitor.stop_process(process_type)
 
-    await autobahn_server.subscribe("config", config_input)
-    await autobahn_server.subscribe("abort", abort_input)
+    await autobahn_server.subscribe(get_system_name() + "/config", config_input)
+    await autobahn_server.subscribe(get_system_name() + "/abort", abort_input)
 
     await process_watcher()
 
