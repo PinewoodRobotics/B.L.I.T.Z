@@ -1,6 +1,10 @@
 extern crate cc;
+extern crate prost_build;
 
 fn main() {
+    // Compile protobuf definitions
+    prost_build::compile_protos(&["proto/autobahn.proto"], &["proto"]).unwrap();
+
     // Tell Cargo to look in the `lib` directory
     println!("cargo:rustc-link-search=native=./lib");
 
