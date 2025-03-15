@@ -5,34 +5,65 @@
 
 using namespace unitree_lidar_sdk;
 
-struct PointCloudUnitree_Fixed {
+// This struct matches the Rust PointCloudUnitree with dynamic points
+struct PointCloudUnitree_Dynamic {
   double stamp;
   uint32_t id;
   uint32_t ringNum;
-  PointUnitree points[120];  // FIXED SIZE ARRAY (matches Rust)
+  PointUnitree* points_ptr;
+  size_t points_len;
+  size_t points_capacity;
 };
 
-extern "C" void getCloud(UnitreeLidarReader* reader,
-                         PointCloudUnitree_Fixed* cloud) {
+// Create a wrapper struct to store the LiDAR instance
+extern "C" {
+
+void getCloud(UnitreeLidarReader* reader, PointCloudUnitree_Dynamic* cloud) {
   if (!reader || !cloud) return;
 
   // Get the cloud from Unitree SDK
   PointCloudUnitree cloudCpp = reader->getCloud();
 
-  // Copy fields
+  // Copy basic fields
   cloud->stamp = cloudCpp.stamp;
   cloud->id = cloudCpp.id;
   cloud->ringNum = cloudCpp.ringNum;
 
-  // Copy points manually
-  size_t numPoints = std::min(size_t(120), cloudCpp.points.size());
-  for (size_t i = 0; i < numPoints; i++) {
-    cloud->points[i] = cloudCpp.points[i];
+  // Allocate memory for points if needed
+  size_t numPoints = cloudCpp.points.size();
+
+  // Don't free memory here - let Rust handle it
+  // The Rust side will check if points_ptr is null before allocating
+
+  if (numPoints > 0) {
+    // Allocate memory for the points - use new[] instead of malloc for proper
+    // alignment
+    cloud->points_ptr = new PointUnitree[numPoints];
+    if (cloud->points_ptr) {
+      // Copy points
+      for (size_t i = 0; i < numPoints; i++) {
+        cloud->points_ptr[i] = cloudCpp.points[i];
+      }
+      cloud->points_len = numPoints;
+      cloud->points_capacity = numPoints;
+    } else {
+      // Allocation failed
+      cloud->points_len = 0;
+      cloud->points_capacity = 0;
+    }
+  } else {
+    // No points
+    cloud->points_ptr = nullptr;
+    cloud->points_len = 0;
+    cloud->points_capacity = 0;
   }
 }
 
-// Create a wrapper struct to store the LiDAR instance
-extern "C" {
+void freePointCloudMemory(PointUnitree* points_ptr) {
+  if (points_ptr) {
+    delete[] points_ptr;
+  }
+}
 
 // Create a new LiDAR instance
 UnitreeLidarReader* createUnitreeLidarReaderCpp() {
@@ -45,21 +76,20 @@ int initialize(UnitreeLidarReader* reader, uint16_t cloud_scan_num,
                float range_scale, float range_bias, float range_max,
                float range_min) {
   if (!reader) return -1;
-  return reader->initialize(cloud_scan_num, std::string(port), baudrate,
-                            rotate_yaw_bias, range_scale, range_bias, range_max,
-                            range_min);
+  try {
+    return reader->initialize(cloud_scan_num, std::string(port), baudrate,
+                              rotate_yaw_bias, range_scale, range_bias,
+                              range_max, range_min);
+  } catch (const std::exception& e) {
+    std::cerr << "Error initializing LiDAR: " << e.what() << std::endl;
+    return -1;
+  }
 }
 
 // Run parsing
 MessageType runParse(UnitreeLidarReader* reader) {
   if (!reader) return MessageType::NONE;
   return reader->runParse();
-}
-
-// Get point cloud
-void getCloud(UnitreeLidarReader* reader, PointCloudUnitree* cloud) {
-  if (!reader || !cloud) return;
-  *cloud = reader->getCloud();
 }
 
 // Get firmware version

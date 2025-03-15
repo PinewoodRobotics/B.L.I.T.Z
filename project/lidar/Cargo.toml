@@ -7,8 +7,33 @@ links = "unitree_lidar_sdk"
 [dependencies]
 libc = "0.2"
 cxx = "1.0"
+kiss3d = "0.35.0"
+nalgebra = "0.33.2"
+rstar = "0.12.2"
+dbscan = "0.3.1"
+image = "0.24"
 
 [build-dependencies]
 bindgen = "0.71.1"
 cc = "1.0"
 cxx-build = "1.0"
+
+[[example]]
+name = "dynamic_points"
+path = "examples/dynamic_points.rs"
+
+[[example]]
+name = "visualize_3d"
+path = "examples/visualize_3d.rs"
+
+[[example]]
+name = "visualize_voxel"
+path = "examples/visualize_voxel.rs"
+
+[[example]]
+name = "detect_motion"
+path = "examples/detect_motion.rs"
+
+[[example]]
+name = "visualize_clusters"
+path = "examples/visualize_clusters.rs"
