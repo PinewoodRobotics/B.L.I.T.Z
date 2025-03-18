@@ -5,15 +5,20 @@ import numpy as np
 from generated.AprilTag_pb2 import AprilTags
 from generated.Imu_pb2 import Imu
 from generated.Odometry_pb2 import Odometry
-from project.common.config_class.filters.kalman_filter_config import \
-    MeasurementType
+from project.common.config_class.filters.kalman_filter_config import MeasurementType
 from project.common.config_class.pos_extrapolator import (
-    CameraConfig, ImuConfig, OdomConfig, PosExtrapolatorConfig,
-    TagPositionConfig)
-from project.common.util.math import (create_transformation_matrix,
-                                      from_float_list,
-                                      get_translation_rotation_components,
-                                      get_world_pos)
+    CameraConfig,
+    ImuConfig,
+    OdomConfig,
+    PosExtrapolatorConfig,
+    TagPositionConfig,
+)
+from project.common.util.math import (
+    create_transformation_matrix,
+    from_float_list,
+    get_translation_rotation_components,
+    get_robot_in_world,
+)
 from project.pos_extrapolator.src.kalman_filter import KalmanFilterStrategy
 
 
@@ -36,6 +41,13 @@ class PositionExtrapolator:
 
         self.last_predict = time.time()
         self.sensor_completions: list[bool] = [True, False, False]
+        self.camera_output_to_robot_rotation = np.array(
+            [
+                [0, 0, 1],
+                [-1, 0, 0],
+                [0, -1, 0],
+            ]
+        )
 
     def insert_data(self, data: AprilTags | Imu | Odometry):
         self.predict_step()
@@ -69,6 +81,7 @@ class PositionExtrapolator:
         return self.filter_strategy.get_confidence()
 
     def _insert_april_tags(self, data: AprilTags, camera_name: str):
+        # print(self.tag_configs)
         if (
             self.tag_configs is None
             or self.camera_configs is None
@@ -82,61 +95,58 @@ class PositionExtrapolator:
         cur_state = self.filter_strategy.get_state()
 
         for tag in data.tags:
-            print(cur_state, tag.decision_margin)
-            if str(tag.tag_id) not in self.tag_configs:
+            tag_id = str(tag.tag_id)
+            if tag_id not in self.tag_configs:
                 continue
 
-            T_in_camera = create_transformation_matrix(
-                from_float_list(list(tag.pose_R), 3, 3),
-                np.array(
-                    [
-                        tag.pose_t[0],
-                        tag.pose_t[1],
-                        tag.pose_t[2],
-                    ]
-                ),
+            T_camera_in_robot = self.config.camera_configs[camera_name].transformation
+            T_tag_in_world = self.config.tag_position_config[tag_id].transformation
+
+            tag_in_camera_rotation = (
+                self.camera_output_to_robot_rotation
+                @ from_float_list(list(tag.pose_R), 3, 3)
+                @ self.camera_output_to_robot_rotation.T
+            )
+            tag_in_camera_pose = self.camera_output_to_robot_rotation @ np.array(
+                tag.pose_t
+            )
+            T_tag_in_camera = create_transformation_matrix(
+                rotation_matrix=tag_in_camera_rotation,
+                translation_vector=tag_in_camera_pose,
             )
 
-            tag_config = self.tag_configs[str(tag.tag_id)]
-            world_transform = get_world_pos(
-                T_in_camera,
-                self.camera_configs[camera_name].transformation,
-                tag_config.transformation,
-            )
-            translation_component, rotation_component = (
-                get_translation_rotation_components(world_transform)
-            )
+            # render_pose, render_rotation = get_translation_rotation_components(
+            #    T_tag_in_camera
+            # )
 
-            # Extract yaw angle from rotation matrix (rotation around y-axis)
-            # For a y-up coordinate system, use arctan2(r31, r33)
-            # Since we have y-down, we negate the result
-            rotation = -np.arctan2(rotation_component[2, 0], rotation_component[2, 2])
-            distance = tag.distance_to_camera
-            decision_margin = tag.decision_margin
-
-            if distance <= 0.1:
-                distance = 0.1
-
-            if decision_margin <= 0.01:
-                decision_margin = 0.01
-
-            if (
-                distance2d(
-                    cur_state[:2], [translation_component[0], translation_component[2]]
+            render_pose, render_rotation = get_translation_rotation_components(
+                get_robot_in_world(
+                    T_tag_in_camera=T_tag_in_camera,
+                    T_camera_in_robot=T_camera_in_robot,  # const
+                    T_tag_in_world=T_tag_in_world,  # const
                 )
-                > self.config.april_tag_discard_distance
-            ):
-                continue
+            )
 
+            render_direction_vector = render_rotation[0:3, 0]
+            rotation_angle_rad = np.arctan2(
+                render_direction_vector[1], render_direction_vector[0]
+            )
+
+            print(
+                [round(v * 10) for v in render_direction_vector],
+                round(np.degrees(rotation_angle_rad)),
+            )
+
+            distance = tag.distance_to_camera
             noise_value = exponential_noise_scaling(distance)
 
             self.filter_strategy.insert_data(
                 [
-                    translation_component[0],
-                    translation_component[2],
+                    render_pose[0],
+                    render_pose[1],
                     0,
                     0,
-                    rotation,
+                    rotation_angle_rad,
                 ],
                 MeasurementType.APRIL_TAG,
                 noise_value,

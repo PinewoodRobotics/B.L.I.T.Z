@@ -1,7 +1,7 @@
 import numpy as np
 from pydantic import BaseModel
 from typing import Dict, List
-from project.common.util.math import make_transformation_matrix
+from project.common.util.math import make_transformation_matrix_p_d
 from project.common.config_class.filters.kalman_filter_config import KalmanFilterConfig
 
 
@@ -36,9 +36,9 @@ class CameraConfig(BaseModel):
 
     @property
     def transformation(self) -> np.ndarray:
-        return make_transformation_matrix(
-            np.array(self.camera_robot_position),
-            np.array([-x for x in self.camera_robot_direction]),
+        return make_transformation_matrix_p_d(
+            position=np.array(self.camera_robot_position),
+            direction_vector=np.array(self.camera_robot_direction),
         )
 
 
@@ -47,12 +47,20 @@ class TagPositionConfig(BaseModel):
     y: float
     z: float
     direction_vector: List[float]
+    z_axis: List[float] | None = None
 
     @property
     def transformation(self) -> np.ndarray:
-        return make_transformation_matrix(
-            np.array([self.x, self.y, self.z]),
-            np.array([-x for x in self.direction_vector]),
+        return make_transformation_matrix_p_d(
+            position=np.array([self.x, self.y, self.z]),
+            # The convention: tag's direction vector sticks out of the FACE side of
+            # the tag, i.e. TOWARDS the observer. But in the raw data returned by the
+            # camera, it's assumed that it should stick out of the BACK side of the tag,
+            # i.e. AWAY from the observer. So we do a -1* correction in the beginning
+            # and then assume that everywhere else, the tag's direction vector is
+            # normal to its BACK (invisible) plane.
+            direction_vector=-1 * np.array(self.direction_vector),
+            z_axis=np.array(self.z_axis) if self.z_axis else np.array([0, 0, 1]),
         )
 
 

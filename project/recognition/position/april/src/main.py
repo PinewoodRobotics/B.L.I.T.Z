@@ -36,7 +36,7 @@ async def main():
     args = parser.parse_args()
     config = Config.from_uncertainty_config(args.config)
 
-    autobahn_server = Autobahn(Address("10.47.65.7", config.autobahn.port))
+    autobahn_server = Autobahn(Address("localhost", config.autobahn.port))
 
     async def publish_image(image: np.ndarray, camera_name: str):
         nonlocal autobahn_server, config

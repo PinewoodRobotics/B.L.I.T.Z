@@ -1,24 +1,10 @@
-import { buildVector } from "../util/math";
-
 export const sac_config = {
   "0": {
-    x: -0.23502465064576789,
-    y: -1.0185293707413816,
-    z: 2.059744550581938,
-    direction_vector: buildVector<number, 3>(
-      -0.11149123596731073,
-      0.05616382789756957,
-      -0.9921065321260275
-    ),
-  },
-  "37": {
-    x: 1.1737556354224894,
-    y: -0.9701145462044484,
-    z: 1.0768523590013461,
-    direction_vector: buildVector<number, 3>(
-      -0.9984970807966869,
-      -0.002748237873194527,
-      -0.05472377603049032
-    ),
+    x: 2,
+    y: 1,
+    z: 0,
+    // The convention: tag's direction vector sticks out of the FACE side of
+    // the tag, i.e. TOWARDS the observer.
+    direction_vector: [-1, 0, 0],
   },
 };

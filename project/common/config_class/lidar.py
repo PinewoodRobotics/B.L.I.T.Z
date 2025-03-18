@@ -1,7 +1,7 @@
 import numpy as np
 from pydantic import BaseModel
 
-from project.common.util.math import make_transformation_matrix
+from project.common.util.math import make_transformation_matrix_p_d
 
 
 class LidarConfig(BaseModel):
@@ -20,7 +20,7 @@ class LidarConfig(BaseModel):
 
     @property
     def transformation(self) -> np.ndarray:
-        return make_transformation_matrix(
+        return make_transformation_matrix_p_d(
             np.array(self.position_in_robot),
             np.array([-x for x in self.rotation_in_robot]),
         )

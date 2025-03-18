@@ -1,5 +1,5 @@
 import numpy as np
-from project.common.util.math import get_world_pos
+from project.common.util.math import get_robot_in_world
 
 T_robot_world = np.array([
     [-0.95947106, 0.19169274, -0.2065651, 17.76915141],
@@ -30,7 +30,7 @@ T_tag_world = np.array([
 ])
 
 def test_camera_rotations():
-    print(get_world_pos(T_tag_camera, T_camera_robot, T_tag_world))
+    print(get_robot_in_world(T_tag_camera, T_camera_robot, T_tag_world))
 
 
 if __name__ == "__main__":

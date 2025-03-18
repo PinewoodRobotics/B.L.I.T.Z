@@ -1,26 +1,26 @@
 import type { CameraParameters } from "../../schema/camera";
 import { buildMatrixFromArray, buildVector } from "../util/math";
 
-const prod1: CameraParameters = {
+const arducam_1: CameraParameters = {
   pi_to_run_on: "tripoli",
-  name: "rear_right",
+  name: "rear_left",
   port: 0,
   flags: 120,
   width: 640,
   height: 480,
   max_fps: 30,
   camera_matrix: buildMatrixFromArray<number, 3, 3>([
-    [235.33329217, 0.0, 316.90720596],
-    [0.0, 235.35214724, 229.1143798],
-    [0.0, 0.0, 1.0],
+    [563.0486962, 0, 330.88254863],
+    [0, 564.21292152, 251.09757613],
+    [0, 0, 1],
   ]),
   dist_coeff: buildVector<number, 5>(
-    0.00949906,
-    -0.03209404,
-    0.00047645,
-    0.00056713,
-    0.00574621
+    0.00151333,
+    0.27473498,
+    0.00333275,
+    0.00333855,
+    -0.4665363
   ),
 };
 
-export default prod1;
+export default arducam_1;

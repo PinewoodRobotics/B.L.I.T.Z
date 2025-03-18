@@ -210,12 +210,10 @@ class PositionVisualizerGame:
 
             # Draw direction indicator
             angle = math.radians(current_pos[2])
-            arrow_length = 20  # pixels
+            arrow_length = 40  # pixels
             arrow_end = (
                 screen_pos[0] + arrow_length * math.cos(angle),
-                screen_pos[1]
-                - arrow_length
-                * math.sin(angle),  # Negative because pygame y is inverted
+                screen_pos[1] + arrow_length * math.sin(angle),
             )
             # Draw thicker anti-aliased line for direction
             pygame.draw.aalines(
