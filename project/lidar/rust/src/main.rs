@@ -1,7 +1,7 @@
 use autobahn::{Address, Autobahn};
 use clap::Parser;
 use futures_util::StreamExt;
-use lidar_proto::{Point2d, PointCloud2d};
+use lidar_proto::{PointCloud2d, Scan2d};
 use math::to_transformation_matrix;
 use point_util::{filter_all_limited, to_2d, transform_point};
 use prost::Message;
@@ -21,7 +21,7 @@ use config::LidarConfig;
 use lidar::reader::LidarReader;
 
 pub mod lidar_proto {
-    include!(concat!(env!("OUT_DIR"), "/proto.lidar_message.rs"));
+    include!(concat!(env!("OUT_DIR"), "/proto.lidar.rs"));
 }
 
 #[derive(Parser, Debug)]
@@ -65,15 +65,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
             .map(|point| transform_point(point, &lidar_in_robot_transformation))
             .map(|f| to_2d(f))
-            .map(|f| Point2d {
-                x: f.get(0).unwrap().clone() as f32,
-                y: f.get(1).unwrap().clone() as f32,
+            .map(|f| Scan2d {
+                position_x: f.get(0).unwrap().clone() as f32,
+                position_y: f.get(1).unwrap().clone() as f32,
             })
             .collect::<Vec<_>>();
 
         let out_point_cloud = PointCloud2d {
+            ranges: points,
             lidar_id: config.name.clone(),
-            points: points,
         };
 
         let _ = autobahn
