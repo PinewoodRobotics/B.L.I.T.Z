@@ -2,12 +2,11 @@ use crate::config::LidarConfig;
 use futures_util::Stream;
 use lidar_rs::{
     createUnitreeLidarReaderCpp, getCloud, initialize, runParse, MessageType, PointCloudUnitree,
-    PointUnitree,
 };
+use nalgebra::Vector3;
 use std::ffi::{c_void, CString};
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::time::{sleep, Duration};
 
 pub struct LidarReader {
     reader: *mut c_void,
@@ -52,7 +51,7 @@ pub struct LidarStream {
 }
 
 impl Stream for LidarStream {
-    type Item = Vec<PointUnitree>;
+    type Item = Vec<Vector3<f64>>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         unsafe {
@@ -65,7 +64,12 @@ impl Stream for LidarStream {
                         cx.waker().wake_by_ref();
                         Poll::Pending
                     } else {
-                        Poll::Ready(Some(points))
+                        Poll::Ready(Some(
+                            points
+                                .iter()
+                                .map(|p| Vector3::new(p.x as f64, p.y as f64, p.z as f64))
+                                .collect(),
+                        ))
                     }
                 }
                 _ => {

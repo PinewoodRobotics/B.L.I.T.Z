@@ -10,7 +10,7 @@ use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
 use url::Url;
 
 pub mod proto {
-    include!(concat!(env!("OUT_DIR"), "/autobahn.rs"));
+    include!(concat!(env!("OUT_DIR"), "/proto.autobahn.rs"));
 }
 
 use proto::{MessageType, PublishMessage, TopicMessage};

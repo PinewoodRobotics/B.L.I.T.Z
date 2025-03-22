@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package proto.lidar_message;
+
+message Point2d {
+  float x = 1;
+  float y = 2;
+}
+
+message PointCloud2d {
+  string lidar_id = 1;
+  repeated Point2d points = 2;
+}

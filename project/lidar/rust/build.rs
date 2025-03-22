@@ -3,7 +3,11 @@ extern crate prost_build;
 
 fn main() {
     // Compile protobuf definitions
-    prost_build::compile_protos(&["proto/autobahn.proto"], &["proto"]).unwrap();
+    prost_build::compile_protos(
+        &["proto/autobahn.proto", "proto/lidar_message.proto"],
+        &["proto"],
+    )
+    .unwrap();
 
     // Tell Cargo to look in the `lib` directory
     println!("cargo:rustc-link-search=native=./lib");

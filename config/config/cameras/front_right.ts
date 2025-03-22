@@ -1,8 +1,8 @@
 import type { CameraParameters } from "../../schema/camera";
 import { buildMatrixFromArray, buildVector } from "../util/math";
 
-const arducam_2: CameraParameters = {
-  pi_to_run_on: "agatha_king",
+const front_right: CameraParameters = {
+  pi_to_run_on: "tripoli",
   name: "front_right",
   port: 0,
   flags: 120,
@@ -23,4 +23,4 @@ const arducam_2: CameraParameters = {
   ),
 };
 
-export default arducam_2;
+export default front_right;

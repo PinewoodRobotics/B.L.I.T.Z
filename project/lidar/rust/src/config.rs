@@ -13,7 +13,9 @@ pub struct LidarConfig {
     pub max_distance_meters: f64,
 
     pub position_in_robot: Vector3<f64>,
-    pub rotation_in_robot: Vector3<f64>,
+    pub direction_vector_in_robot: Vector3<f64>,
 
     pub voxel_size_meters: f64,
+
+    pub clean_interval_millis: u128,
 }

@@ -3,7 +3,7 @@ import { buildMatrixFromArray, buildVector } from "../util/math";
 
 const prod1: CameraParameters = {
   pi_to_run_on: "tripoli",
-  name: "rear_right",
+  name: "front_right",
   port: 0,
   flags: 120,
   width: 640,
