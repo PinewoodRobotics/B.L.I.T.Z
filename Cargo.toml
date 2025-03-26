@@ -1,7 +1,11 @@
 # This is not a workspace root anymore - the workspace is defined in project/rust/Cargo.toml
 
 [workspace]
-members = ["project/rust/common", "project/rust/lidar_3d"]
+members = [
+    "project/rust/common",
+    "project/rust/lidar_3d",
+    "project/rust/lidar_data_processing",
+]
 
 [workspace.dependencies]
 tokio = { version = "1.36", features = ["full"] }

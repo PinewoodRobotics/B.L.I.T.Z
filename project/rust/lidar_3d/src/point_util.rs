@@ -1,8 +1,5 @@
-use std::collections::HashSet;
-
 use kiss3d::nalgebra::Vector2;
-use nalgebra::{Isometry3, Matrix4, Point3, Vector3};
-use rstar::RTree;
+use nalgebra::{Matrix4, Vector3};
 
 ///
 /// Having a point in the lidar's frame and a transform matrix (lidar in robot) transform point to the robot's frame

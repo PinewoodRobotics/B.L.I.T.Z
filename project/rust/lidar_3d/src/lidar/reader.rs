@@ -1,4 +1,4 @@
-use crate::config::LidarConfig;
+use common_core::config::LidarConfig;
 use futures_util::Stream;
 use lidar_3d::{
     createUnitreeLidarReaderCpp, delete_reader, getCloud, initialize, runParse, MessageType,

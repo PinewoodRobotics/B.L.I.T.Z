@@ -7,11 +7,7 @@ use tokio::sync::Mutex;
 use tokio::time;
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
 
-pub mod proto {
-    include!(concat!(env!("OUT_DIR"), "/proto.autobahn.rs"));
-}
-
-use proto::{MessageType, PublishMessage, TopicMessage};
+use crate::project_proto::{MessageType, PublishMessage, TopicMessage};
 
 #[derive(Clone, Debug)]
 pub struct Address {

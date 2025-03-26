@@ -1,25 +1,20 @@
 use clap::Parser;
 use common_core::autobahn::{Address, Autobahn};
+use common_core::config::LidarConfig;
 use common_core::math::to_transformation_matrix;
+use common_core::project_proto::{PointCloud2d, Scan2d};
 use futures_util::StreamExt;
-use lidar_proto::{PointCloud2d, Scan2d};
 use point_util::{filter_all_limited, to_2d, transform_point};
 use prost::Message;
 use std::fs;
 use std::path::PathBuf;
 use timed_point_map::TimedPointMap;
 
-mod config;
 mod lidar;
 mod point_util;
 mod timed_point_map;
 
-use config::LidarConfig;
 use lidar::reader::LidarReader;
-
-pub mod lidar_proto {
-    include!(concat!(env!("OUT_DIR"), "/proto.lidar.rs"));
-}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -39,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let autobahn = Autobahn::new(Address::new("localhost", 8080), true, 5.0);
     autobahn.begin().await?;
 
-    let mut timed_point_map = TimedPointMap::new(config.clean_interval_millis);
+    let mut timed_point_map = TimedPointMap::new(1000);
 
     let lidar_in_robot_transformation =
         to_transformation_matrix(config.position_in_robot, config.direction_vector_in_robot);
@@ -70,12 +65,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let out_point_cloud = PointCloud2d {
             ranges: points,
-            lidar_id: config.name.clone(),
+            lidar_id: config.lidar_name.clone(),
         };
 
         let _ = autobahn
             .publish(
-                &format!("lidar/{}", config.name),
+                &format!("lidar/lidar3d/pointcloud/2d/robotframe"),
                 out_point_cloud.encode_to_vec(),
             )
             .await;

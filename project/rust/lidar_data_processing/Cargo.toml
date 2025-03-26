@@ -1,21 +1,20 @@
 [package]
-name = "lidar-rs"
+name = "lidar-processing-rs"
 version = "0.1.0"
 edition = "2021"
-links = "unitree_lidar_sdk"
 
 [dependencies]
-libc = "0.2"
-cxx = "1.0"
+common-core = { path = "../common" }
+libc = "0.2.171"
+cxx = "1.0.150"
 kiss3d = "0.35.0"
 nalgebra = { version = "0.33.2", features = ["serde-serialize"] }
 rstar = "0.12.2"
 dbscan = "0.3.1"
 image = "0.24"
 clap = { version = "4.5", features = ["derive"] }
+tokio = { version = "1.36", features = ["full"] }
 
-# Use workspace dependencies
-tokio.workspace = true
 tokio-tungstenite.workspace = true
 futures-util.workspace = true
 prost.workspace = true
@@ -26,7 +25,5 @@ serde.workspace = true
 serde_json.workspace = true
 
 [build-dependencies]
-bindgen = "0.71.1"
-cc = "1.0"
-cxx-build = "1.0"
-prost-build = "0.12"
+prost-build = "0.13.5"
+walkdir = "2.4.0"
