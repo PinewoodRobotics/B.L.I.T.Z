@@ -1,0 +1,19 @@
+[package]
+name = "common-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.36", features = ["full"] }
+tokio-tungstenite = "0.26.2"
+futures-util = "0.3"
+prost = "0.13.5"
+bytes = "1.5"
+url = "2.5"
+
+[build-dependencies]
+bindgen = "0.71.1"
+cc = "1.2.17"
+cxx-build = "1.0.150"
+prost-build = "0.13.5"
+walkdir = "2.4.0"

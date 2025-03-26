@@ -1,0 +1,26 @@
+# This is not a workspace root anymore - the workspace is defined in project/rust/Cargo.toml
+
+[workspace]
+members = ["project/rust/common", "project/rust/lidar_3d"]
+
+[workspace.dependencies]
+tokio = { version = "1.36", features = ["full"] }
+tokio-tungstenite = "0.26.2"
+futures-util = "0.3"
+prost = "0.13.5"
+bytes = "1.5"
+url = "2.5"
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+libc = "0.2.171"
+cxx = "1.0.150"
+kiss3d = "0.35.0"
+nalgebra = { version = "0.33.2", features = ["serde-serialize"] }
+rstar = "0.12.2"
+dbscan = "0.3.1"
+image = "0.25.6"
+clap = { version = "4.5", features = ["derive"] }
+
+[workspace.metadata]
+rust-project = { path = "project/rust" }

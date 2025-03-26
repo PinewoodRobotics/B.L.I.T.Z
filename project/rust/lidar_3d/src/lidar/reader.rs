@@ -1,7 +1,8 @@
 use crate::config::LidarConfig;
 use futures_util::Stream;
-use lidar_rs::{
-    createUnitreeLidarReaderCpp, getCloud, initialize, runParse, MessageType, PointCloudUnitree,
+use lidar_3d::{
+    createUnitreeLidarReaderCpp, delete_reader, getCloud, initialize, runParse, MessageType,
+    PointCloudUnitree,
 };
 use nalgebra::Vector3;
 use std::ffi::{c_void, CString};
@@ -85,7 +86,7 @@ impl Stream for LidarStream {
 impl Drop for LidarReader {
     fn drop(&mut self) {
         unsafe {
-            lidar_rs::delete_reader(self.reader);
+            delete_reader(self.reader);
         }
     }
 }

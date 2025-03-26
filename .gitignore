@@ -68,3 +68,5 @@ name.txt
 
 # Logs
 logs/
+
+target/

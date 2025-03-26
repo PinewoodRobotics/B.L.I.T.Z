@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
 use prost::Message as ProstMessage;
 use std::collections::HashMap;
@@ -7,7 +6,6 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::time;
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
-use url::Url;
 
 pub mod proto {
     include!(concat!(env!("OUT_DIR"), "/proto.autobahn.rs"));
@@ -73,8 +71,8 @@ impl Autobahn {
         >,
         Box<dyn std::error::Error>,
     > {
-        let url = Url::parse(&self.address.make_url())?;
-        let (ws_stream, _) = connect_async(url).await?;
+        let url = self.address.make_url();
+        let (ws_stream, _) = connect_async(&url).await?;
         Ok(ws_stream)
     }
 
@@ -104,7 +102,7 @@ impl Autobahn {
 
                     let mut ws_lock = websocket.lock().await;
                     if ws_lock.is_none() {
-                        match connect_async(Url::parse(&address.make_url()).unwrap()).await {
+                        match connect_async(&address.make_url()).await {
                             Ok((ws, _)) => {
                                 *ws_lock = Some(ws);
 
@@ -117,7 +115,7 @@ impl Autobahn {
                                             topic: topic.clone(),
                                         };
                                         let bytes = msg.encode_to_vec();
-                                        let _ = ws.send(WsMessage::Binary(bytes)).await;
+                                        let _ = ws.send(WsMessage::Binary(bytes.into())).await;
                                     }
                                 }
                             }
@@ -126,7 +124,7 @@ impl Autobahn {
                             }
                         }
                     } else if let Some(ws) = ws_lock.as_mut() {
-                        if let Err(_) = ws.send(WsMessage::Ping(vec![])).await {
+                        if let Err(_) = ws.send(WsMessage::Ping(vec![].into())).await {
                             *ws_lock = None;
                             eprintln!("Reconnecting...");
                         }
@@ -167,7 +165,7 @@ impl Autobahn {
                 payload,
             };
             let bytes = msg.encode_to_vec();
-            ws.send(WsMessage::Binary(bytes)).await?;
+            ws.send(WsMessage::Binary(bytes.into())).await?;
         }
 
         Ok(())
@@ -205,7 +203,7 @@ impl Autobahn {
                 topic: topic.to_string(),
             };
             let bytes = msg.encode_to_vec();
-            ws.send(WsMessage::Binary(bytes)).await?;
+            ws.send(WsMessage::Binary(bytes.into())).await?;
         }
 
         // Start listener if this is the first subscription

@@ -5,3 +5,6 @@ dataset/train/*
 dataset/val/*
 
 *.pt
+
+runs/
+dataset/

@@ -37,25 +37,10 @@ async def main():
     config = Config.from_uncertainty_config(args.config)
 
     autobahn_server = Autobahn(Address("localhost", config.autobahn.port))
-
-    async def publish_image(image: np.ndarray, camera_name: str):
-        nonlocal autobahn_server, config
-        await autobahn_server.publish(
-            config.april_detection.message.post_camera_output_topic,
-            ImageMessage(
-                image_id=random.randint(0, 1000000),
-                image=cv2.imencode(".jpg", image)[1].tobytes(),
-                camera_name=camera_name,
-                timestamp=int(time.time() * 1000),
-                height=image.shape[0],
-                width=image.shape[1],
-                is_gray=False,
-            ).SerializeToString(),
-        )
-
     await autobahn_server.begin()
+
     camera_detector_list = []
-    
+
     def signal_handler(signum, frame):
         nonlocal running
         print("\nReceived signal to terminate. Cleaning up...")
@@ -66,16 +51,16 @@ async def main():
         # Clean up queues
         while not queue_tag.empty():
             queue_tag.get()
-    
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
+
     queue_tag = Queue()
 
     for camera in config.cameras:
         if camera.pi_to_run_on != get_system_name():
             continue
-        
+
         print(camera.name)
 
         camera_detector_list.append(
@@ -87,7 +72,7 @@ async def main():
                 publication_image_lambda=lambda image: None,
             )
         )
-        
+
     running = True
     while running:
         try:
@@ -98,13 +83,13 @@ async def main():
                 tags,
             )
 
-            '''
+            """
             try:
                 queue_item = await asyncio.to_thread(lambda: queue_image.get(timeout=0.05))
                 await publish_image(queue_item[0], queue_item[1])
             except Exception:
                 pass
-            '''
+            """
 
         except Exception:
             if not running:
