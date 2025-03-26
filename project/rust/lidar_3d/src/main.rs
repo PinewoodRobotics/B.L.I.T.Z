@@ -1,8 +1,8 @@
 use clap::Parser;
 use common_core::autobahn::{Address, Autobahn};
+use common_core::math::to_transformation_matrix;
 use futures_util::StreamExt;
 use lidar_proto::{PointCloud2d, Scan2d};
-use math::to_transformation_matrix;
 use point_util::{filter_all_limited, to_2d, transform_point};
 use prost::Message;
 use std::fs;
@@ -10,9 +10,7 @@ use std::path::PathBuf;
 use timed_point_map::TimedPointMap;
 
 mod config;
-mod device_info;
 mod lidar;
-mod math;
 mod point_util;
 mod timed_point_map;
 

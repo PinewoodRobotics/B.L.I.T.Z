@@ -8,6 +8,7 @@ tokio = { version = "1.36", features = ["full"] }
 tokio-tungstenite = "0.26.2"
 futures-util = "0.3"
 prost = "0.13.5"
+nalgebra = "0.33.2"
 bytes = "1.5"
 url = "2.5"
 

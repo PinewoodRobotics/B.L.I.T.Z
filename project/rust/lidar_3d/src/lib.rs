@@ -1,8 +1,6 @@
 use std::os::raw::{c_char, c_float, c_int, c_void};
 use std::vec::Vec;
 
-use point_util::Point3Ext;
-
 pub mod point_util;
 
 #[repr(C)]
@@ -26,12 +24,6 @@ impl Default for PointUnitree {
             time: 0.0,
             ring: 0,
         }
-    }
-}
-
-impl Point3Ext for PointUnitree {
-    fn to_array(&self) -> [f64; 3] {
-        [self.x as f64, self.y as f64, self.z as f64]
     }
 }
 
