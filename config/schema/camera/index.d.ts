@@ -7,7 +7,7 @@ export interface CameraParameters {
 
   camera_matrix: Matrix<number, 3, 3>;
   dist_coeff: Vector<number, 5>;
-  port: number;
+  camera_path: string;
 
   max_fps: number;
   width: number;

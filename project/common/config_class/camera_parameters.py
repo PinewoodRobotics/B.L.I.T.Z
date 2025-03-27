@@ -9,7 +9,7 @@ class CameraParameters(BaseModel):
 
     camera_matrix: List[List[float]]
     dist_coeff: List[float]
-    port: int
+    camera_path: str
 
     max_fps: int
     width: int

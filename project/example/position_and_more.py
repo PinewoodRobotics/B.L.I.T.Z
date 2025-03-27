@@ -10,7 +10,7 @@ from generated.RobotPosition_pb2 import RobotPosition
 
 
 async def main():
-    autobahn_server = Autobahn(Address("localhost", 8080))
+    autobahn_server = Autobahn(Address("10.47.65.7", 8080))
     await autobahn_server.begin()
     stop_event = asyncio.Event()
 
