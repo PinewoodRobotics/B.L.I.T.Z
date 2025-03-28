@@ -56,7 +56,7 @@ class TagPositionConfig(BaseModel):
             # The convention: tag's direction vector sticks out of the FACE side of
             # the tag, i.e. TOWARDS the observer. But in the raw data returned by the
             # camera, it's assumed that it should stick out of the BACK side of the tag,
-            # i.e. AWAY from the observer. So we do a -1* correction in the beginning
+            # i.e. AWAY from the observer. So we do a -1 * correction in the beginning
             # and then assume that everywhere else, the tag's direction vector is
             # normal to its BACK (invisible) plane.
             direction_vector=-1 * np.array(self.direction_vector),

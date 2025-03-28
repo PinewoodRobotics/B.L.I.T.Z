@@ -34,3 +34,7 @@ The main goal of this is to create a code base such that we can put it on a rasp
 
 Remember to do `pip install -e .` in the root directory to install all the packages.
 Also remember do to `make generate-proto` in the root directory to generate the python files from the proto files.
+
+
+
+make send-to-target ARGS=13

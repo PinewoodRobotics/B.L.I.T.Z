@@ -70,3 +70,7 @@ name.txt
 logs/
 
 target/
+.rsync-exclude
+.git/
+.ruff_cache/
+project/recognition/image-recognition/dataset/

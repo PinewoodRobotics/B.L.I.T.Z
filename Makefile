@@ -53,3 +53,5 @@ check-project:
 run-config-ts:
 	npx tsx config/ $(ARGS)
 
+send-to-target:
+	rsync -av --progress --exclude-from='.gitignore' ./ ubuntu@10.47.65.$(ARGS):~/Documents/B.L.I.T.Z/
