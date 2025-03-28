@@ -14,4 +14,7 @@ export interface AprilDetectionConfig {
   searchpath: string;
   debug: boolean;
   message: AprilDetectionMessageConfig;
+
+  send_stats: boolean;
+  stats_topic: string;
 }

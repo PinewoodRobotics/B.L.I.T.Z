@@ -17,3 +17,6 @@ class AprilDetectionConfig(BaseModel):
     searchpath: str
     debug: bool
     message: AprilDetectionMessageConfig
+
+    send_stats: bool
+    stats_topic: str

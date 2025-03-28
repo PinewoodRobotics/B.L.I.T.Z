@@ -1,12 +1,8 @@
 import argparse
 import asyncio
-from multiprocessing import Queue
-import random
-import time
 import signal
+import time
 
-import cv2
-import numpy as np
 import pyapriltags
 
 from generated.Image_pb2 import ImageMessage
@@ -35,73 +31,50 @@ def build_detector(config: Config):
 async def main():
     args = parser.parse_args()
     config = Config.from_uncertainty_config(args.config)
+    camera_detector_list = []
+    running = True
+    last_stats = time.time()
 
     autobahn_server = Autobahn(Address("localhost", config.autobahn.port))
     await autobahn_server.begin()
 
-    camera_detector_list = []
+    loop = asyncio.get_running_loop()
 
-    def signal_handler(signum, frame):
-        nonlocal running
-        print("\nReceived signal to terminate. Cleaning up...")
-        running = False
-        # Clean up cameras
-        for camera in camera_detector_list:
-            camera.release()
-        # Clean up queues
-        while not queue_tag.empty():
-            queue_tag.get()
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    queue_tag = Queue()
+    def publish_nowait(topic: str, data: bytes):
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                autobahn_server.publish(topic, data), loop
+            )
+            future.add_done_callback(lambda f: f.exception() if f.exception() else None)
+        except Exception as e:
+            print(f"Error in publish_nowait: {e}")
 
     for camera in config.cameras:
         if camera.pi_to_run_on != get_system_name():
             continue
-
-        print(camera.name)
 
         camera_detector_list.append(
             DetectionCamera(
                 config=camera,
                 tag_size=config.april_detection.tag_size,
                 detector_builder=lambda: build_detector(config),
-                publication_lambda=lambda tags: queue_tag.put(tags),
-                publication_image_lambda=lambda image: None,
+                publication_lambda=lambda tags: publish_nowait(
+                    config.april_detection.message.post_tag_output_topic,
+                    tags,
+                ),
+                publication_stats_lambda=lambda stats: (
+                    publish_nowait(
+                        config.april_detection.stats_topic,
+                        stats,
+                    )
+                    if time.time() - last_stats > 1
+                    else None
+                ),
             )
         )
 
-    running = True
     while running:
-        try:
-            # Use timeout to allow checking running flag
-            tags = await asyncio.to_thread(lambda: queue_tag.get(timeout=0.05))
-            await autobahn_server.publish(
-                config.april_detection.message.post_tag_output_topic,
-                tags,
-            )
-
-            """
-            try:
-                queue_item = await asyncio.to_thread(lambda: queue_image.get(timeout=0.05))
-                await publish_image(queue_item[0], queue_item[1])
-            except Exception:
-                pass
-            """
-
-        except Exception:
-            if not running:
-                break
-            # Add small sleep to prevent CPU spinning
-            await asyncio.sleep(0.01)
-            continue
-
-    print("Main loop ended, cleaning up...")
-    # Final cleanup
-    for camera in camera_detector_list:
-        camera.release()
+        await asyncio.sleep(1)
 
 
 if __name__ == "__main__":

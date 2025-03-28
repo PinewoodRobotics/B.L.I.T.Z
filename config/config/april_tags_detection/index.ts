@@ -14,4 +14,6 @@ export const april_tag_detection_config: AprilDetectionConfig = {
     post_camera_output_topic: "apriltag/camera",
     post_tag_output_topic: "apriltag/tag",
   },
+  send_stats: true,
+  stats_topic: "apriltag/stats",
 };

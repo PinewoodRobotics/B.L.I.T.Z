@@ -6,11 +6,11 @@ import cv2
 import numpy as np
 import pyapriltags
 from generated.AprilTag_pb2 import AprilTags
+from generated.status.CameraStatus_pb2 import CameraStatus
 from project.common.config_class.camera_parameters import (
     CameraParameters,
 )
 from project.recognition.position.april.src.util import (
-    find_camera_port,
     from_detection_to_proto,
 )
 
@@ -22,7 +22,8 @@ class DetectionCamera:
         tag_size: float,
         detector_builder: Callable[[], pyapriltags.Detector],
         publication_lambda: Callable[[bytes], None],
-        publication_image_lambda: Callable[[np.ndarray], None],
+        publication_stats_lambda: Callable[[bytes], None] | None = None,
+        publication_image_lambda: Callable[[np.ndarray], None] | None = None,
     ):
         self.config = config
         self.detector_builder = detector_builder
@@ -30,6 +31,7 @@ class DetectionCamera:
         self.tag_size = tag_size
         self.publication_lambda = publication_lambda
         self.publication_image_lambda = publication_image_lambda
+        self.publication_stats_lambda = publication_stats_lambda
 
         self.port = self.config.camera_path
 
@@ -38,7 +40,7 @@ class DetectionCamera:
                 f"Camera with hardware id {self.config.camera_path} not found"
             )
 
-        self.video_capture = cv2.VideoCapture(self.port)
+        self.video_capture = cv2.VideoCapture(0)
         print(f"Opening camera on port {self.port}: {self.video_capture.isOpened()}")
         self.video_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))  # type: ignore
         self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)  # 640
@@ -60,16 +62,19 @@ class DetectionCamera:
 
     def _update(self):
         while self.running:
+            start_time = time.time() * 1000
             self.ret, self.frame = self.video_capture.read()
 
             if not self.ret or self.frame is None:
                 continue
 
+            start_time_inference = time.time() * 1000
             new_frame = cv2.undistort(
                 self.frame, self.get_matrix(), self.get_dist_coeff()
             )
 
-            self.publication_image_lambda(new_frame)
+            if self.publication_image_lambda is not None:
+                self.publication_image_lambda(new_frame)
 
             gray = cv2.cvtColor(new_frame, cv2.COLOR_BGR2GRAY)
             found_tags = self.process_image(
@@ -82,6 +87,16 @@ class DetectionCamera:
 
             if len(found_tags.tags) > 0:
                 self.publication_lambda(found_tags.SerializeToString())
+
+            if self.publication_stats_lambda is not None:
+                end_time = time.time() * 1000
+                self.publication_stats_lambda(
+                    CameraStatus(
+                        name=self.config.name,
+                        frame_time=end_time - start_time,
+                        inference_time=end_time - start_time_inference,
+                    ).SerializeToString()
+                )
 
     def process_image(
         self,
