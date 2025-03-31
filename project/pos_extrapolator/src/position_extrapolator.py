@@ -92,8 +92,6 @@ class PositionExtrapolator:
             )
             raise ValueError("Tag configs are not set")
 
-        cur_state = self.filter_strategy.get_state()
-
         for tag in data.tags:
             tag_id = str(tag.tag_id)
             if tag_id not in self.tag_configs:
@@ -189,7 +187,7 @@ class PositionExtrapolator:
         )
 
 
-def exponential_noise_scaling(distance, a=0.03, b=0.3):
+def exponential_noise_scaling(distance, a=0.045, b=0.6):
     return a * np.exp(b * abs(distance))
 
 

@@ -10,7 +10,7 @@ from generated.RobotPosition_pb2 import RobotPosition
 
 
 async def main():
-    autobahn_server = Autobahn(Address("localhost", 8080))
+    autobahn_server = Autobahn(Address("10.47.65.7", 8080))
     await autobahn_server.begin()
     stop_event = asyncio.Event()
 
@@ -56,7 +56,10 @@ async def main():
         asyncio.create_task(async_on_click(x, y))
 
     position_renderer = PositionVisualizerGame(
-        max_min_x=[-5, 5], max_min_y=[-5, 5], click_callback=on_click
+        max_min_x=[-5, 5],
+        max_min_y=[-5, 5],
+        click_callback=on_click,
+        window_size=(1200, 950),
     )
 
     async def on_position_update(message: bytes):

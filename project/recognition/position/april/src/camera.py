@@ -40,12 +40,7 @@ class DetectionCamera:
                 f"Camera with hardware id {self.config.camera_path} not found"
             )
 
-        self.video_capture = cv2.VideoCapture(0)
-        print(f"Opening camera on port {self.port}: {self.video_capture.isOpened()}")
-        self.video_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))  # type: ignore
-        self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)  # 640
-        self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.height)  # 480
-        self.video_capture.set(cv2.CAP_PROP_FPS, self.config.max_fps)  # 100
+        self.create_camera(self.config)
 
         self.ret, self.frame = self.video_capture.read()
 
@@ -57,6 +52,15 @@ class DetectionCamera:
         self.thread.daemon = True
         self.thread.start()
 
+    def create_camera(self, config: CameraParameters):
+        self.config = config
+        self.video_capture = cv2.VideoCapture(config.camera_path)
+        print(f"Opening camera on port {self.port}: {self.video_capture.isOpened()}")
+        self.video_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))  # type: ignore
+        self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)  # 640
+        self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.height)  # 480
+        self.video_capture.set(cv2.CAP_PROP_FPS, self.config.max_fps)
+
     def get_frame(self):
         return self.ret, self.frame
 
@@ -66,6 +70,8 @@ class DetectionCamera:
             self.ret, self.frame = self.video_capture.read()
 
             if not self.ret or self.frame is None:
+                print("No frame found")
+                self.create_camera(self.config)
                 continue
 
             start_time_inference = time.time() * 1000

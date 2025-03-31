@@ -86,7 +86,7 @@ async def main():
     stop_event = asyncio.Event()
 
     # Create Autobahn connection
-    autobahn_server = Autobahn(Address("localhost", 8080))
+    autobahn_server = Autobahn(Address("10.47.65.7", 8080))
     await autobahn_server.begin()
 
     async def on_camera_status(message: bytes):
@@ -94,7 +94,10 @@ async def main():
         try:
             camera_status = CameraStatus()
             camera_status.ParseFromString(message)
-            visualizer.add_data(camera_status.frame_time, camera_status.inference_time)
+            if camera_status.name == "front_left":
+                visualizer.add_data(
+                    camera_status.frame_time, camera_status.inference_time
+                )
             # Remove plt.pause() as we're updating in add_data now
         except Exception as e:
             print(f"Error processing camera status: {e}", file=sys.stderr)

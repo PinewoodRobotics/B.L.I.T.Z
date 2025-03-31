@@ -22,13 +22,6 @@ from project.watchdog.process_starter import start_process
 CONFIG_PATH = "config/config.json"
 LOGGING = True
 
-app = Flask(__name__)
-
-
-@app.route("/pi_identity", methods=["GET"])
-def pi_identity():
-    return jsonify({"pi_name": get_system_name()})
-
 
 def get_top_10_processes() -> list[psutil.Process]:
     processes = sorted(
@@ -210,7 +203,7 @@ async def main():
     await autobahn_server.subscribe(get_system_name() + "/config", config_input)
     await autobahn_server.subscribe(get_system_name() + "/abort", abort_input)
 
-    app.run(host="0.0.0.0", port=9000, debug=False)
+    # app.run(host="0.0.0.0", port=9000, debug=False)
 
     await process_watcher()
 
