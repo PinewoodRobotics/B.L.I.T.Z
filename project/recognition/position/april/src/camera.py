@@ -75,17 +75,15 @@ class DetectionCamera:
                 continue
 
             start_time_inference = time.time() * 1000
-            new_frame = cv2.undistort(
-                self.frame, self.get_matrix(), self.get_dist_coeff()
-            )
+            new_frame, new_camera_matrix = self.get_undistored_frame(self.frame)
 
             if self.publication_image_lambda is not None:
-                self.publication_image_lambda(new_frame)
+                self.publication_image_lambda(self.frame)
 
             gray = cv2.cvtColor(new_frame, cv2.COLOR_BGR2GRAY)
             found_tags = self.process_image(
                 gray,
-                self.get_matrix(),
+                new_camera_matrix,
                 self.detector,
                 self.tag_size,
                 self.config.name,
@@ -103,6 +101,22 @@ class DetectionCamera:
                         inference_time=end_time - start_time_inference,
                     ).SerializeToString()
                 )
+
+    def get_undistored_frame(self, frame: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        h, w = frame.shape[:2]
+        new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(
+            self.get_matrix(), self.get_dist_coeff(), (w, h), 1, (w, h)
+        )
+        undistorted_frame = cv2.undistort(
+            frame,
+            self.get_matrix(),
+            self.get_dist_coeff(),
+            None,
+            new_camera_matrix,
+        )
+        x, y, w, h = roi
+        undistorted_frame = undistorted_frame[y : y + h, x : x + w]
+        return undistorted_frame, new_camera_matrix
 
     def process_image(
         self,

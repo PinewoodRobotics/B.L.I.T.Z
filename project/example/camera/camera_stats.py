@@ -86,7 +86,7 @@ async def main():
     stop_event = asyncio.Event()
 
     # Create Autobahn connection
-    autobahn_server = Autobahn(Address("10.47.65.7", 8080))
+    autobahn_server = Autobahn(Address("10.47.65.12", 8080))
     await autobahn_server.begin()
 
     async def on_camera_status(message: bytes):
