@@ -44,13 +44,29 @@ class DetectionCamera:
 
         self.ret, self.frame = self.video_capture.read()
 
-        self.last_frame_date = 0
+        self.last_frame_date = time.time()
         self.frame_counter = 0
 
         self.running = True
         self.thread = threading.Thread(target=self._update)
         self.thread.daemon = True
         self.thread.start()
+
+        self.new_camera_matrix, _ = cv2.getOptimalNewCameraMatrix(
+            self.get_matrix(),
+            self.get_dist_coeff(),
+            (self.config.width, self.config.height),
+            alpha=0.0,
+        )
+
+        self.map1, self.map2 = cv2.initUndistortRectifyMap(
+            self.get_matrix(),
+            self.get_dist_coeff(),
+            R=np.eye(3),
+            newCameraMatrix=self.new_camera_matrix,
+            size=(self.config.width, self.config.height),
+            m1type=cv2.CV_16SC2,
+        )
 
     def create_camera(self, config: CameraParameters):
         self.config = config
@@ -69,6 +85,11 @@ class DetectionCamera:
             start_time = time.time() * 1000
             self.ret, self.frame = self.video_capture.read()
 
+            if time.time() * 1000 - self.last_frame_date < 1000 / self.config.max_fps:
+                continue
+
+            self.last_frame_date = time.time() * 1000
+
             if not self.ret or self.frame is None:
                 print("No frame found")
                 self.create_camera(self.config)
@@ -76,9 +97,6 @@ class DetectionCamera:
 
             start_time_inference = time.time() * 1000
             new_frame, new_camera_matrix = self.get_undistored_frame(self.frame)
-
-            if self.publication_image_lambda is not None:
-                self.publication_image_lambda(self.frame)
 
             gray = cv2.cvtColor(new_frame, cv2.COLOR_BGR2GRAY)
             found_tags = self.process_image(
@@ -103,20 +121,8 @@ class DetectionCamera:
                 )
 
     def get_undistored_frame(self, frame: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        h, w = frame.shape[:2]
-        new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(
-            self.get_matrix(), self.get_dist_coeff(), (w, h), 1, (w, h)
-        )
-        undistorted_frame = cv2.undistort(
-            frame,
-            self.get_matrix(),
-            self.get_dist_coeff(),
-            None,
-            new_camera_matrix,
-        )
-        x, y, w, h = roi
-        undistorted_frame = undistorted_frame[y : y + h, x : x + w]
-        return undistorted_frame, new_camera_matrix
+        undistorted_frame = cv2.remap(frame, self.map1, self.map2, cv2.INTER_LINEAR)
+        return undistorted_frame, self.new_camera_matrix
 
     def process_image(
         self,
