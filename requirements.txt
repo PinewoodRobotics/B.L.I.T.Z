@@ -28,3 +28,4 @@ psutil
 plotly
 dash
 pytest
+datamodel-code-generator==0.17.1

@@ -55,3 +55,7 @@ run-config-ts:
 
 send-to-target:
 	rsync -av --progress --exclude-from=.gitignore --delete ./ ubuntu@10.47.65.$(ARGS):~/Documents/B.L.I.T.Z/
+
+generate-config-schema:
+	typescript-json-schema "config/schema/index.d.ts" Config --out generated/schema.json --include "config/schema/**/*.d.ts"
+	datamodel-codegen --input generated/schema.json --input-file-type jsonschema --output generated/schema.py

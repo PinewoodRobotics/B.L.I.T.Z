@@ -1,9 +1,9 @@
 import { Position3D } from "../type-util/position-util";
-import { CameraConfig } from "./camera-config.d.ts";
-import { KalmanFilterConfig } from "./filters/kalman.d.ts";
-import { ImuConfig } from "./imu-config.d.ts";
-import { PosExtrapolatorMessageConfig } from "./message.d.ts";
-import { OdomConfig } from "./odom-config.d.ts";
+import type { CameraConfig } from "./camera-config";
+import type { KalmanFilterConfig } from "./filters/kalman";
+import type { ImuConfig } from "./imu-config";
+import type { PosExtrapolatorMessageConfig } from "./message";
+import type { OdomConfig } from "./odom-config";
 
 export interface PosExtrapolator {
   message_config: PosExtrapolatorMessageConfig;

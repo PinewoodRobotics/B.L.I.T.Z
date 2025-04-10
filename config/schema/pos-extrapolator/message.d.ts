@@ -1,11 +1,11 @@
 export interface PosExtrapolatorMessageConfig {
-  post_tag_input_topic: string = DefaultTopics.TAG_INPUT_TOPIC;
-  post_odometry_input_topic: string = DefaultTopics.ODOMETRY_INPUT_TOPIC;
-  post_imu_input_topic: string = DefaultTopics.IMU_INPUT_TOPIC;
+  post_tag_input_topic: string;
+  post_odometry_input_topic: string;
+  post_imu_input_topic: string;
 
-  post_robot_position_output_topic: string = DefaultTopics.ROBOT_POSITION_OUTPUT_TOPIC;
+  post_robot_position_output_topic: string;
 
-  set_position: string = DefaultTopics.SET_POSITION_OUTPUT_TOPIC;
+  set_position: string;
 }
 
 export enum DefaultTopics {
