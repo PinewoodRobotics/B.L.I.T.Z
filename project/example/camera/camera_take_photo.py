@@ -5,6 +5,9 @@ from datetime import datetime
 
 def main():
     cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
     photo_dir = "photos"
     if not os.path.exists(photo_dir):
         os.makedirs(photo_dir)
