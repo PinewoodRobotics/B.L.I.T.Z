@@ -15,7 +15,77 @@ from project.recognition.position.april.src.util import (
     get_map1_and_map2,
     get_undistored_frame,
     process_image,
+    py_time_to_fps,
 )
+
+
+class CaptureDevice(cv2.VideoCapture):
+    def __init__(
+        self,
+        camera: str | int,
+        width: int,
+        height: int,
+        max_fps: int,
+        camera_matrix: np.ndarray | None = None,
+        dist_coeff: np.ndarray | None = None,
+    ):
+        super().__init__(camera)
+
+        self.port = camera
+        self.width = width
+        self.height = height
+        self.max_fps = max_fps
+        self.camera_matrix = camera_matrix
+        self.dist_coeff = dist_coeff
+        self.start_camera()
+
+        self.map1 = None
+        self.map2 = None
+        if camera_matrix is not None and dist_coeff is not None:
+            self.map1, self.map2, self.camera_matrix = get_map1_and_map2(
+                camera_matrix,
+                dist_coeff,
+                self.width,
+                self.height,
+            )
+
+        self.last_frame_date = time.time()
+
+        self.frame = None
+        self.ret = False
+
+    def get_frame(self) -> tuple[bool, np.ndarray | None]:
+        if py_time_to_fps(self.last_frame_date, time.time()) < self.max_fps:
+            self.ret, self.frame = self.read()
+
+            if self.ret is False or self.frame is None:
+                self.release()
+                super().__init__(self.port)
+                self.start_camera()
+
+                return False, None
+
+            if self.map1 is not None and self.map2 is not None:
+                self.frame = get_undistored_frame(self.frame, self.map1, self.map2)
+
+            self.last_frame_date = time.time()
+
+        return self.ret, self.frame
+
+    def release(self):
+        self.release()
+
+    def start_camera(self):
+        self.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))  # type: ignore
+        self.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)  # 640
+        self.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)  # 480
+        self.set(cv2.CAP_PROP_FPS, self.max_fps)
+
+    def get_matrix(self) -> np.ndarray | None:
+        return self.camera_matrix
+
+    def get_dist_coeff(self) -> np.ndarray | None:
+        return self.dist_coeff
 
 
 class DetectionCamera:

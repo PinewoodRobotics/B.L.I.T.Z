@@ -21,6 +21,5 @@
   "cSpell.words": ["pyapriltags", "Threshholding"],
   "editor.codeActionsOnSave": {
     "source.organizeImports": "always"
-  },
-  "ruff.fixAll": true
+  }
 }

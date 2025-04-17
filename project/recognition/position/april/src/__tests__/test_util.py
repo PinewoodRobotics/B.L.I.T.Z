@@ -14,7 +14,6 @@ from project.recognition.position.april.src.util import (
 from fixtures.camera_intrinsics import camera_1_matrix, camera_1_dist_coeff
 
 
-@pytest.fixture
 def user_pass_input_selector():
     key = cv2.waitKey(0) & 0xFF
     if key == ord("q"):
@@ -24,12 +23,10 @@ def user_pass_input_selector():
         cv2.destroyAllWindows()
 
 
-@pytest.fixture
 def add_cur_dir(path: str):
     return os.path.join(os.path.dirname(__file__), path)
 
 
-@pytest.fixture
 def detector():
     return pyapriltags.Detector(
         families="tag36h11",
@@ -38,12 +35,10 @@ def detector():
     )
 
 
-@pytest.fixture
 def tag_size():
     return 0.0254
 
 
-@pytest.fixture
 def preprocess_image(image: np.ndarray, matrix: np.ndarray, dist_coeff: np.ndarray):
     map1, map2, new_camera_matrix = get_map1_and_map2(
         matrix, dist_coeff, image.shape[1], image.shape[0]

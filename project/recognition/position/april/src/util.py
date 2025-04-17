@@ -119,3 +119,7 @@ def get_map1_and_map2(
     )
 
     return map1, map2, new_camera_matrix
+
+
+def py_time_to_fps(time_sec_one: float, time_sec_two: float) -> float:
+    return 1 / (time_sec_two - time_sec_one)
