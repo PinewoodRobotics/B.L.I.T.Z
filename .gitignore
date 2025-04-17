@@ -74,3 +74,4 @@ target/
 .git/
 .ruff_cache/
 project/recognition/image-recognition/dataset/
+.pytest_cache/

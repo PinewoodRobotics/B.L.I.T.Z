@@ -55,3 +55,6 @@ run-config-ts:
 
 send-to-target:
 	rsync -av --progress --exclude-from=.gitignore --delete ./ ubuntu@10.47.65.$(ARGS):~/Documents/B.L.I.T.Z/
+
+test:
+	pytest project
