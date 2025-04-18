@@ -30,7 +30,6 @@ generate-proto-cpp-lidar:
 generate-proto: prepare
 	protoc -I=proto \
 		--python_out=generated \
-		--pyi_out=generated \
 		$(shell find proto -name "*.proto")
 	
 	.venv/bin/protol --create-package --in-place --python-out generated protoc --proto-path=proto/ $(shell find proto -name "*.proto")
