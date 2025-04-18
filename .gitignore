@@ -75,3 +75,4 @@ target/
 .ruff_cache/
 project/recognition/image-recognition/dataset/
 .pytest_cache/
+.VSCodeCounter/

@@ -6,44 +6,19 @@ import numpy as np
 import pyapriltags
 import pytest
 
+from project.recognition.position.april.src.__tests__.util import (
+    add_cur_dir,
+    detector,
+    preprocess_image,
+    tag_size,
+    user_pass_input_selector,
+)
 from project.recognition.position.april.src.util import (
     get_map1_and_map2,
     get_undistored_frame,
     process_image,
 )
 from fixtures.camera_intrinsics import camera_1_matrix, camera_1_dist_coeff
-
-
-def user_pass_input_selector():
-    key = cv2.waitKey(0) & 0xFF
-    if key == ord("q"):
-        cv2.destroyAllWindows()
-        raise Exception("Test terminated by user")
-    elif key == ord(" "):
-        cv2.destroyAllWindows()
-
-
-def add_cur_dir(path: str):
-    return os.path.join(os.path.dirname(__file__), path)
-
-
-def detector():
-    return pyapriltags.Detector(
-        families="tag36h11",
-        nthreads=1,
-        quad_decimate=1.0,
-    )
-
-
-def tag_size():
-    return 0.0254
-
-
-def preprocess_image(image: np.ndarray, matrix: np.ndarray, dist_coeff: np.ndarray):
-    map1, map2, new_camera_matrix = get_map1_and_map2(
-        matrix, dist_coeff, image.shape[1], image.shape[0]
-    )
-    return get_undistored_frame(image, map1, map2), new_camera_matrix
 
 
 def test_undistored_frame_camera_1():

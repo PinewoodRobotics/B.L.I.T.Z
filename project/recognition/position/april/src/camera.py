@@ -1,3 +1,4 @@
+from concurrent.futures import Future, ThreadPoolExecutor
 import random
 import threading
 import time
@@ -22,63 +23,77 @@ from project.recognition.position.april.src.util import (
 class CaptureDevice(cv2.VideoCapture):
     def __init__(
         self,
-        camera: str | int,
-        width: int,
-        height: int,
-        max_fps: int,
-        camera_matrix: np.ndarray | None = None,
-        dist_coeff: np.ndarray | None = None,
+        camera,
+        width,
+        height,
+        max_fps,
+        camera_matrix=None,
+        dist_coeff=None,
+        hard_fps_limit=None,
     ):
         super().__init__(camera)
-
         self.port = camera
         self.width = width
         self.height = height
         self.max_fps = max_fps
+        self.hard_limit = hard_fps_limit
+
         self.camera_matrix = camera_matrix
         self.dist_coeff = dist_coeff
-        self.start_camera()
-
-        self.map1 = None
-        self.map2 = None
+        self.map1 = self.map2 = None
         if camera_matrix is not None and dist_coeff is not None:
-            self.map1, self.map2, self.camera_matrix = get_map1_and_map2(
-                camera_matrix,
-                dist_coeff,
-                self.width,
-                self.height,
+            self.map1, self.map2, _ = get_map1_and_map2(
+                camera_matrix, dist_coeff, width, height
             )
 
-        self.last_frame_date = time.time()
-
-        self.frame = None
-        self.ret = False
+        self._configure_camera()
+        self._prev_raw: np.ndarray | None = None
+        self._last_ts = time.time()
 
     def get_frame(self) -> tuple[bool, np.ndarray | None]:
-        if py_time_to_fps(self.last_frame_date, time.time()) < self.max_fps:
-            self.ret, self.frame = self.read()
+        start = time.time()
 
-            if self.ret is False or self.frame is None:
-                self.release()
-                super().__init__(self.port)
-                self.start_camera()
+        if (
+            self.map1 is not None
+            and self.map2 is not None
+            and self._prev_raw is not None
+        ):
+            out_frame = get_undistored_frame(self._prev_raw, self.map1, self.map2)
+        else:
+            out_frame = self._prev_raw
 
-                return False, None
+        ret, raw = super().read()
+        now = time.time()
+        if not ret or raw is None:
+            self._configure_camera()
+            self._last_ts = now
+            self._prev_raw = None
+            return False, None
 
-            if self.map1 is not None and self.map2 is not None:
-                self.frame = get_undistored_frame(self.frame, self.map1, self.map2)
+        self._prev_raw = raw
 
-            self.last_frame_date = time.time()
+        if self.hard_limit:
+            interval = 1.0 / self.hard_limit
+            took = now - start
+            if took < interval:
+                time.sleep(interval - took)
 
-        return self.ret, self.frame
+        self._last_ts = time.time()
+        return True, out_frame
 
     def release(self):
-        self.release()
+        super().release()
 
-    def start_camera(self):
-        self.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))  # type: ignore
-        self.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)  # 640
-        self.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)  # 480
+    def _configure_camera(self):
+        if self.isOpened():
+            super().release()
+
+        super().__init__(self.port)
+
+        fourcc = cv2.VideoWriter_fourcc(*"MJPG")  # type: ignore
+        self.set(cv2.CAP_PROP_FOURCC, fourcc)
+        self.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+        self.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         self.set(cv2.CAP_PROP_FPS, self.max_fps)
 
     def get_matrix(self) -> np.ndarray | None:
@@ -98,86 +113,49 @@ class DetectionCamera:
         publication_stats_lambda: Callable[[bytes], None] | None = None,
         publication_image_lambda: Callable[[np.ndarray], None] | None = None,
     ):
-        self.config = config
         self.detector = detector
         self.tag_size = tag_size
-
         self.publication_lambda = publication_lambda
         self.publication_image_lambda = publication_image_lambda
         self.publication_stats_lambda = publication_stats_lambda
-
-        self.port = self.config.camera_path
-
-        if self.port is None:
-            raise ValueError(
-                f"Camera with hardware id {self.config.camera_path} not found"
-            )
-
-        self.create_camera()
-
-        self.last_frame_date = time.time()
-        self.frame_counter = 0
-
-        self.map1, self.map2, self.new_camera_matrix = get_map1_and_map2(
-            self.get_matrix(),
-            self.get_dist_coeff(),
-            self.config.width,
-            self.config.height,
+        self.video_capture = CaptureDevice(
+            config.camera_path,
+            config.width,
+            config.height,
+            config.max_fps,
+            config.get_np_camera_matrix(),
+            config.get_np_dist_coeff(),
         )
+        self.name = config.name
 
         self.running = True
         self.thread = threading.Thread(target=self._update)
         self.thread.daemon = True
         self.thread.start()
 
-    def create_camera(self):
-        self.video_capture = cv2.VideoCapture(self.config.camera_path)
-        print(f"Opening camera on port {self.port}: {self.video_capture.isOpened()}")
-        self.video_capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))  # type: ignore
-
-        self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)  # 640
-        self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.height)  # 480
-        self.video_capture.set(cv2.CAP_PROP_FPS, self.config.max_fps)
-
-    def get_frame(self):
-        return self.ret, self.frame
-
     def _update(self):
+        matrix = self.video_capture.get_matrix()
         while self.running:
-            self.ret, self.frame = self.video_capture.read()
+            ret, frame = self.video_capture.get_frame()
 
-            if time.time() * 1000 - self.last_frame_date < 1000 / self.config.max_fps:
-                continue
-            self.last_frame_date = time.time() * 1000
-
-            if not self.ret or self.frame is None:
-                print("No frame found")
-                self.create_camera()
+            if not ret or frame is None:
+                print("No frame found!")
                 continue
 
-            new_frame = get_undistored_frame(self.frame, self.map1, self.map2)
-            gray = cv2.cvtColor(new_frame, cv2.COLOR_BGR2GRAY)
-            found_tags = process_image(
-                gray,
-                self.get_matrix_after_remap(),
-                self.detector,
-                self.tag_size,
-                self.config.name,
-            )
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            found_tags = None
+            if matrix is not None:
+                found_tags = process_image(
+                    gray,
+                    matrix,
+                    self.detector,
+                    self.tag_size,
+                    self.name,
+                )
 
-            if len(found_tags.tags) > 0:
+            if found_tags is not None and len(found_tags.tags) > 0:
                 self.publication_lambda(found_tags.SerializeToString())
 
     def release(self):
-        print(f"Releasing camera on port {self.port}")
         self.running = False
         self.video_capture.release()
-
-    def get_matrix(self) -> np.ndarray:
-        return self.config.get_np_camera_matrix()
-
-    def get_matrix_after_remap(self) -> np.ndarray:
-        return self.new_camera_matrix
-
-    def get_dist_coeff(self) -> np.ndarray:
-        return self.config.get_np_dist_coeff()
