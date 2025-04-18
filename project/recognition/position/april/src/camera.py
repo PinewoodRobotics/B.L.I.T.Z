@@ -40,37 +40,19 @@ class CaptureDevice(cv2.VideoCapture):
 
         self.camera_matrix = camera_matrix
         self.dist_coeff = dist_coeff
-        self.map1 = self.map2 = None
-        if camera_matrix is not None and dist_coeff is not None:
-            self.map1, self.map2, _ = get_map1_and_map2(
-                camera_matrix, dist_coeff, width, height
-            )
 
         self._configure_camera()
-        self._prev_raw: np.ndarray | None = None
         self._last_ts = time.time()
 
     def get_frame(self) -> tuple[bool, np.ndarray | None]:
         start = time.time()
 
-        if (
-            self.map1 is not None
-            and self.map2 is not None
-            and self._prev_raw is not None
-        ):
-            out_frame = get_undistored_frame(self._prev_raw, self.map1, self.map2)
-        else:
-            out_frame = self._prev_raw
-
-        ret, raw = super().read()
+        ret, frame = super().read()
         now = time.time()
-        if not ret or raw is None:
+        if not ret or frame is None:
             self._configure_camera()
             self._last_ts = now
-            self._prev_raw = None
             return False, None
-
-        self._prev_raw = raw
 
         if self.hard_limit:
             interval = 1.0 / self.hard_limit
@@ -79,7 +61,7 @@ class CaptureDevice(cv2.VideoCapture):
                 time.sleep(interval - took)
 
         self._last_ts = time.time()
-        return True, out_frame
+        return True, frame
 
     def release(self):
         super().release()
