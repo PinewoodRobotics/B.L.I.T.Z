@@ -1,4 +1,4 @@
-import type Config from "../schema";
+import { Config } from "../generated_schema/config_types";
 import { april_tag_detection_config } from "./april_tags_detection";
 import { autobahn_config } from "./autobahn";
 import prod1 from "./cameras/prod_1";
@@ -12,13 +12,12 @@ const config: Config = {
   april_detection: april_tag_detection_config,
   logger: {
     enabled: false,
-    profiler: {
-      activated: false,
-      profile_functions: false,
-      time_functions: false,
-      output_file: "profiler.json",
-    },
     level: "DEBUG",
+    output_file: "profiler.json",
+    console_output: false,
+    max_file_size: 1024 * 1024 * 10,
+    max_files: 3,
+    compress: true,
   },
   image_recognition: {
     model: "",

@@ -57,3 +57,21 @@ send-to-target:
 
 test:
 	pytest project
+
+THRIFT_DIR = config/schema
+SCHEMA_DIR = config/generated_schema
+GEN_DIR    = generated
+
+.PHONY: thrift
+thrift-to-py:
+	mkdir -p $(GEN_DIR)
+	thrift -r --gen py:package_prefix=generated. \
+	  -I $(THRIFT_DIR) \
+	  -out $(GEN_DIR) \
+	  $(THRIFT_DIR)/config.thrift
+
+thrift-to-ts:
+	mkdir -p $(SCHEMA_DIR)
+	thrift-ts $(THRIFT_DIR) -o $(SCHEMA_DIR)
+
+thrift: thrift-to-py thrift-to-ts

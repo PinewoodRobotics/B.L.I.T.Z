@@ -1,49 +1,44 @@
-import type { Matrix, Vector } from "../../schema/type-util/math-util";
+import {
+  Matrix3x3,
+  Matrix4x4,
+  Vector3D,
+} from "../../generated_schema/common_types";
 
-/**
- *
- * @param type
- * @param size
- * @returns
- */
-export function buildIdentityMatrix<T, N extends number>(
-  type: T,
-  size: N
-): Matrix<T, N, N> {
-  return Array.from({ length: size }, (_, i) =>
-    Array.from({ length: size }, (_, j) => (i === j ? type : 0))
-  ) as Matrix<T, N, N>;
+class Matrix3 extends Matrix3x3 {
+  constructor(vec1: Vector3D, vec2: Vector3D, vec3: Vector3D) {
+    super({
+      m00: vec1.x,
+      m01: vec1.y,
+      m02: vec1.z,
+      m10: vec2.x,
+      m11: vec2.y,
+      m12: vec2.z,
+      m20: vec3.x,
+      m21: vec3.y,
+      m22: vec3.z,
+    });
+  }
 }
 
-export function buildVector<T, N extends number>(...values: T[]): Vector<T, N> {
-  if (values.length === 0) {
-    throw new Error("Vector must contain at least one value");
+class TransformationMatrix3 extends Matrix4x4 {
+  constructor(rotation: Matrix3x3, translation: Vector3D) {
+    super({
+      m00: rotation.m00,
+      m01: rotation.m01,
+      m02: rotation.m02,
+      m03: 0,
+      m10: rotation.m10,
+      m11: rotation.m11,
+      m12: rotation.m12,
+      m13: 0,
+      m20: rotation.m20,
+      m21: rotation.m21,
+      m22: rotation.m22,
+      m23: 0,
+      m30: translation.x,
+      m31: translation.y,
+      m32: translation.z,
+      m33: 1,
+    });
   }
-
-  return values as Vector<T, N>;
-}
-
-export function buildMatrix<T, N extends number, M extends number>(
-  ...values: T[]
-): Matrix<T, N, M> {
-  if (values.length === 0) {
-    throw new Error("Matrix must contain at least one value");
-  }
-
-  return values as Matrix<T, N, M>;
-}
-
-export function buildMatrixFromArray<T, N extends number, M extends number>(
-  arrays: T[][]
-): Matrix<T, N, M> {
-  if (arrays.length === 0 || arrays[0].length === 0) {
-    throw new Error("Matrix must contain at least one row and column");
-  }
-
-  const width = arrays[0].length;
-  if (!arrays.every((row) => row.length === width)) {
-    throw new Error("All rows must have the same length");
-  }
-
-  return arrays as Matrix<T, N, M>;
 }

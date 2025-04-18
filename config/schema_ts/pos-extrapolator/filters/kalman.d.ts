@@ -1,4 +1,4 @@
-import { Matrix } from "../../type-util/math-util";
+import { Matrix, Vector } from "../../type-util/math-util";
 
 export interface KalmanFilterSensorConfig<N extends number = 3> {
   measurement_noise_matrix: Matrix<number, N, N>;

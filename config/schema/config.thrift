@@ -1,0 +1,21 @@
+namespace py thrift
+
+include "./autobahn/autobahn.thrift"
+include "./apriltag/apriltag.thrift"
+include "./camera/camera.thrift"
+include "./image_recognition/image_recognition.thrift"
+include "./lidar/lidar.thrift"
+include "./logger/logger.thrift"
+include "./pos_extrapolator/pos_extrapolator.thrift"
+include "./watchdog/watchdog.thrift"
+
+struct Config {
+    1: required autobahn.AutobahnConfig autobahn,
+    2: required watchdog.WatchdogConfig watchdog,
+    3: required pos_extrapolator.PosExtrapolator pos_extrapolator,
+    4: required image_recognition.ImageDetectionConfig image_recognition,
+    5: required list<camera.CameraParameters> cameras,
+    6: required list<lidar.LidarConfig> lidar_configs,
+    7: required apriltag.AprilDetectionConfig april_detection,
+    8: required logger.LoggerConfig logger,
+}
