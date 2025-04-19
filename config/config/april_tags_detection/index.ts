@@ -1,4 +1,4 @@
-import type { AprilDetectionConfig } from "../../schema/apriltag";
+import { AprilDetectionConfig } from "../../generated_schema/apriltag_types";
 
 export const april_tag_detection_config: AprilDetectionConfig = {
   tag_size: 0.17,
@@ -8,7 +8,7 @@ export const april_tag_detection_config: AprilDetectionConfig = {
   quad_sigma: 0,
   refine_edges: true,
   decode_sharpening: 0.25,
-  searchpath: "apriltags",
+  searchpath: ["apriltags"],
   debug: false,
   message: {
     post_camera_output_topic: "apriltag/camera",

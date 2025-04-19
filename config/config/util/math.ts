@@ -1,44 +1,122 @@
-import {
+import type {
   Matrix3x3,
   Matrix4x4,
+  Matrix6x6,
   Vector3D,
+  Vector5D,
+  Vector6D,
 } from "../../generated_schema/common_types";
 
-class Matrix3 extends Matrix3x3 {
-  constructor(vec1: Vector3D, vec2: Vector3D, vec3: Vector3D) {
-    super({
-      m00: vec1.x,
-      m01: vec1.y,
-      m02: vec1.z,
-      m10: vec2.x,
-      m11: vec2.y,
-      m12: vec2.z,
-      m20: vec3.x,
-      m21: vec3.y,
-      m22: vec3.z,
-    });
+export type TransformationMatrix3D = Matrix4x4;
+
+function createMatrixProps<T extends Matrix3x3 | Matrix4x4 | Matrix6x6>(
+  array: number[][],
+  size: number
+): T {
+  const props = {} as T;
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size; j++) {
+      (props as any)[`m${i}${j}`] = array[i][j];
+    }
+  }
+  return props;
+}
+
+export class MatrixUtil {
+  static createTransformationMatrix3D(
+    rotation: Matrix3x3,
+    translation: Vector3D
+  ): TransformationMatrix3D {
+    return createMatrixProps<Matrix4x4>(
+      [
+        [rotation.m00, rotation.m01, rotation.m02, 0],
+        [rotation.m10, rotation.m11, rotation.m12, 0],
+        [rotation.m20, rotation.m21, rotation.m22, 0],
+        [translation.x, translation.y, translation.z, 1],
+      ],
+      4
+    );
+  }
+
+  static buildMatrix<R extends number, C extends number>(
+    array: number[][]
+  ): R extends 3
+    ? C extends 3
+      ? Matrix3x3
+      : null
+    : R extends 4
+    ? C extends 4
+      ? Matrix4x4
+      : null
+    : R extends 6
+    ? C extends 6
+      ? Matrix6x6
+      : null
+    : null {
+    const rows = array.length;
+    const cols = array[0].length;
+
+    if (rows === 3 && cols === 3) {
+      return createMatrixProps<Matrix3x3>(array, 3) as any;
+    }
+
+    if (rows === 4 && cols === 4) {
+      return createMatrixProps<Matrix4x4>(array, 4) as any;
+    }
+
+    if (rows === 6 && cols === 6) {
+      return createMatrixProps<Matrix6x6>(array, 6) as any;
+    }
+
+    return null as any;
   }
 }
 
-class TransformationMatrix3 extends Matrix4x4 {
-  constructor(rotation: Matrix3x3, translation: Vector3D) {
-    super({
-      m00: rotation.m00,
-      m01: rotation.m01,
-      m02: rotation.m02,
-      m03: 0,
-      m10: rotation.m10,
-      m11: rotation.m11,
-      m12: rotation.m12,
-      m13: 0,
-      m20: rotation.m20,
-      m21: rotation.m21,
-      m22: rotation.m22,
-      m23: 0,
-      m30: translation.x,
-      m31: translation.y,
-      m32: translation.z,
-      m33: 1,
-    });
+export class VectorUtil {
+  static fromArray<L extends number>(
+    array: L extends 3
+      ? [number, number, number]
+      : L extends 5
+      ? [number, number, number, number, number]
+      : L extends 6
+      ? [number, number, number, number, number, number]
+      : number[]
+  ): L extends 3
+    ? Vector3D
+    : L extends 5
+    ? Vector5D
+    : L extends 6
+    ? Vector6D
+    : null {
+    if (array.length === 3) {
+      return {
+        x: array[0],
+        y: array[1],
+        z: array[2],
+      } as any;
+    }
+
+    if (array.length === 5) {
+      return {
+        k1: array[0],
+        k2: array[1],
+        k3: array[2],
+        k4: array[3],
+        k5: array[4],
+      } as any;
+    }
+
+    if (array.length === 6) {
+      return {
+        k1: array[0],
+        k2: array[1],
+        k3: array[2],
+        k4: array[3],
+        k5: array[4],
+        k6: array[5],
+      } as any;
+    }
+
+    return null as any;
   }
 }

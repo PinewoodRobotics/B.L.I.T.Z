@@ -1,9 +1,18 @@
-import { ImuConfig } from "../../../schema/pos-extrapolator/imu-config";
+import { MatrixUtil, VectorUtil } from "../../util/math";
+import { MapUtil } from "../../util/struct";
 
-export const nav_x_config: ImuConfig = {
-  use_position: true,
-  use_rotation: true,
-  use_velocity: true,
-  imu_robot_position: [0.0, 0.0],
-  imu_robot_direction_vector: [0.0, 0.0],
-};
+export const nav_x_config = MapUtil.fromRecord({
+  "0": {
+    use_position: true,
+    use_rotation: true,
+    use_velocity: true,
+    imu_robot_position: {
+      position: VectorUtil.fromArray<3>([0.0, 0.0, 0.0]),
+      rotation: MatrixUtil.buildMatrix<3, 3>([
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+      ]),
+    },
+  },
+});

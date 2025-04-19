@@ -1,29 +1,31 @@
-import { PosExtrapolator } from "../../schema/pos-extrapolator";
-import { comp_lab } from "../tag_config/comp_lab";
-import { buildVector } from "../util/math";
+import { PosExtrapolator } from "../../generated_schema/pos_extrapolator_types";
+import { MatrixUtil, VectorUtil } from "../util/math";
+import { MapUtil } from "../util/struct";
 import { nav_x_config } from "./imu_config/navx";
 import { kalman_filter } from "./kalman_filter_config";
 import { message_config } from "./message_config";
 import { swerve_odom_config } from "./odom_config/swerve_odom";
+import { comp_lab } from "./tag_config/comp_lab";
 
 export const pose_extrapolator: PosExtrapolator = {
-  april_tag_discard_distance: 1000,
-  tag_confidence_threshold: 1,
-  enable_imu: false,
-  enable_odom: false,
-  enable_tags: true,
-
-  tag_position_config: comp_lab,
   message_config: message_config,
-  kalman_filter: kalman_filter,
-  imu_configs: {
-    navx: nav_x_config,
-  },
-  odom_configs: swerve_odom_config,
-  camera_configs: {
-    front_right: {
-      camera_robot_position: buildVector<number, 3>(0, 0, 0),
-      camera_robot_direction: buildVector<number, 3>(1, 0, 0),
+  camera_position_config: MapUtil.fromRecord({
+    one: {
+      position: VectorUtil.fromArray<3>([0, 0, 0]),
+      rotation: MatrixUtil.buildMatrix<3, 3>([
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+      ]),
     },
-  },
+  }),
+  tag_position_config: comp_lab,
+  tag_confidence_threshold: 50,
+  april_tag_discard_distance: 5,
+  enable_imu: true,
+  enable_odom: true,
+  enable_tags: true,
+  odom_config: swerve_odom_config,
+  imu_config: nav_x_config,
+  kalman_filter_config: kalman_filter,
 };

@@ -14,22 +14,22 @@ struct Vector2D {
 struct Vector5D {
     1: required double k1,
     2: required double k2,
-    3: required double p1,
-    4: required double p2,
-    5: required double k3,
+    3: required double k3,
+    4: required double k4,
+    5: required double k5,
 }
 
 struct Vector6D {
-    1: required double x,
-    2: required double y,
-    3: required double z,
-    4: required double vx,
-    5: required double vy,
-    6: required double vz,
+    1: required double k1,
+    2: required double k2,
+    3: required double k3,
+    4: required double k4,
+    5: required double k5,
+    6: required double k6,
 }
 
 struct Point3 {
-    1: required Vector3D point,
+    1: required Vector3D position,
     2: required Matrix3x3 rotation,
 }
 

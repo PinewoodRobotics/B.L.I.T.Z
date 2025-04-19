@@ -1,4 +1,5 @@
 include "../common/common.thrift"
+include "./kalman_filter.thrift"
 
 namespace py thrift.pos_extrapolator
 
@@ -32,5 +33,6 @@ struct PosExtrapolator {
     7: required bool enable_tags,
     8: required OdomConfig odom_config,
     9: required map<string, ImuConfig> imu_config,
-    10: required map<string, common.Point3> camera_config,
+    10: required kalman_filter.KalmanFilterConfig kalman_filter_config,
+    11: required map<string, common.Point3> camera_position_config,
 }

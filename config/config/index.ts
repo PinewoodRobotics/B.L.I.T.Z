@@ -1,9 +1,10 @@
-import { Config } from "../generated_schema/config_types";
+import type { Config } from "../generated_schema/config_types.d";
 import { april_tag_detection_config } from "./april_tags_detection";
 import { autobahn_config } from "./autobahn";
 import prod1 from "./cameras/prod_1";
+import lidar_configs from "./lidar";
 import { pose_extrapolator } from "./pos_extrapolator";
-import { buildVector } from "./util/math";
+import { LogLevel, LogLevelUtil } from "./util/struct";
 
 const config: Config = {
   pos_extrapolator: pose_extrapolator,
@@ -12,12 +13,13 @@ const config: Config = {
   april_detection: april_tag_detection_config,
   logger: {
     enabled: false,
-    level: "DEBUG",
-    output_file: "profiler.json",
-    console_output: false,
-    max_file_size: 1024 * 1024 * 10,
-    max_files: 3,
-    compress: true,
+    level: LogLevelUtil.fromEnum(LogLevel.DEBUG),
+    profiler: {
+      activated: true,
+      profile_functions: true,
+      time_functions: true,
+      output_file: "profiler.json",
+    },
   },
   image_recognition: {
     model: "",
@@ -41,24 +43,12 @@ const config: Config = {
     },
     throwaway_time_ms: 0,
   },
-  lidar_configs: [
-    {
-      pi_to_run_on: "pi-1",
-      port: "/dev/ttyUSB0",
-      baudrate: 115200,
-      name: "lidar-1",
-      is_2d: false,
-      min_distance_meters: 0.1,
-      max_distance_meters: 10.0,
-      position_in_robot: buildVector<number, 3>(0.0, 0.0, 0.0),
-      rotation_in_robot: buildVector<number, 3>(0.0, 0.0, 0.0),
-    },
-  ],
   watchdog: {
     send_stats: true,
     stats_interval_seconds: 1,
     stats_publish_topic: "stats/publish",
   },
+  lidar_configs: lidar_configs,
 };
 
 export default config;
