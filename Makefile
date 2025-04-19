@@ -28,11 +28,12 @@ generate-proto-cpp-lidar:
 	protoc -I=proto --cpp_out=project/hybrid-frustum-pointnet/lidar/include/proto$(find proto -name "*.proto")
 
 generate-proto: prepare
+	mkdir -p generated/proto
 	protoc -I=proto \
-		--python_out=generated \
+		--python_out=generated/proto \
 		$(shell find proto -name "*.proto")
 	
-	.venv/bin/protol --create-package --in-place --python-out generated protoc --proto-path=proto/ $(shell find proto -name "*.proto")
+	.venv/bin/protol --create-package --in-place --python-out generated/proto protoc --proto-path=proto/ $(shell find proto -name "*.proto")
 
 position-extrapolator:
 	$(VENV_PYTHON) -u project/pos_extrapolator/src/main.py $(ARGS)
@@ -60,15 +61,16 @@ test:
 
 THRIFT_DIR = config/schema
 SCHEMA_DIR = config/generated_schema
-GEN_DIR    = generated
+GEN_DIR = generated
 
-.PHONY: thrift
 thrift-to-py:
 	mkdir -p $(GEN_DIR)
 	thrift -r --gen py:package_prefix=generated. \
 	  -I $(THRIFT_DIR) \
 	  -out $(GEN_DIR) \
 	  $(THRIFT_DIR)/config.thrift
+
+	stubgen -o $(GEN_DIR) .
 
 thrift-to-ts:
 	mkdir -p $(SCHEMA_DIR)

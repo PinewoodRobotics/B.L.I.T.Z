@@ -15,8 +15,8 @@ from generated.WatchDogMessage_pb2 import (
 from generated.status.PiStatus_pb2 import PiProcess, PiStatus
 from project.common.autobahn_python.autobahn import Autobahn
 from project.common.autobahn_python.util import Address
-from project.common.config import Config
-from project.common.config_class.name import get_system_name
+from project.common.config import Config, from_file
+from project.common.util.name import get_system_name
 from project.watchdog.process_starter import start_process
 
 CONFIG_PATH = "config/config.json"
@@ -144,7 +144,7 @@ async def main():
         with open(CONFIG_PATH, "w") as f:
             f.write(startup_message.json_config)
 
-        config = Config.from_json(CONFIG_PATH)
+        config = from_file(CONFIG_PATH)
 
         if startup_message.abort_previous:
             log("Aborting previous processes")

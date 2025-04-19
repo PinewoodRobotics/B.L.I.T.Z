@@ -1,0 +1,198 @@
+{
+  "pos_extrapolator": {
+    "message_config": {
+      "post_tag_input_topic": "apriltag/tag",
+      "post_odometry_input_topic": "robot/odometry",
+      "post_imu_input_topic": "imu/imu",
+      "post_robot_position_output_topic": "pos-extrapolator/robot-position"
+    },
+    "camera_position_config": {},
+    "tag_position_config": {},
+    "tag_confidence_threshold": 50,
+    "april_tag_discard_distance": 5,
+    "enable_imu": true,
+    "enable_odom": true,
+    "enable_tags": true,
+    "odom_config": {
+      "use_position": true,
+      "use_rotation": true,
+      "imu_robot_position": {
+        "position": { "x": 0, "y": 0, "z": 0 },
+        "rotation": {
+          "m00": 1,
+          "m01": 0,
+          "m02": 0,
+          "m10": 0,
+          "m11": 1,
+          "m12": 0,
+          "m20": 0,
+          "m21": 0,
+          "m22": 1
+        }
+      }
+    },
+    "imu_config": {},
+    "kalman_filter_config": {
+      "state_vector": { "k1": 0, "k2": 0, "k3": 0, "k4": 0, "k5": 0, "k6": 0 },
+      "time_step_initial": 0.1,
+      "state_transition_matrix": null,
+      "uncertainty_matrix": {
+        "m00": 10,
+        "m01": 0,
+        "m02": 0,
+        "m03": 0,
+        "m04": 0,
+        "m05": 0,
+        "m10": 0,
+        "m11": 10,
+        "m12": 0,
+        "m13": 0,
+        "m14": 0,
+        "m15": 0,
+        "m20": 0,
+        "m21": 0,
+        "m22": 2,
+        "m23": 0,
+        "m24": 0,
+        "m25": 0,
+        "m30": 0,
+        "m31": 0,
+        "m32": 0,
+        "m33": 2,
+        "m34": 0,
+        "m35": 0,
+        "m40": 0,
+        "m41": 0,
+        "m42": 0,
+        "m43": 0,
+        "m44": 1,
+        "m45": 0,
+        "m50": 0,
+        "m51": 0,
+        "m52": 0,
+        "m53": 0,
+        "m54": 0,
+        "m55": 1
+      },
+      "process_noise_matrix": {
+        "m00": 0.01,
+        "m01": 0,
+        "m02": 0,
+        "m03": 0,
+        "m04": 0,
+        "m05": 0,
+        "m10": 0,
+        "m11": 0.01,
+        "m12": 0,
+        "m13": 0,
+        "m14": 0,
+        "m15": 0,
+        "m20": 0,
+        "m21": 0,
+        "m22": 0.1,
+        "m23": 0,
+        "m24": 0,
+        "m25": 0,
+        "m30": 0,
+        "m31": 0,
+        "m32": 0,
+        "m33": 0.1,
+        "m34": 0,
+        "m35": 0,
+        "m40": 0,
+        "m41": 0,
+        "m42": 0,
+        "m43": 0,
+        "m44": 0.01,
+        "m45": 0,
+        "m50": 0,
+        "m51": 0,
+        "m52": 0,
+        "m53": 0,
+        "m54": 0,
+        "m55": 0.01
+      },
+      "dim_x_z": [5, 5],
+      "sensors": {}
+    }
+  },
+  "autobahn": { "host": "localhost", "port": 8080 },
+  "cameras": [
+    {
+      "pi_to_run_on": "tripoli",
+      "name": "one",
+      "camera_path": "/dev/video0",
+      "flags": 0,
+      "width": 640,
+      "height": 480,
+      "max_fps": 30,
+      "camera_matrix": {
+        "m00": 545.67965312,
+        "m01": 0,
+        "m02": 432.72230551,
+        "m10": 0,
+        "m11": 549.31248491,
+        "m12": 332.97096527,
+        "m20": 0,
+        "m21": 0,
+        "m22": 1
+      },
+      "dist_coeff": {
+        "k1": 0.00871187465,
+        "k2": -0.0877374006,
+        "k3": -0.0000162906725,
+        "k4": -0.00147495281,
+        "k5": 0.0216825631
+      },
+      "exposure_time": 8
+    }
+  ],
+  "april_detection": {
+    "tag_size": 0.17,
+    "family": "tag36h11",
+    "nthreads": 4,
+    "quad_decimate": 1,
+    "quad_sigma": 0,
+    "refine_edges": true,
+    "decode_sharpening": 0.25,
+    "searchpath": ["apriltags"],
+    "debug": false,
+    "message": {
+      "post_camera_output_topic": "apriltag/camera",
+      "post_tag_output_topic": "apriltag/tag"
+    },
+    "send_stats": true,
+    "stats_topic": "apriltag/stats"
+  },
+  "logger": {
+    "enabled": false,
+    "level": 0,
+    "profiler": {
+      "activated": true,
+      "profile_functions": true,
+      "time_functions": true,
+      "output_file": "profiler.json"
+    }
+  },
+  "image_recognition": {
+    "model": "",
+    "device": "cpu",
+    "mode": "detection",
+    "training": { "imgsz": 0, "epochs": 0, "batch_size": 0 },
+    "detection": {
+      "image_input_topic": "",
+      "image_output_topic": "",
+      "conf_threshold": 0,
+      "iou_threshold": 0,
+      "batch_size": 0
+    },
+    "message_config": { "image_input_topic": "", "inference_output_topic": "" },
+    "throwaway_time_ms": 0
+  },
+  "watchdog": {
+    "send_stats": true,
+    "stats_interval_seconds": 1,
+    "stats_publish_topic": "stats/publish"
+  },
+  "lidar_configs": {}
+}

@@ -1,6 +1,6 @@
-namespace py thrift.pos_extrapolator
-
 include "../common/common.thrift"
+
+namespace py thrift.kalman_filter
 
 struct KalmanFilterSensorConfig {
     1: required common.Matrix6x6 measurement_noise_matrix,

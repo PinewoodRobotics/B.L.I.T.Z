@@ -21,10 +21,6 @@ def user_pass_input_selector():
         cv2.destroyAllWindows()
 
 
-def add_cur_dir(path: str):
-    return os.path.join(os.path.dirname(__file__), path)
-
-
 def detector():
     return pyapriltags.Detector(
         families="tag36h11",
