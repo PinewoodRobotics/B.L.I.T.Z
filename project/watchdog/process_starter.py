@@ -1,4 +1,4 @@
-from generated.WatchDogMessage_pb2 import ProcessType
+from generated.proto.WatchDogMessage_pb2 import ProcessType
 import subprocess
 from typing import Optional, List
 import sys

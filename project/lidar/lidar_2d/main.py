@@ -8,7 +8,7 @@ from generated.lidar.lidar_pb2 import PointCloud2d, Scan2d
 from project.common.autobahn_python.autobahn import Autobahn
 from project.common.autobahn_python.util import Address
 from project.common.config import Config
-from project.common.util.name import get_system_name
+from project.common.util.system import get_system_name
 from project.lidar.lidar_2d.lidar_bridge import LidarBridge
 
 parser = argparse.ArgumentParser()
