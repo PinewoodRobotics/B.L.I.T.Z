@@ -64,12 +64,11 @@ test:
 	pytest project
 
 thrift-to-py:
-	thrift -r --gen py:package_prefix=generated. \
-	  -I $(THRIFT_DIR) \
-	  -out $(GEN_DIR) \
-	  $(THRIFT_DIR)/config.thrift
-	
-	stubgen --include-docstring -o . $(GEN_DIR)/thrift
+	mkdir -p $(GEN_DIR)/thrift
+	thrift -r --gen py:enum,type_hints,package_prefix=generated. \
+	  	-I $(THRIFT_DIR) \
+	  	-out $(GEN_DIR) \
+	  	$(THRIFT_DIR)/config.thrift
 
 thrift-to-ts:
 	mkdir -p $(SCHEMA_DIR)

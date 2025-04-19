@@ -1,5 +1,6 @@
 import subprocess
 import json
+
 from generated.thrift.ttypes import Config
 
 
