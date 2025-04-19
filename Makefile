@@ -1,6 +1,9 @@
 export PYTHONPATH := $(shell pwd)
 ARGS ?=
 
+THRIFT_DIR = config/schema
+SCHEMA_DIR = config/generated_schema
+GEN_DIR = generated
 VENV_PYTHON := .venv/bin/python
 
 initiate-project:
@@ -28,9 +31,10 @@ generate-proto-cpp-lidar:
 	protoc -I=proto --cpp_out=project/hybrid-frustum-pointnet/lidar/include/proto$(find proto -name "*.proto")
 
 generate-proto: prepare
-	mkdir -p generated/proto
+	mkdir -p $(GEN_DIR)/proto
 	protoc -I=proto \
-		--python_out=generated/proto \
+		--python_out=$(GEN_DIR)/proto \
+		--pyi_out=$(GEN_DIR)/proto \
 		$(shell find proto -name "*.proto")
 	
 	.venv/bin/protol --create-package --in-place --python-out generated/proto protoc --proto-path=proto/ $(shell find proto -name "*.proto")
@@ -59,21 +63,18 @@ send-to-target:
 test:
 	pytest project
 
-THRIFT_DIR = config/schema
-SCHEMA_DIR = config/generated_schema
-GEN_DIR = generated
-
 thrift-to-py:
-	mkdir -p $(GEN_DIR)
 	thrift -r --gen py:package_prefix=generated. \
 	  -I $(THRIFT_DIR) \
 	  -out $(GEN_DIR) \
 	  $(THRIFT_DIR)/config.thrift
-
-	stubgen -o $(GEN_DIR) .
+	
+	stubgen --include-docstring -o . $(GEN_DIR)/thrift
 
 thrift-to-ts:
 	mkdir -p $(SCHEMA_DIR)
 	thrift-ts $(THRIFT_DIR) -o $(SCHEMA_DIR)
 
 thrift: thrift-to-py thrift-to-ts
+
+generate: prepare thrift generate-proto
