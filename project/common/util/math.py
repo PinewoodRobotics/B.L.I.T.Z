@@ -1,5 +1,16 @@
 import numpy as np
 
+from generated.thrift.config.common.ttypes import (
+    Matrix3x3,
+    Matrix4x4,
+    Matrix5x5,
+    Matrix6x6,
+    Vector3D,
+    Vector4D,
+    Vector5D,
+    Vector6D,
+)
+
 
 def get_translation_rotation_components(
     transformation_matrix: np.ndarray,
@@ -54,3 +65,44 @@ def from_float_list(flat_list: list, rows: int, cols: int) -> np.ndarray:
     if not flat_list or len(flat_list) != rows * cols:
         raise ValueError("The provided list does not match the specified dimensions.")
     return np.array(flat_list).reshape(rows, cols)
+
+
+def get_np_from_vector(vector: Vector3D | Vector4D | Vector5D | Vector6D) -> np.ndarray:
+    """Convert any Vector type to a numpy array."""
+    if hasattr(vector, "x") and hasattr(vector, "y") and hasattr(vector, "z"):
+        return np.array([vector.x, vector.y, vector.z])  # type: ignore
+    elif hasattr(vector, "k1") and hasattr(vector, "k2") and hasattr(vector, "k3"):
+        if hasattr(vector, "k4"):
+            if hasattr(vector, "k5"):
+                if hasattr(vector, "k6"):
+                    return np.array(
+                        [vector.k1, vector.k2, vector.k3, vector.k4, vector.k5, vector.k6]  # type: ignore
+                    )
+                return np.array([vector.k1, vector.k2, vector.k3, vector.k4, vector.k5])  # type: ignore
+            return np.array([vector.k1, vector.k2, vector.k3, vector.k4])  # type: ignore
+        return np.array([[vector.k1], [vector.k2], [vector.k3]])  # type: ignore
+    else:
+        raise ValueError(f"Unsupported vector type: {type(vector)}")
+
+
+def get_np_from_matrix(
+    matrix: Matrix3x3 | Matrix4x4 | Matrix5x5 | Matrix6x6,
+) -> np.ndarray:
+    """Convert any Matrix type to a numpy array."""
+    rows = []
+    for i in range(1, 7):
+        row_attr = f"r{i}"
+        if hasattr(matrix, row_attr):
+            vector = getattr(matrix, row_attr)
+            vector_array = get_np_from_vector(vector)
+            # Reshape to ensure we have a flat vector for each row
+            if vector_array.ndim > 1:
+                vector_array = vector_array.flatten()
+            rows.append(vector_array)
+        else:
+            break
+
+    if not rows:
+        raise ValueError(f"Unsupported matrix type: {type(matrix)}")
+
+    return np.array(rows)

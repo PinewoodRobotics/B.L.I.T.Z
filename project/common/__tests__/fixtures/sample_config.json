@@ -120,8 +120,7 @@
   "watchdog": {
     "send_stats": true,
     "stats_interval_seconds": 1,
-    "stats_publish_topic": "stats/publish",
-    "confirmation_topic": "watchdog/confirmation"
+    "stats_publish_topic": "stats/publish"
   },
   "lidar_configs": {}
 }

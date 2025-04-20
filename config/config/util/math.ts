@@ -28,27 +28,27 @@ export class MatrixUtil {
   ): TransformationMatrix3D {
     return {
       r1: VectorUtil.fromArray<4>([
-        rotation.r1.x,
-        rotation.r1.y,
-        rotation.r1.z,
+        rotation.r1.k1,
+        rotation.r1.k2,
+        rotation.r1.k3,
         0,
       ]) as Vector4D,
       r2: VectorUtil.fromArray<4>([
-        rotation.r2.x,
-        rotation.r2.y,
-        rotation.r2.z,
+        rotation.r2.k1,
+        rotation.r2.k2,
+        rotation.r2.k3,
         0,
       ]) as Vector4D,
       r3: VectorUtil.fromArray<4>([
-        rotation.r3.x,
-        rotation.r3.y,
-        rotation.r3.z,
+        rotation.r3.k1,
+        rotation.r3.k2,
+        rotation.r3.k3,
         0,
       ]) as Vector4D,
       r4: VectorUtil.fromArray<4>([
-        translation.x,
-        translation.y,
-        translation.z,
+        translation.k1,
+        translation.k2,
+        translation.k3,
         1,
       ]) as Vector4D,
     };

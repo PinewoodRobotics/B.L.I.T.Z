@@ -6,11 +6,10 @@ from typing import Callable
 import cv2
 import numpy as np
 import pyapriltags
-from generated.AprilTag_pb2 import AprilTags
-from generated.status.CameraStatus_pb2 import CameraStatus
-from project.common.config_class.camera_parameters import (
-    CameraParameters,
-)
+from generated.proto.python.AprilTag_pb2 import AprilTags
+from generated.proto.python.status.CameraStatus_pb2 import CameraStatus
+from generated.thrift.config.camera.ttypes import CameraParameters
+from project.common.util.math import get_np_from_matrix, get_np_from_vector
 from project.recognition.position.april.src.util import (
     from_detection_to_proto,
     get_map1_and_map2,
@@ -105,8 +104,8 @@ class DetectionCamera:
             config.width,
             config.height,
             config.max_fps,
-            config.get_np_camera_matrix(),
-            config.get_np_dist_coeff(),
+            get_np_from_matrix(config.camera_matrix),
+            get_np_from_vector(config.dist_coeff),
         )
         self.name = config.name
 

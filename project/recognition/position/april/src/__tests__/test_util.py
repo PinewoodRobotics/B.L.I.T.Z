@@ -6,8 +6,8 @@ import numpy as np
 import pyapriltags
 import pytest
 
-from project.common.util.tests_util import add_cur_dir
 from project.recognition.position.april.src.__tests__.util import (
+    add_cur_dir,
     detector,
     preprocess_image,
     tag_size,

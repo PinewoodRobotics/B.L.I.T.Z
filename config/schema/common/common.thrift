@@ -1,14 +1,14 @@
 namespace py config.common
 
 struct Vector2D {
-    1: required double x,
-    2: required double y,
+    1: required double k1,
+    2: required double k2,
 }
 
 struct Vector3D {
-    1: required double x,
-    2: required double y,
-    3: required double z,
+    1: required double k1,
+    2: required double k2,
+    3: required double k3,
 }
 
 struct Vector4D {

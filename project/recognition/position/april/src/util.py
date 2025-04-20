@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 import pyapriltags
 
-from generated.AprilTag_pb2 import AprilTags, Tag
+from generated.proto.python.AprilTag_pb2 import AprilTags, Tag
 
 
 def to_float_list(arr: np.ndarray) -> list:

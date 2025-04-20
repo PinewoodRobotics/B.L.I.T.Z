@@ -12,6 +12,10 @@ from project.recognition.position.april.src.util import (
 )
 
 
+def add_cur_dir(path: str):
+    return os.path.join(os.path.dirname(__file__), path)
+
+
 def user_pass_input_selector():
     key = cv2.waitKey(0) & 0xFF
     if key == ord("q"):
