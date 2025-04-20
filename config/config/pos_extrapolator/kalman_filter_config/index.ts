@@ -1,4 +1,4 @@
-import type { KalmanFilterConfig } from "../../../generated_schema/kalman_filter_types";
+import type { KalmanFilterConfig } from "../../../../generated/thrift/ts_schema/kalman_filter_types";
 import { MatrixUtil, VectorUtil } from "../../util/math";
 import {
   KalmanFilterSensorTypeUtil,

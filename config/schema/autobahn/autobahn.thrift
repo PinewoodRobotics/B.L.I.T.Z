@@ -1,4 +1,4 @@
-namespace py thrift.autobahn
+namespace py config.autobahn
 
 struct AutobahnConfig {
     1: required string host,

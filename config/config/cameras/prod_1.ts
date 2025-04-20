@@ -1,4 +1,4 @@
-import { CameraParameters } from "../../generated_schema/camera_types";
+import { CameraParameters } from "../../../generated/thrift/ts_schema/camera_types";
 import { MatrixUtil, VectorUtil } from "../util/math";
 
 const prod1: CameraParameters = {

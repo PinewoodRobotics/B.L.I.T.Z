@@ -1,6 +1,6 @@
 include "../common/common.thrift"
 
-namespace py thrift.watchdog
+namespace py config.watchdog
 
 struct WatchdogConfig {
     1: required bool send_stats,

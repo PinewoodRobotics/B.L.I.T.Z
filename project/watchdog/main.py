@@ -6,14 +6,14 @@ from typing import Dict, List
 from flask import Flask, jsonify
 import psutil
 
-from generated.proto.WatchDogMessage_pb2 import (
+from generated.proto.python.WatchDogMessage_pb2 import (
     AbortMessage,
     MessageRetrievalConfirmation,
     ProcessType,
     StartupMessage,
 )
-from generated.proto.status.PiStatus_pb2 import PiProcess, PiStatus
-from generated.thrift.ttypes import Config
+from generated.proto.python.status.PiStatus_pb2 import PiProcess, PiStatus
+from generated.thrift.config.ttypes import Config
 from project.common.autobahn_python.autobahn import Autobahn
 from project.common.autobahn_python.util import Address
 from project.common.config import from_file

@@ -1,6 +1,6 @@
 include "../common/common.thrift"
 
-namespace py thrift.logger
+namespace py config.logger
 
 enum Level {
     DEBUG,

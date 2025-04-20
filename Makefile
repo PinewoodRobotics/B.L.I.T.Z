@@ -1,10 +1,18 @@
 export PYTHONPATH := $(shell pwd)
 ARGS ?=
 
-THRIFT_DIR = config/schema
-SCHEMA_DIR = config/generated_schema
-GEN_DIR = generated
 VENV_PYTHON := .venv/bin/python
+
+THRIFT_DIR = config/schema
+THRIFT_ROOT_FILE = $(THRIFT_DIR)/config.thrift
+PROTO_DIR = proto
+
+GEN_DIR = generated
+PROTO_GEN_DIR = $(GEN_DIR)/proto
+THRIFT_GEN_DIR = $(GEN_DIR)/thrift
+
+THRIFT_TS_SCHEMA_GEN_DIR = $(THRIFT_GEN_DIR)/ts_schema
+PROTO_PY_GEN_DIR = $(PROTO_GEN_DIR)/python
 
 initiate-project:
 	if [ ! -d ".venv" ]; then python3 -m venv .venv; fi
@@ -30,11 +38,11 @@ generate-proto-cpp-lidar:
 	mkdir -p project/hybrid-frustum-pointnet/lidar/include/proto
 	protoc -I=proto --cpp_out=project/hybrid-frustum-pointnet/lidar/include/proto$(find proto -name "*.proto")
 
-generate-proto: prepare
-	mkdir -p $(GEN_DIR)/proto
+generate-proto-python: prepare
+	mkdir -p $(PROTO_PY_GEN_DIR)
 	protoc -I=proto \
-		--python_out=$(GEN_DIR)/proto \
-		--pyi_out=$(GEN_DIR)/proto \
+		--python_out=$(PROTO_PY_GEN_DIR) \
+		--pyi_out=$(PROTO_PY_GEN_DIR) \
 		$(shell find proto -name "*.proto")
 	
 	.venv/bin/protol --create-package --in-place --python-out generated/proto protoc --proto-path=proto/ $(shell find proto -name "*.proto")
@@ -64,16 +72,16 @@ test:
 	pytest project
 
 thrift-to-py:
-	mkdir -p $(GEN_DIR)/thrift
-	thrift -r --gen py:enum,type_hints,package_prefix=generated. \
+	mkdir -p $(THRIFT_GEN_DIR)
+	thrift -r --gen py:enum,type_hints,package_prefix=generated.thrift. \
 	  	-I $(THRIFT_DIR) \
-	  	-out $(GEN_DIR) \
-	  	$(THRIFT_DIR)/config.thrift
+	  	-out $(THRIFT_GEN_DIR) \
+	  	$(THRIFT_ROOT_FILE)
 
 thrift-to-ts:
-	mkdir -p $(SCHEMA_DIR)
-	thrift-ts $(THRIFT_DIR) -o $(SCHEMA_DIR)
+	mkdir -p $(THRIFT_TS_SCHEMA_GEN_DIR)
+	thrift-ts $(THRIFT_DIR) -o $(THRIFT_TS_SCHEMA_GEN_DIR)
 
 thrift: thrift-to-py thrift-to-ts
 
-generate: prepare thrift generate-proto
+generate: prepare thrift generate-proto-python

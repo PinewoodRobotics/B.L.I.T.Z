@@ -3,9 +3,10 @@ import type {
   Matrix4x4,
   Matrix6x6,
   Vector3D,
+  Vector4D,
   Vector5D,
   Vector6D,
-} from "../../generated_schema/common_types";
+} from "../../../generated/thrift/ts_schema/common_types";
 
 export type TransformationMatrix3D = Matrix4x4;
 
@@ -13,13 +14,11 @@ function createMatrixProps<T extends Matrix3x3 | Matrix4x4 | Matrix6x6>(
   array: number[][],
   size: number
 ): T {
-  const props = {} as T;
-  for (let i = 0; i < size; i++) {
-    for (let j = 0; j < size; j++) {
-      (props as any)[`m${i}${j}`] = array[i][j];
-    }
+  const result: any = {};
+  for (let i = 1; i <= size; i++) {
+    result[`r${i}`] = VectorUtil.fromArray(array[i - 1]);
   }
-  return props;
+  return result as T;
 }
 
 export class MatrixUtil {
@@ -27,15 +26,32 @@ export class MatrixUtil {
     rotation: Matrix3x3,
     translation: Vector3D
   ): TransformationMatrix3D {
-    return createMatrixProps<Matrix4x4>(
-      [
-        [rotation.m00, rotation.m01, rotation.m02, 0],
-        [rotation.m10, rotation.m11, rotation.m12, 0],
-        [rotation.m20, rotation.m21, rotation.m22, 0],
-        [translation.x, translation.y, translation.z, 1],
-      ],
-      4
-    );
+    return {
+      r1: VectorUtil.fromArray<4>([
+        rotation.r1.x,
+        rotation.r1.y,
+        rotation.r1.z,
+        0,
+      ]) as Vector4D,
+      r2: VectorUtil.fromArray<4>([
+        rotation.r2.x,
+        rotation.r2.y,
+        rotation.r2.z,
+        0,
+      ]) as Vector4D,
+      r3: VectorUtil.fromArray<4>([
+        rotation.r3.x,
+        rotation.r3.y,
+        rotation.r3.z,
+        0,
+      ]) as Vector4D,
+      r4: VectorUtil.fromArray<4>([
+        translation.x,
+        translation.y,
+        translation.z,
+        1,
+      ]) as Vector4D,
+    };
   }
 
   static buildMatrix<R extends number, C extends number>(
@@ -53,11 +69,19 @@ export class MatrixUtil {
       ? Matrix6x6
       : null
     : null {
+    if (!array || array.length === 0 || !array[0]) {
+      return null as any;
+    }
+
     const rows = array.length;
     const cols = array[0].length;
 
     if (rows === 3 && cols === 3) {
-      return createMatrixProps<Matrix3x3>(array, 3) as any;
+      return {
+        r1: VectorUtil.fromArray<3>(array[0] as [number, number, number]),
+        r2: VectorUtil.fromArray<3>(array[1] as [number, number, number]),
+        r3: VectorUtil.fromArray<3>(array[2] as [number, number, number]),
+      } as any;
     }
 
     if (rows === 4 && cols === 4) {
@@ -76,6 +100,8 @@ export class VectorUtil {
   static fromArray<L extends number>(
     array: L extends 3
       ? [number, number, number]
+      : L extends 4
+      ? [number, number, number, number]
       : L extends 5
       ? [number, number, number, number, number]
       : L extends 6
@@ -83,16 +109,31 @@ export class VectorUtil {
       : number[]
   ): L extends 3
     ? Vector3D
+    : L extends 4
+    ? Vector4D
     : L extends 5
     ? Vector5D
     : L extends 6
     ? Vector6D
     : null {
+    if (!array || array.length === 0) {
+      return null as any;
+    }
+
     if (array.length === 3) {
       return {
         x: array[0],
         y: array[1],
         z: array[2],
+      } as any;
+    }
+
+    if (array.length === 4) {
+      return {
+        k1: array[0],
+        k2: array[1],
+        k3: array[2],
+        k4: array[3],
       } as any;
     }
 

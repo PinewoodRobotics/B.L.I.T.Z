@@ -1,4 +1,4 @@
-import { LidarConfig } from "../../generated_schema/lidar_types";
+import { LidarConfig } from "../../../generated/thrift/ts_schema/lidar_types";
 import { MatrixUtil, VectorUtil } from "../util/math";
 import { MapUtil } from "../util/struct";
 

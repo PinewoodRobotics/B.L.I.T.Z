@@ -1,6 +1,6 @@
 include "../common/common.thrift"
 
-namespace py thrift.lidar
+namespace py config.lidar
 
 struct LidarConfig {
     1: required string pi_to_run_on,

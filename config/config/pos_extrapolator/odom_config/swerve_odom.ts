@@ -1,4 +1,4 @@
-import { OdomConfig } from "../../../generated_schema/pos_extrapolator_types";
+import { OdomConfig } from "../../../../generated/thrift/ts_schema/pos_extrapolator_types";
 import { MatrixUtil, VectorUtil } from "../../util/math";
 
 export const swerve_odom_config: OdomConfig = {

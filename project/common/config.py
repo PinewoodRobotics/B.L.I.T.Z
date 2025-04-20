@@ -1,7 +1,7 @@
 import subprocess
 import json
 
-from generated.thrift.ttypes import Config
+from generated.thrift.config.ttypes import Config
 
 
 def load_config(config_path: str = "config/") -> Config:

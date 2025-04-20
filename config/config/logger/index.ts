@@ -1,4 +1,7 @@
-import { Level, LoggerConfig } from "../../generated_schema/logger_types";
+import {
+  Level,
+  LoggerConfig,
+} from "../../../generated/thrift/ts_schema/logger_types";
 import profiler_config from "./profiler";
 
 const logger: LoggerConfig = {

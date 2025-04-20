@@ -1,4 +1,4 @@
-import { PosExtrapolatorMessageConfig } from "../../../generated_schema/pos_extrapolator_types";
+import { PosExtrapolatorMessageConfig } from "../../../../generated/thrift/ts_schema/pos_extrapolator_types";
 
 export const message_config: PosExtrapolatorMessageConfig = {
   post_tag_input_topic: "apriltag/tag",

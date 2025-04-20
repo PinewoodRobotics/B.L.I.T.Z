@@ -1,4 +1,4 @@
-import { AprilDetectionConfig } from "../../generated_schema/apriltag_types";
+import { AprilDetectionConfig } from "../../../generated/thrift/ts_schema/apriltag_types";
 
 export const april_tag_detection_config: AprilDetectionConfig = {
   tag_size: 0.17,

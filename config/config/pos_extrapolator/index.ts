@@ -1,4 +1,4 @@
-import { PosExtrapolator } from "../../generated_schema/pos_extrapolator_types";
+import { PosExtrapolator } from "../../../generated/thrift/ts_schema/pos_extrapolator_types";
 import { MatrixUtil, VectorUtil } from "../util/math";
 import { MapUtil } from "../util/struct";
 import { nav_x_config } from "./imu_config/navx";

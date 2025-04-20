@@ -1,4 +1,4 @@
-import { ProfilerConfig } from "../../../generated_schema/logger_types";
+import { ProfilerConfig } from "../../../../generated/thrift/ts_schema/logger_types";
 
 const profiler_config = new ProfilerConfig({
   activated: true,

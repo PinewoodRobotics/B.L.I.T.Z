@@ -1,5 +1,5 @@
-import { KalmanFilterSensorType } from "../../generated_schema/kalman_filter_types";
-import type { Level } from "../../generated_schema/logger_types";
+import { KalmanFilterSensorType } from "../../../generated/thrift/ts_schema/kalman_filter_types";
+import type { Level } from "../../../generated/thrift/ts_schema/logger_types";
 
 export const MapUtil = {
   fromRecord<K extends string | number | symbol, V>(

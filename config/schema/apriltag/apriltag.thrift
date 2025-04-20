@@ -1,4 +1,4 @@
-namespace py thrift.apriltag
+namespace py config.apriltag
 
 struct AprilDetectionMessageConfig {
     1: required string post_camera_output_topic,

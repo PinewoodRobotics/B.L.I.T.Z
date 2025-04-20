@@ -1,4 +1,4 @@
-namespace py thrift
+namespace py config
 
 include "./autobahn/autobahn.thrift"
 include "./apriltag/apriltag.thrift"

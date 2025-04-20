@@ -1,6 +1,6 @@
 include "../common/common.thrift"
 
-namespace py thrift.camera
+namespace py config.camera
 
 struct CameraParameters {
     1: required string pi_to_run_on,

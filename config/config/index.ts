@@ -1,4 +1,4 @@
-import type { Config } from "../generated_schema/config_types.d";
+import type { Config } from "../../generated/thrift/ts_schema/config_types.d";
 import { april_tag_detection_config } from "./april_tags_detection";
 import { autobahn_config } from "./autobahn";
 import prod1 from "./cameras/prod_1";

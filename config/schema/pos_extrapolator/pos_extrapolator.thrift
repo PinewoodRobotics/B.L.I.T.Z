@@ -1,7 +1,7 @@
 include "../common/common.thrift"
 include "./kalman_filter.thrift"
 
-namespace py thrift.pos_extrapolator
+namespace py config.pos_extrapolator
 
 struct PosExtrapolatorMessageConfig {
     1: required string post_tag_input_topic,
