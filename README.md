@@ -1,40 +1,101 @@
-# B.L.I.T.Z
+# B.L.I.T.Z (Battle-Linked Intelligent Tactical Pi Swarm)
 
-Battle-Linked Intelligent Tactical Pi Swarm
+BLITZ is a robotics project designed to create a swarm of intelligent tactical Pi-based robots that can work together collaboratively.
 
----
+## Overview
 
-## Function
+The BLITZ system combines multiple components for sensing, positioning, AI detection, and coordinated movement. It uses a hybrid approach with both Python and Rust for different system components.
 
-The function of B.L.I.T.Z is to be the connected swarm of raspberry pi's that all do their own specific task.
+## Features
 
-## Description
+- LiDAR-based obstacle detection and mapping (2D and 3D)
+- Computer vision for object recognition
+- AprilTag-based positioning system
+- Position extrapolation
+- Watchdog monitoring
 
-This is primarily made in order to have all the code for similar things in one place rather than scattered over many repositories. However, this mostly contains many standalone code bases that run as different processes and can be made into separate libraries in the future.
+## Technologies
 
-## Contains
+### Languages
+- Python
+- Rust
+- TypeScript/JavaScript
 
-1. autobahn
-   1. essentially the decentralized communication between the processes inside the pi and the other pi's
-2. recognition
-   1. april tag recognition and distance estimation [to it]
-   2. robot image recognition and distance estimation [to it]
+### Major Dependencies
+- Python: PyTorch, OpenCV, Flask, NumPy, UltraLytics
+- Rust: Tokio, Nalgebra, Kiss3D
+- Communication: Protobuf, Thrift
 
-## Documentation
+## Getting Started
 
-The documentation of each "module" can be found in the corresponding folders where the root of the corresponding module is.
+### Prerequisites
+- Python 3.x
+- Rust and Cargo
+- npm/Node.js
 
-### Read Me
+### Installation
 
-## Goal
+Set up the Python environment and install dependencies:
 
-The main goal of this is to create a code base such that we can put it on a raspberry pi, run one command, and everything is up and running.
+```bash
+make initiate-project
+```
 
-## Running the code
+### Code Generation
 
-Remember to do `pip install -e .` in the root directory to install all the packages.
-Also remember do to `make generate-proto` in the root directory to generate the python files from the proto files.
+Generate required protocol buffer and Thrift files:
 
+```bash
+make generate
+```
 
+## Usage
 
-make send-to-target ARGS=13
+Start the various system components:
+
+```bash
+# AI detection server
+make ai-server
+
+# AprilTag positioning server
+make april-server
+
+# 2D LiDAR reader
+make lidar-reader-2d
+
+# LiDAR point processor
+make lidar-point-processor
+
+# Position extrapolation system
+make position-extrapolator
+
+# System monitoring watchdog
+make watchdog
+```
+
+## Development
+
+- Run linting: `make check-all`
+- Run tests: `make test`
+- Deploy to a target: `make send-to-target ARGS=<target-id>`
+
+## Project Structure
+
+- `project/`: Main source code
+  - `lidar/`: LiDAR data processing components
+  - `recognition/`: Computer vision and positioning
+  - `pos_extrapolator/`: Position prediction system
+  - `watchdog/`: System monitoring
+  - `rust/`: Rust components for performance-critical operations
+- `proto/`: Protocol buffer definitions
+- `config/`: System configuration
+- `generated/`: Generated code (Protobuf, Thrift)
+- `scripts/`: Utility scripts
+
+## License
+
+ISC License
+
+## Repository
+
+GitHub: [https://github.com/PinewoodRobotics/B.L.I.T.Z](https://github.com/PinewoodRobotics/B.L.I.T.Z)
