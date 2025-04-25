@@ -1,8 +1,12 @@
 from typing import Awaitable, Callable
 import websockets
-from generated.autobahn.message_pb2 import MessageType, PublishMessage, TopicMessage
 import asyncio
 
+from generated.proto.python.autobahn.message_pb2 import (
+    MessageType,
+    PublishMessage,
+    TopicMessage,
+)
 from project.common.autobahn_python.util import Address
 
 
@@ -25,16 +29,15 @@ class Autobahn:
     async def begin(self):
         try:
             self.websocket = await self.__connect()
-        except OSError as e :
+        except OSError as e:
             print(f"Failed to connect to WebSocket at {self.address}: {str(e)}")
-        
+
         if self.reconnect:
             asyncio.create_task(self.__maintain_connection())
 
-
-    async def __connect(self) -> websockets.ClientConnection:    
+    async def __connect(self) -> websockets.ClientConnection:
         websocket = await websockets.connect(self.address.make_url())
-        
+
         if self.callbacks and not self.first_subscription:
             self.__start_listener()
 
@@ -45,7 +48,7 @@ class Autobahn:
             try:
                 if self.websocket is None:
                     self.websocket = await self.__connect()
-                    
+
                     for topic in self.callbacks.keys():
                         await self.websocket.send(
                             TopicMessage(
@@ -72,14 +75,14 @@ class Autobahn:
     async def publish(self, topic: str, payload: bytes):
         if self.websocket is None and not self.reconnect:
             raise ConnectionError("WebSocket not connected. Call begin() first.")
-        
+
         if self.websocket is not None:
             message_proto = PublishMessage(
                 message_type=MessageType.PUBLISH,
                 topic=topic,
                 payload=payload,
             )
-            
+
             try:
                 await self.websocket.send(message_proto.SerializeToString())
             except Exception as e:
@@ -105,7 +108,9 @@ class Autobahn:
                     message_proto = PublishMessage.FromString(message)
                     if message_proto.message_type == MessageType.PUBLISH:
                         if message_proto.topic in self.callbacks:
-                            await self.callbacks[message_proto.topic](message_proto.payload)
+                            await self.callbacks[message_proto.topic](
+                                message_proto.payload
+                            )
                 except websockets.exceptions.ConnectionClosed:
                     print("WebSocket connection closed, waiting for reconnection...")
                     self.websocket = None
@@ -119,9 +124,9 @@ class Autobahn:
     async def subscribe(self, topic: str, callback: Callable[[bytes], Awaitable[None]]):
         if self.websocket is None and not self.reconnect:
             raise ConnectionError("WebSocket not connected. Call begin() first.")
-        
+
         self.callbacks[topic] = callback
-        
+
         if self.websocket is not None:
             await self.websocket.send(
                 TopicMessage(

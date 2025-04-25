@@ -1,3 +1,4 @@
+from enum import Enum
 import glob
 import os
 import platform
@@ -9,7 +10,18 @@ import cv2
 import numpy as np
 import pyapriltags
 
-from generated.proto.python.AprilTag_pb2 import AprilTags, Tag
+from generated.proto.python.AprilTag_pb2 import (
+    AprilTags,
+    Corner,
+    RawAprilTagCorners,
+    Tag,
+    TagCorners,
+)
+
+
+class TagSolvingStrategyTagCorners(Enum):
+    CENTER = "center"
+    CORNERS = "corners"
 
 
 def to_float_list(arr: np.ndarray) -> list:
@@ -22,7 +34,7 @@ def to_float(val) -> float:
     return float(val) if val is not None else 0.0
 
 
-def from_detection_to_proto(detection: pyapriltags.Detection) -> Tag:
+def from_detection_to_proto_tag(detection: pyapriltags.Detection) -> Tag:
     if detection.pose_t is None:
         raise ValueError("Detection has no pose data")
 
@@ -58,36 +70,49 @@ def from_detection_to_proto(detection: pyapriltags.Detection) -> Tag:
     )
 
 
+def get_tag_corners_undistorted(
+    detection: pyapriltags.Detection,
+    camera_matrix: np.ndarray,
+    dist_coeff: np.ndarray,
+) -> list[Corner]:
+    corners = []
+    for corner in detection.corners:
+        corner = np.array([corner[0], corner[1]])
+        corner = cv2.undistortPoints(corner, camera_matrix, dist_coeff)
+        corners.append(Corner(x=corner[0], y=corner[1]))
+
+    return corners
+
+
+def post_process_detection(
+    detection: list[pyapriltags.Detection],
+    camera_matrix: np.ndarray,
+    dist_coeff: np.ndarray,
+) -> list[TagCorners]:
+    detections = []
+    for det in detection:
+        corners = get_tag_corners_undistorted(det, camera_matrix, dist_coeff)
+        detections.append(TagCorners(id=det.tag_id, corners=corners))
+
+    return detections
+
+
+def from_detection_to_corners(
+    detection: pyapriltags.Detection,
+) -> list[Corner]:
+    corners = []
+    for corner in detection.corners:
+        corners.append(Corner(x=corner[0], y=corner[1]))
+
+    return corners
+
+
 def process_image(
     image: np.ndarray,
-    camera_matrix: np.ndarray,
     detector: pyapriltags.Detector,
-    tag_size: float,
-    camera_name: str,
-):
-    fx, fy, cx, cy = (
-        camera_matrix[0, 0],
-        camera_matrix[1, 1],
-        camera_matrix[0, 2],
-        camera_matrix[1, 2],
-    )
-
-    output = AprilTags(
-        camera_name=camera_name,
-        image_id=random.randint(0, 1000000),
-        tags=[
-            from_detection_to_proto(tag)
-            for tag in detector.detect(
-                image,
-                estimate_tag_pose=True,
-                camera_params=((fx, fy, cx, cy)),
-                tag_size=tag_size,
-            )
-        ],
-        timestamp=int(time.time() * 1000),
-    )
-
-    return output
+) -> list[pyapriltags.Detection]:
+    detected_output = detector.detect(image)
+    return detected_output
 
 
 def get_undistored_frame(
@@ -123,3 +148,79 @@ def get_map1_and_map2(
 
 def py_time_to_fps(time_sec_one: float, time_sec_two: float) -> float:
     return 1 / (time_sec_two - time_sec_one)
+
+
+def solve_pnp_tag_corners(
+    tag_corners: TagCorners,
+    tag_size: float,
+    camera_matrix: np.ndarray,
+    dist_coeff: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    # 1) Define the *unit* square in object space
+    #    IPPE_SQUARE expects half-side = 1
+    half_size = tag_size / 2
+    unit_square = np.array(
+        [
+            [-half_size, -half_size, 0],
+            [half_size, -half_size, 0],
+            [half_size, half_size, 0],
+            [-half_size, half_size, 0],
+        ],
+        dtype=np.float32,
+    )
+
+    # 2) Pull out your detected image points in the same order
+    image_points = np.array([[c.x, c.y] for c in tag_corners.corners], dtype=np.float32)
+
+    # 3) Call the fast square solver
+    success, rvec, tvec = cv2.solvePnP(
+        unit_square,
+        image_points,
+        camera_matrix,
+        dist_coeff,
+        flags=cv2.SOLVEPNP_IPPE,
+        useExtrinsicGuess=False,
+    )
+    if not success:
+        raise RuntimeError("solvePnP failed")
+
+    R, _ = cv2.Rodrigues(rvec)
+    return R, tvec
+
+
+def solve_pnp_tags_iterative(
+    tags: list[TagCorners],
+    tag_size: float,
+    camera_matrix: np.ndarray,
+    dist_coeff: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    image_points = []
+    object_points = []
+
+    half_size = tag_size / 2
+    tag_3d_corners = np.array(
+        [
+            [-half_size, -half_size, 0],  # Bottom-left
+            [half_size, -half_size, 0],  # Bottom-right
+            [half_size, half_size, 0],  # Top-right
+            [-half_size, half_size, 0],  # Top-left
+        ]
+    )
+
+    for tag in tags:
+        for i, corner in enumerate(tag.corners):
+            image_points.append([corner.x, corner.y])
+            object_points.append(tag_3d_corners[i])
+
+    image_points = np.array(image_points, dtype=np.float32)
+    object_points = np.array(object_points, dtype=np.float32)
+
+    _, rvec, tvec = cv2.solvePnP(
+        object_points,
+        image_points,
+        camera_matrix,
+        dist_coeff,
+        flags=cv2.SOLVEPNP_ITERATIVE,
+    )
+
+    return cv2.Rodrigues(rvec)[0], tvec

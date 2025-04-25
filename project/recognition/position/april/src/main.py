@@ -5,12 +5,13 @@ import time
 
 import pyapriltags
 
+from generated.thrift.config.apriltag.ttypes import AprilDetectionConfig
 from project.common.autobahn_python.autobahn import Autobahn
 from project.common.autobahn_python.util import Address
-from project.common.config import Config
-from project.common.config_class.april_detection import AprilDetectionConfig
+from project.common.config import from_uncertainty_config
+from project.common.util.math import get_np_from_matrix, get_np_from_vector
 from project.common.util.system import get_system_name
-from project.recognition.position.april.src.camera import DetectionCamera
+from project.recognition.position.april.src.camera import CaptureDevice, DetectionCamera
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=str, default=None)
@@ -30,7 +31,7 @@ def build_detector(config: AprilDetectionConfig):
 
 async def main():
     args = parser.parse_args()
-    config = Config.from_uncertainty_config(args.config)
+    config = from_uncertainty_config(args.config)
 
     camera_detector_list = []
 
@@ -48,7 +49,15 @@ async def main():
 
         camera_detector_list.append(
             DetectionCamera(
-                config=camera,
+                name=camera.name,
+                video_capture=CaptureDevice(
+                    camera.camera_path,
+                    camera.width,
+                    camera.height,
+                    camera.max_fps,
+                    get_np_from_matrix(camera.camera_matrix),
+                    get_np_from_vector(camera.dist_coeff),
+                ),
                 tag_size=config.april_detection.tag_size,
                 detector=build_detector(config.april_detection),
                 publication_lambda=lambda tags: publish_nowait(

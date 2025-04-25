@@ -6,14 +6,15 @@ from typing import Callable
 import cv2
 import numpy as np
 import pyapriltags
-from generated.proto.python.AprilTag_pb2 import AprilTags
+from generated.proto.python.AprilTag_pb2 import AprilTags, RawAprilTagCorners
 from generated.proto.python.status.CameraStatus_pb2 import CameraStatus
 from generated.thrift.config.camera.ttypes import CameraParameters
 from project.common.util.math import get_np_from_matrix, get_np_from_vector
 from project.recognition.position.april.src.util import (
-    from_detection_to_proto,
+    from_detection_to_proto_tag,
     get_map1_and_map2,
     get_undistored_frame,
+    post_process_detection,
     process_image,
     py_time_to_fps,
 )
@@ -87,7 +88,8 @@ class CaptureDevice(cv2.VideoCapture):
 class DetectionCamera:
     def __init__(
         self,
-        config: CameraParameters,
+        name: str,
+        video_capture: CaptureDevice,
         tag_size: float,
         detector: pyapriltags.Detector,
         publication_lambda: Callable[[bytes], None],
@@ -99,15 +101,8 @@ class DetectionCamera:
         self.publication_lambda = publication_lambda
         self.publication_image_lambda = publication_image_lambda
         self.publication_stats_lambda = publication_stats_lambda
-        self.video_capture = CaptureDevice(
-            config.camera_path,
-            config.width,
-            config.height,
-            config.max_fps,
-            get_np_from_matrix(config.camera_matrix),
-            get_np_from_vector(config.dist_coeff),
-        )
-        self.name = config.name
+        self.video_capture = video_capture
+        self.name = name
 
         self.running = True
         self.thread = threading.Thread(target=self._update)
@@ -116,6 +111,11 @@ class DetectionCamera:
 
     def _update(self):
         matrix = self.video_capture.get_matrix()
+        dist_coeff = self.video_capture.get_dist_coeff()
+        if matrix is None or dist_coeff is None:
+            print("No matrix or dist coeff found!")
+            return
+
         while self.running:
             ret, frame = self.video_capture.get_frame()
 
@@ -124,18 +124,21 @@ class DetectionCamera:
                 continue
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            found_tags = None
-            if matrix is not None:
-                found_tags = process_image(
-                    gray,
-                    matrix,
-                    self.detector,
-                    self.tag_size,
-                    self.name,
-                )
+            found_tags = post_process_detection(
+                process_image(gray, self.detector),
+                matrix,
+                dist_coeff,
+            )
 
-            if found_tags is not None and len(found_tags.tags) > 0:
-                self.publication_lambda(found_tags.SerializeToString())
+            if len(found_tags) > 0:
+                self.publication_lambda(
+                    RawAprilTagCorners(
+                        camera_name=self.name,
+                        image_id=random.randint(0, 1000000),
+                        timestamp=int(time.time() * 1000),
+                        tags=found_tags,
+                    ).SerializeToString(),
+                )
 
     def release(self):
         self.running = False
