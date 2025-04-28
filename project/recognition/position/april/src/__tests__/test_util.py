@@ -64,14 +64,14 @@ def test_solve_pnp_tag_corners():
     tag_corners = TagCorners(
         id=0,
         corners=[
-            Corner(x=300, y=300),  # bottom-left
-            Corner(x=350, y=300),  # bottom-right
-            Corner(x=350, y=250),  # top-right
-            Corner(x=300, y=250),  # top-left
+            Corner(x=300, y=300),
+            Corner(x=350, y=300),
+            Corner(x=350, y=250),
+            Corner(x=300, y=250),
         ],
     )
 
-    tag_size = 0.5  # meters
+    tag_size = 0.5
 
     camera_matrix = np.array(
         [[600, 0, 320], [0, 600, 240], [0, 0, 1]], dtype=np.float64
