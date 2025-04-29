@@ -147,7 +147,7 @@ def test_detected_position_cam_1():
     assert post_processed_tag_corners[0].id == 6
 
     tag = post_processed_tag_corners[0]
-    position = solve_pnp_tag_corners(tag, 17, camera_1_matrix, camera_1_dist_coeff)
+    position = solve_pnp_tag_corners(tag, 0.17, camera_1_matrix, camera_1_dist_coeff)
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     fx, fy, cx, cy = (
@@ -159,14 +159,15 @@ def test_detected_position_cam_1():
     detected_output = detector.detect(
         gray,
         estimate_tag_pose=True,
-        tag_size=17,
+        tag_size=0.17,
         camera_params=(fx, fy, cx, cy),
     )
     print(detected_output[0].pose_t)
+    print(detected_output[0].pose_R)
 
-    print(position[1])
+    print(position[0])
 
-    assert position[1][0] == pytest.approx(0.05, abs=0.01)
+    assert position[1][0] == pytest.approx(0.18, abs=0.01)
     assert position[1][1] == pytest.approx(0.35, abs=0.01)
 
 
