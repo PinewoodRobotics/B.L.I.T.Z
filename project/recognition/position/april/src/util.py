@@ -77,8 +77,11 @@ def get_tag_corners_undistorted(
 ) -> list[Corner]:
     corners = []
     for corner in detection.corners:
-        corner = np.array([corner[0], corner[1]])
-        corner = cv2.undistortPoints(corner, camera_matrix, dist_coeff)
+        corner = np.array([[corner[0], corner[1]]], dtype=np.float32)
+
+        corner = cv2.undistortPoints(corner, camera_matrix, dist_coeff, P=camera_matrix)
+        corner = corner.reshape(2)
+
         corners.append(Corner(x=corner[0], y=corner[1]))
 
     return corners
@@ -111,7 +114,8 @@ def process_image(
     image: np.ndarray,
     detector: pyapriltags.Detector,
 ) -> list[pyapriltags.Detection]:
-    detected_output = detector.detect(image)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    detected_output = detector.detect(gray)
     return detected_output
 
 
