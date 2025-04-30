@@ -1,5 +1,9 @@
 from ursina import *
 from ursina.prefabs.first_person_controller import FirstPersonController
+from project.example.position_debug.three_d.object_pipelines.pipeline import Pipeline
+from project.example.position_debug.three_d.object_pipelines import (
+    pipeline as pipeline_pkg,
+)
 from render.cube_point_cloud import CubePointCloud
 from render.user import FlyController
 from render.axes import Axes
@@ -12,7 +16,6 @@ import asyncio
 import threading
 from project.common.autobahn_python.autobahn import Autobahn
 from project.common.autobahn_python.util import Address
-from object_pipelines.pipeline_manager import PipelineManager
 from render.world import World
 
 
@@ -24,10 +27,9 @@ async def main():
     autobahn_server = Autobahn(Address("localhost", 8080))
     await autobahn_server.begin()
 
-    pipeline_manager = PipelineManager()
-
-    for topic in pipeline_manager.get_all_topics():
-        pipeline_class = pipeline_manager.get_pipeline(topic)
+    for topic in Pipeline.get_registry():
+        print(topic)
+        pipeline_class = Pipeline.get_registry()[topic]
         if pipeline_class:
             pipeline = pipeline_class()
 
