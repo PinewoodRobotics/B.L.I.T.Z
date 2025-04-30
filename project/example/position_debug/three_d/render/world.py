@@ -51,3 +51,7 @@ class World:
 
     def get_all_objects(self) -> list[Object]:
         return list(self.objects.values())
+
+    def remove_object(self, name: str):
+        destroy(self.objects[name].get_entity())
+        del self.objects[name]

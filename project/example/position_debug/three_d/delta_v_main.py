@@ -1,3 +1,4 @@
+from typing import List
 from ursina import *
 from ursina.prefabs.first_person_controller import FirstPersonController
 from project.example.position_debug.three_d.object_pipelines.pipeline import Pipeline
@@ -27,11 +28,14 @@ async def main():
     autobahn_server = Autobahn(Address("localhost", 8080))
     await autobahn_server.begin()
 
+    pipelines: List[Pipeline] = []
+
     for topic in Pipeline.get_registry():
         print(topic)
         pipeline_class = Pipeline.get_registry()[topic]
         if pipeline_class:
             pipeline = pipeline_class()
+            pipelines.append(pipeline)
 
             async def create_callback(pipeline_instance):
                 async def callback(message: bytes):
@@ -42,7 +46,8 @@ async def main():
 
             await autobahn_server.subscribe(topic, await create_callback(pipeline))
     while True:
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.04)
+        pipeline.tick(world)
 
 
 def run_main():

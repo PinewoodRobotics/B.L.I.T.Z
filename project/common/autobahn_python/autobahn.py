@@ -36,7 +36,9 @@ class Autobahn:
             asyncio.create_task(self.__maintain_connection())
 
     async def __connect(self) -> websockets.ClientConnection:
-        websocket = await websockets.connect(self.address.make_url())
+        websocket = await websockets.connect(
+            self.address.make_url(), max_size=50_485_760
+        )  # 50MB limit
 
         if self.callbacks and not self.first_subscription:
             self.__start_listener()

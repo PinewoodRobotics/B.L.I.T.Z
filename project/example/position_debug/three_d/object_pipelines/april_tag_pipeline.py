@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from generated.proto.python.AprilTag_pb2 import AprilTags, RawAprilTagCorners
 from render.world import World
@@ -6,10 +7,17 @@ from .pipeline import Pipeline
 
 
 class AprilTagPipeline(Pipeline, topic="april_tag"):
+    def __init__(self):
+        super().__init__()
+        self.tags = []
+
     async def process(self, world: World, topic_pub_data: bytes):
         try:
             raw_tags = AprilTags.FromString(topic_pub_data)
             for tag in raw_tags.tags:
+                if tag.tag_id not in self.tags:
+                    self.tags.append(tag.tag_id)
+
                 if world.contains_object(f"tag_{tag.tag_id}"):
                     tag_entity = world.get_object(f"tag_{tag.tag_id}").get_entity()
                 else:
@@ -29,5 +37,15 @@ class AprilTagPipeline(Pipeline, topic="april_tag"):
         except Exception as e:
             print(f"Error processing AprilTag message: {e}")
 
-    def get_topic(self) -> str:
-        return "april_tag"
+    def tick(self, world: World):
+        tags_to_remove = []
+        for tag_id in self.tags:
+            if world.contains_object(f"tag_{tag_id}"):
+                tag_entity = world.get_object(f"tag_{tag_id}")
+                if time.time() - tag_entity.get_last_update() > 2:
+                    world.remove_object(f"tag_{tag_id}")
+            else:
+                tags_to_remove.append(tag_id)
+
+        for tag_id in tags_to_remove:
+            self.tags.remove(tag_id)
