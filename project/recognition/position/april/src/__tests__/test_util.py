@@ -135,7 +135,7 @@ def test_detected_position_1_cam_1_37cm(camera_1_matrix, camera_1_dist_coeff):
     assert position[1][2] == pytest.approx(0.345, abs=0.01)
 
 
-def test_detected_position_1_cam_1(camera_1_matrix, camera_1_dist_coeff):
+def test_detected_position_1_cam_1_90cm(camera_1_matrix, camera_1_dist_coeff):
     image_path = add_cur_dir("fixtures/images/cam_1_tag_6_90cm_d.png")
     image = cv2.imread(image_path)
     detector = pyapriltags.Detector(
@@ -157,3 +157,27 @@ def test_detected_position_1_cam_1(camera_1_matrix, camera_1_dist_coeff):
 
     assert position[1][0] == pytest.approx(-0.0766, abs=0.003)
     assert position[1][2] == pytest.approx(0.923, abs=0.003)
+
+
+def test_detected_position_1_cam_1_74cm(camera_1_matrix, camera_1_dist_coeff):
+    image_path = add_cur_dir("fixtures/images/cam_1_tag_6_74cm_d.png")
+    image = cv2.imread(image_path)
+    detector = pyapriltags.Detector(
+        families="tag36h11",
+        nthreads=1,
+        quad_decimate=1.0,
+    )
+
+    tag_corners = process_image(image, detector)
+    post_processed_tag_corners = post_process_detection(
+        tag_corners, camera_1_matrix, camera_1_dist_coeff
+    )
+
+    assert len(post_processed_tag_corners) == 1
+    assert post_processed_tag_corners[0].id == 6
+
+    tag = post_processed_tag_corners[0]
+    position = solve_pnp_tag_corners(tag, 0.17, camera_1_matrix, camera_1_dist_coeff)
+
+    assert position[1][0] == pytest.approx(0.44, abs=0.01)
+    assert position[1][2] == pytest.approx(0.73, abs=0.01)

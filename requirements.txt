@@ -28,3 +28,6 @@ psutil
 plotly
 dash
 pytest
+pyvistaqt
+pyqt5
+thrift
