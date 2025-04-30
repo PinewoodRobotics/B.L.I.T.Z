@@ -25,6 +25,6 @@ def get_tag_corners_from_array(image_array):
     return {tag.tag_id: tag.corners for tag in tags}
 
 
-corners_by_id = get_tag_corners_from_image("photo_20250429_000854.png")
+corners_by_id = get_tag_corners_from_image("photo_37cm.png")
 for tag_id, corners in corners_by_id.items():
     print(f"Tag {tag_id} corners (x,y):\n", corners)
