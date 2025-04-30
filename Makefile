@@ -33,6 +33,9 @@ lidar-point-processor:
 
 prepare:
 	if [ ! -d "generated" ]; then mkdir generated; fi
+	touch generated/__init__.py
+	mkdir -p generated/proto
+	touch generated/proto/__init__.py
 
 generate-proto-cpp-lidar:
 	mkdir -p project/hybrid-frustum-pointnet/lidar/include/proto
