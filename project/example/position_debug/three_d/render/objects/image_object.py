@@ -1,6 +1,7 @@
 import numpy as np
 from ursina import Entity, Vec3, color, Texture
 from PIL import Image
+from ursina import *
 
 
 class ImageObject(Entity):
@@ -17,15 +18,19 @@ class ImageObject(Entity):
         self.image_array = image_array
 
         # Calculate aspect ratio based on image dimensions
-        height, width = image_array.shape[:2]
-        aspect_ratio = width / height
+        self.height, self.width = image_array.shape[:2]
+        self.aspect_ratio = self.width / self.height
 
         # Set scale using the single scale parameter
         self.scale_value = scale
+
+        self._create_plane()
+
+    def _create_plane(self):
         self.plane = Entity(
             parent=self,
             model="quad",
-            scale=Vec3(scale * aspect_ratio, scale, 1),
+            scale=Vec3(self.scale_value * self.aspect_ratio, self.scale_value, 1),
             position=Vec3(0, 0, 0),
             texture=self._create_texture(),
             color=color.white,
@@ -66,4 +71,7 @@ class ImageObject(Entity):
 
     def update_texture(self, new_image_array: np.ndarray):
         self.image_array = new_image_array
+        height, width = new_image_array.shape[:2]
+        aspect_ratio = width / height
+        self.plane.scale = Vec3(self.scale_value * aspect_ratio, self.scale_value, 1)
         self.plane.texture = self._create_texture()
