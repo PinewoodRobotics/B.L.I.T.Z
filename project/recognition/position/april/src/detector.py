@@ -8,6 +8,7 @@ import numpy as np
 import pyapriltags
 
 from generated.proto.python.AprilTag_pb2 import RawAprilTagCorners, TagCorners
+from generated.proto.python.Image_pb2 import ImageMessage
 from project.recognition.position.april.src.camera.OV2311_camera import (
     AbstractCaptureDevice,
 )
@@ -25,7 +26,7 @@ class DetectionCamera:
         tag_size: float,
         detector: pyapriltags.Detector,
         publication_lambda: Callable[[bytes], None],
-        publication_image_lambda: Callable[[np.ndarray], None] | None = None,
+        publication_image_lambda: Callable[[bytes], None] | None = None,
     ):
         self.detector = detector
         self.tag_size = tag_size
@@ -49,9 +50,8 @@ class DetectionCamera:
                 print("No frame found!")
                 continue
 
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             found_tags = post_process_detection(
-                process_image(gray, self.detector),
+                process_image(frame, self.detector),
                 self.video_capture.get_matrix(),
                 self.video_capture.get_dist_coeff(),
             )
@@ -60,7 +60,17 @@ class DetectionCamera:
 
     def _publish(self, frame: np.ndarray, found_tags: list[TagCorners]):
         if self.publication_image_lambda is not None:
-            self.publication_image_lambda(frame)
+            self.publication_image_lambda(
+                ImageMessage(
+                    image=frame.tobytes(),
+                    width=frame.shape[1],
+                    height=frame.shape[0],
+                    is_gray=True,
+                    timestamp=int(time.time() * 1000),
+                    image_id=random.randint(0, 1000000),
+                    camera_name=self.name,
+                ).SerializeToString()
+            )
 
         if self.publication_lambda is not None and len(found_tags) > 0:
             self.publication_lambda(

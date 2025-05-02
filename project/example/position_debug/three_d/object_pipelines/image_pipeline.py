@@ -12,7 +12,7 @@ from .pipeline import Pipeline
 from ursina import Vec3
 
 
-class AprilTagPipeline(Pipeline, topic="image_test"):
+class AprilTagPipeline(Pipeline, topic="apriltag/camera"):
     def __init__(self):
         super().__init__()
         self.tags = []

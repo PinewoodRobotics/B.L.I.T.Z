@@ -1,4 +1,5 @@
 import os
+from generated.thrift.config.camera.ttypes import CameraType
 from generated.thrift.config.common.ttypes import Matrix3x3, Vector3D
 from project.common.config import from_file, from_uncertainty_config, load_config
 from project.common.util.math import get_np_from_matrix, get_np_from_vector
@@ -16,6 +17,20 @@ def test_load_config():
 def test_from_file():
     config = from_file(add_cur_dir("fixtures/sample_config.json"))
     assert config is not None
+    assert config.autobahn is not None
+    assert config.autobahn.port == 8080
+    assert config.cameras is not None
+    assert len(config.cameras) == 1
+    assert config.cameras[0].name == "one"
+    assert config.cameras[0].camera_path == "0"
+    assert config.cameras[0].flags == 0
+    assert config.cameras[0].width == 800
+    assert config.cameras[0].height == 600
+    assert config.cameras[0].camera_type == CameraType.OV2311
+    assert config.cameras[0].camera_matrix is not None
+    assert config.cameras[0].camera_matrix.r1 is not None
+    assert config.cameras[0].camera_matrix.r2 is not None
+    assert config.cameras[0].camera_matrix.r3 is not None
 
 
 def test_from_uncertainty_config():

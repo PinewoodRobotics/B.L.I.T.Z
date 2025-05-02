@@ -16,7 +16,6 @@ from project.recognition.position.april.src.__tests__.util import (
     detector,
     preprocess_image,
     tag_size,
-    user_pass_input_selector,
 )
 from project.recognition.position.april.src.util import (
     get_map1_and_map2,
@@ -24,20 +23,7 @@ from project.recognition.position.april.src.util import (
     post_process_detection,
     process_image,
     solve_pnp_tag_corners,
-    solve_pnp_tags_iterative,
 )
-
-
-def test_undistored_frame_camera_1(camera_1_matrix, camera_1_dist_coeff):
-    frame = cv2.imread(add_cur_dir("fixtures/images/cam_1_tag_6_37cm_d.png"))
-
-    map1, map2, new_camera_matrix = get_map1_and_map2(
-        camera_1_matrix, camera_1_dist_coeff, frame.shape[1], frame.shape[0]
-    )
-
-    undistored_frame = get_undistored_frame(frame, map1, map2)
-    cv2.imshow("Undistored Frame", undistored_frame)
-    user_pass_input_selector()
 
 
 def test_detect_tag_corners_cam_1():

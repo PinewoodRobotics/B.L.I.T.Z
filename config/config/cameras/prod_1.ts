@@ -1,13 +1,16 @@
-import { CameraParameters } from "../../../generated/thrift/ts_schema/camera_types";
+import type {
+  CameraParameters,
+  CameraType,
+} from "../../../generated/thrift/ts_schema/camera_types";
 import { MatrixUtil, VectorUtil } from "../util/math";
 
 const prod1: CameraParameters = {
   pi_to_run_on: "tripoli",
   name: "one",
-  camera_path: "/dev/video0",
+  camera_path: "0",
   flags: 0,
-  width: 640,
-  height: 480,
+  width: 800,
+  height: 600,
   max_fps: 30,
   camera_matrix: MatrixUtil.buildMatrix<3, 3>([
     [545.67965312, 0, 432.72230551],
@@ -19,6 +22,7 @@ const prod1: CameraParameters = {
     2.16825631e-2,
   ]),
   exposure_time: 8,
+  camera_type: 0 as CameraType,
 };
 
 export default prod1;

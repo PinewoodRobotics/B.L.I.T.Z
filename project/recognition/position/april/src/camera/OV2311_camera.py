@@ -1,15 +1,11 @@
 import cv2
-import numpy as np
 from project.recognition.position.april.src.camera.abstract_camera import (
     AbstractCaptureDevice,
-    CamerasEnum,
+    CameraType,
 )
 
 
-class OV2311Camera(AbstractCaptureDevice, type=CamerasEnum.OV2311):
-    def __init__(self, port: int, width: int, height: int, max_fps: int):
-        super().__init__(port, width, height, max_fps)
-
+class OV2311Camera(AbstractCaptureDevice, type=CameraType.OV2311):
     def _configure_camera(self):
         if self.isOpened():
             super().release()

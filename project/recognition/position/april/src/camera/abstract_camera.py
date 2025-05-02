@@ -4,9 +4,7 @@ from typing import Dict, Type
 import cv2
 import numpy as np
 
-
-class CamerasEnum(Enum):
-    OV2311 = "OV2311"
+from generated.thrift.config.camera.ttypes import CameraType
 
 
 class AbstractCaptureDevice(cv2.VideoCapture):
@@ -17,29 +15,35 @@ class AbstractCaptureDevice(cv2.VideoCapture):
     NOTE: This class is meant to be used as an extension of a new class. THE _configure_camera method is not implemented in this class by default.
     """
 
-    _registry: Dict[CamerasEnum, Type["AbstractCaptureDevice"]] = {}
+    _registry: Dict[CameraType, Type["AbstractCaptureDevice"]] = {}
 
-    def __init_subclass__(cls, type: CamerasEnum, **kwargs):
+    def __init_subclass__(cls, type: CameraType, **kwargs):
         super().__init_subclass__(**kwargs)
         if type is not None:
             AbstractCaptureDevice._registry[type] = cls
 
     @classmethod
-    def get_registry(cls) -> Dict[CamerasEnum, Type["AbstractCaptureDevice"]]:
+    def get_registry(cls) -> Dict[CameraType, Type["AbstractCaptureDevice"]]:
         return cls._registry
 
     def __init__(
         self,
-        camera,
-        width,
-        height,
-        max_fps,
-        camera_matrix=np.eye(3),
-        dist_coeff=np.zeros(5),
-        hard_fps_limit=None,
+        camera_port: int | str,
+        width: int,
+        height: int,
+        max_fps: float,
+        camera_matrix: np.ndarray = np.eye(3),
+        dist_coeff: np.ndarray = np.zeros(5),
+        hard_fps_limit: float | None = None,
     ):
-        super().__init__(camera)
-        self.port = camera
+        if isinstance(camera_port, str):
+            try:
+                camera_port = int(camera_port)
+            except ValueError:
+                pass
+
+        super().__init__(camera_port)
+        self.port = camera_port
         self.width = width
         self.height = height
         self.max_fps = max_fps

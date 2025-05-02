@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 import cv2
 
@@ -15,6 +16,7 @@ async def main():
 
     while True:
         await asyncio.sleep(0.5)
+        time_current = time.time()
         await autobahn.publish(
             "image_test",
             ImageMessage(
@@ -27,6 +29,7 @@ async def main():
                 image_id=1,
             ).SerializeToString(),
         )
+        print(f"Published to image_test in {(time.time() - time_current) * 1000} ms")
 
 
 if __name__ == "__main__":

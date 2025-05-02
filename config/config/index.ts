@@ -47,6 +47,7 @@ const config: Config = {
     send_stats: true,
     stats_interval_seconds: 1,
     stats_publish_topic: "stats/publish",
+    confirmation_topic: "",
   },
   lidar_configs: lidar_configs,
 };

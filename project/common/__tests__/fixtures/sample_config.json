@@ -55,10 +55,10 @@
     {
       "pi_to_run_on": "tripoli",
       "name": "one",
-      "camera_path": "/dev/video0",
+      "camera_path": "0",
       "flags": 0,
-      "width": 640,
-      "height": 480,
+      "width": 800,
+      "height": 600,
       "max_fps": 30,
       "camera_matrix": {
         "r1": { "x": 545.67965312, "y": 0, "z": 432.72230551 },
@@ -72,7 +72,8 @@
         "k4": -0.00147495281,
         "k5": 0.0216825631
       },
-      "exposure_time": 8
+      "exposure_time": 8,
+      "camera_type": 0
     }
   ],
   "april_detection": {
@@ -120,7 +121,8 @@
   "watchdog": {
     "send_stats": true,
     "stats_interval_seconds": 1,
-    "stats_publish_topic": "stats/publish"
+    "stats_publish_topic": "stats/publish",
+    "confirmation_topic": ""
   },
   "lidar_configs": {}
 }

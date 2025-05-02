@@ -2,6 +2,10 @@ include "../common/common.thrift"
 
 namespace py config.camera
 
+enum CameraType {
+    OV2311,
+}
+
 struct CameraParameters {
     1: required string pi_to_run_on,
     2: required common.Matrix3x3 camera_matrix,
@@ -13,4 +17,5 @@ struct CameraParameters {
     8: required i32 flags,
     9: required i32 exposure_time,
     10: required string name,
+    11: required CameraType camera_type,
 }

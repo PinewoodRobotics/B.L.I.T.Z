@@ -18,15 +18,6 @@ def add_cur_dir(path: str):
     return os.path.join(os.path.dirname(__file__), path)
 
 
-def user_pass_input_selector():
-    key = cv2.waitKey(0) & 0xFF
-    if key == ord("q"):
-        cv2.destroyAllWindows()
-        raise Exception("Test terminated by user")
-    elif key == ord(" "):
-        cv2.destroyAllWindows()
-
-
 def detector():
     return pyapriltags.Detector(
         families="tag36h11",
