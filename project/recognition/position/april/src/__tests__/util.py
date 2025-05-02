@@ -4,7 +4,9 @@ import cv2
 import numpy as np
 import pyapriltags
 
-from project.recognition.position.april.src.camera import CaptureDevice
+from project.recognition.position.april.src.camera.OV2311_camera import (
+    AbstractCaptureDevice,
+)
 from project.recognition.position.april.src.util import (
     get_map1_and_map2,
     get_undistored_frame,
@@ -44,7 +46,7 @@ def preprocess_image(image: np.ndarray, matrix: np.ndarray, dist_coeff: np.ndarr
     return get_undistored_frame(image, map1, map2), new_camera_matrix
 
 
-def get_avg_fps(device: CaptureDevice):
+def get_avg_fps(device: AbstractCaptureDevice):
     frame_times = []
     last_frame_time = time.time()
 

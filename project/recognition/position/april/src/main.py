@@ -11,7 +11,10 @@ from project.common.autobahn_python.util import Address
 from project.common.config import from_uncertainty_config
 from project.common.util.math import get_np_from_matrix, get_np_from_vector
 from project.common.util.system import get_system_name
-from project.recognition.position.april.src.camera import CaptureDevice, DetectionCamera
+from project.recognition.position.april.src.camera.OV2311_camera import (
+    AbstractCaptureDevice,
+)
+from project.recognition.position.april.src.detector import DetectionCamera
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=str, default=None)
@@ -50,7 +53,7 @@ async def main():
         camera_detector_list.append(
             DetectionCamera(
                 name=camera.name,
-                video_capture=CaptureDevice(
+                video_capture=AbstractCaptureDevice(
                     camera.camera_path,
                     camera.width,
                     camera.height,
