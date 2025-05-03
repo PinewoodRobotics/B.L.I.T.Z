@@ -38,35 +38,10 @@ def from_detection_to_proto_tag(detection: pyapriltags.Detection) -> Tag:
     if detection.pose_t is None:
         raise ValueError("Detection has no pose data")
 
-    distance_to_camera = float(np.linalg.norm(detection.pose_t))
-
-    x, y, z = detection.pose_t[0], detection.pose_t[1], detection.pose_t[2]
-
-    angle_relative_to_camera_yaw = float(np.arctan2(x, z))
-    angle_relative_to_camera_pitch = float(np.arctan2(y, z))
-
-    position_x_relative = float(x)
-    position_y_relative = float(y)
-    position_z_relative = float(z)
-
     return Tag(
-        tag_family=str(detection.tag_family),
         tag_id=detection.tag_id,
-        hamming=detection.hamming,
-        decision_margin=detection.decision_margin,
-        homography=to_float_list(detection.homography),
-        center=to_float_list(detection.center),
-        corners=to_float_list(detection.corners),
         pose_R=to_float_list(detection.pose_R) if detection.pose_R is not None else [],
         pose_t=to_float_list(detection.pose_t),
-        pose_err=detection.pose_err,
-        tag_size=detection.tag_size,
-        distance_to_camera=distance_to_camera,
-        angle_relative_to_camera_yaw=angle_relative_to_camera_yaw,
-        angle_relative_to_camera_pitch=angle_relative_to_camera_pitch,
-        position_x_relative=position_x_relative,
-        position_y_relative=position_y_relative,
-        position_z_relative=position_z_relative,
     )
 
 
@@ -154,12 +129,28 @@ def py_time_to_fps(time_sec_one: float, time_sec_two: float) -> float:
     return 1 / (time_sec_two - time_sec_one)
 
 
+def to_position_proto(
+    rotation: np.ndarray, translation: np.ndarray, tag_id: int
+) -> Tag:
+    return Tag(
+        tag_id=tag_id,
+        pose_R=to_float_list(rotation),
+        pose_t=to_float_list(translation),
+    )
+
+
 def solve_pnp_tag_corners(
     tag_corners: TagCorners,
     tag_size: float,
     camera_matrix: np.ndarray,
     dist_coeff: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Solves the PnP problem for a tag corner.
+    Returns:
+        - rotation matrix
+        - translation vector
+    """
     # 1) Define the *unit* square in object space
     #    IPPE_SQUARE expects half-side = 1
     half_size = tag_size / 2

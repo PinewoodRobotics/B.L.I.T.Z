@@ -25,11 +25,10 @@ class AprilTagPipeline(Pipeline, topic="apriltag/camera"):
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             if not world.contains_object("image"):
                 img_obj = ImageObject(image, scale=10)
-                img_obj.rotation = Vec3(90, 0, 0)
-                img_obj.position = Vec3(0, 1, 0)
+                img_obj.rotation = Vec3(0, 0, 0)
+                img_obj.position = Vec3(0, 1, 5)
                 world.add_object("image", img_obj)
             else:
-                print("updating image")
                 entity = world.get_object("image").get_entity()
                 assert isinstance(entity, ImageObject)
                 entity.update_texture(image)

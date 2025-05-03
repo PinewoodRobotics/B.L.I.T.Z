@@ -1,10 +1,13 @@
 import argparse
 import asyncio
+import random
 import signal
 import time
 
+import cv2
 import pyapriltags
 
+from generated.proto.python.Image_pb2 import ImageMessage
 from generated.thrift.config.apriltag.ttypes import AprilDetectionConfig
 from generated.thrift.config.camera.ttypes import CameraParameters, CameraType
 from project.common.autobahn_python.autobahn import Autobahn
@@ -36,6 +39,8 @@ def build_detector(config: AprilDetectionConfig):
 
 def get_camera_capture_device(camera: CameraParameters) -> AbstractCaptureDevice:
     if camera.camera_type == CameraType.OV2311.value:
+        print(camera.camera_matrix)
+        print(get_np_from_matrix(camera.camera_matrix))
         return OV2311Camera(
             camera.camera_path,
             camera.width,
@@ -62,7 +67,10 @@ async def main():
     async def publish_a(topic, data):
         time_now = time.time()
         await autobahn_server.publish(topic, data)
-        print(f"Published to {topic} in {(time.time() - time_now) * 1000} ms")
+        if time.time() - time_now >= 0.03:
+            print(
+                f"WARNING! Took too long to publish! ({time.time() - time_now} seconds)"
+            )
 
     def publish_nowait(topic: str, data: bytes):
         asyncio.run_coroutine_threadsafe(publish_a(topic, data), loop)
@@ -70,6 +78,8 @@ async def main():
     for camera in config.cameras:
         if camera is not None and camera.pi_to_run_on != get_system_name():
             continue
+
+        print(camera)
 
         detector_cam = DetectionCamera(
             name=camera.name,

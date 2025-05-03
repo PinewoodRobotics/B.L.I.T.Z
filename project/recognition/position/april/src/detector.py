@@ -7,7 +7,12 @@ import cv2
 import numpy as np
 import pyapriltags
 
-from generated.proto.python.AprilTag_pb2 import RawAprilTagCorners, TagCorners
+from generated.proto.python.AprilTag_pb2 import (
+    AprilTags,
+    RawAprilTagCorners,
+    Tag,
+    TagCorners,
+)
 from generated.proto.python.Image_pb2 import ImageMessage
 from project.recognition.position.april.src.camera.OV2311_camera import (
     AbstractCaptureDevice,
@@ -15,6 +20,8 @@ from project.recognition.position.april.src.camera.OV2311_camera import (
 from project.recognition.position.april.src.util import (
     post_process_detection,
     process_image,
+    solve_pnp_tag_corners,
+    to_position_proto,
 )
 
 
@@ -56,9 +63,20 @@ class DetectionCamera:
                 self.video_capture.get_dist_coeff(),
             )
 
-            self._publish(frame, found_tags)
+            tags_world = []
+            for tag in found_tags:
+                R, t = solve_pnp_tag_corners(
+                    tag,
+                    self.tag_size,
+                    self.video_capture.get_matrix(),
+                    self.video_capture.get_dist_coeff(),
+                )
 
-    def _publish(self, frame: np.ndarray, found_tags: list[TagCorners]):
+                tags_world.append(to_position_proto(R, t, tag.id))
+
+            self._publish(frame, tags_world)
+
+    def _publish(self, frame: np.ndarray, found_tags: list[Tag]):
         if self.publication_image_lambda is not None:
             self.publication_image_lambda(
                 ImageMessage(
@@ -74,7 +92,7 @@ class DetectionCamera:
 
         if self.publication_lambda is not None and len(found_tags) > 0:
             self.publication_lambda(
-                RawAprilTagCorners(
+                AprilTags(
                     camera_name=self.name,
                     image_id=random.randint(0, 1000000),
                     timestamp=int(time.time() * 1000),

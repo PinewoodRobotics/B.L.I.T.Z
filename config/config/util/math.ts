@@ -122,9 +122,9 @@ export class VectorUtil {
 
     if (array.length === 3) {
       return {
-        x: array[0],
-        y: array[1],
-        z: array[2],
+        k1: array[0],
+        k2: array[1],
+        k3: array[2],
       } as any;
     }
 

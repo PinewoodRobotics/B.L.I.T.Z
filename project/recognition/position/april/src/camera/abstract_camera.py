@@ -55,7 +55,7 @@ class AbstractCaptureDevice(cv2.VideoCapture):
         self._configure_camera()
         self._last_ts = time.time()
 
-    def __super__init__(self, port: int):
+    def __super__init__(self, port: int | str):
         super().__init__(port)
 
     def get_frame(self) -> tuple[bool, np.ndarray | None]:

@@ -28,9 +28,9 @@ def test_from_file():
     assert config.cameras[0].height == 600
     assert config.cameras[0].camera_type == CameraType.OV2311
     assert config.cameras[0].camera_matrix is not None
-    assert config.cameras[0].camera_matrix.r1 is not None
-    assert config.cameras[0].camera_matrix.r2 is not None
-    assert config.cameras[0].camera_matrix.r3 is not None
+    assert config.cameras[0].camera_matrix.r1.k1 is not None
+    assert config.cameras[0].camera_matrix.r2.k1 is not None
+    assert config.cameras[0].camera_matrix.r3.k1 is not None
 
 
 def test_from_uncertainty_config():

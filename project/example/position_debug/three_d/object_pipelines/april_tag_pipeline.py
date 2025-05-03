@@ -6,7 +6,7 @@ from render.objects.apriltag import AprilTag
 from .pipeline import Pipeline
 
 
-class AprilTagPipeline(Pipeline, topic="april_tag"):
+class AprilTagPipeline(Pipeline, topic="apriltag/tag"):
     def __init__(self):
         super().__init__()
         self.tags = []
@@ -25,15 +25,8 @@ class AprilTagPipeline(Pipeline, topic="april_tag"):
                     world.add_object(f"tag_{tag.tag_id}", tag_entity)
 
                 assert isinstance(tag_entity, AprilTag)
-                tag_entity.set_position(
-                    (
-                        tag.position_x_relative,
-                        tag.position_y_relative,
-                        tag.position_z_relative,
-                    )
-                )
+                tag_entity.set_position((tag.pose_t[0], tag.pose_t[1], tag.pose_t[2]))
                 tag_entity.set_rotation_matrix(np.array(tag.pose_R).reshape(3, 3))
-                tag_entity.set_size(tag.tag_size)
         except Exception as e:
             print(f"Error processing AprilTag message: {e}")
 
