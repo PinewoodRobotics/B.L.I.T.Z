@@ -31,3 +31,4 @@ pytest
 pyvistaqt
 pyqt5
 thrift
+ursina
