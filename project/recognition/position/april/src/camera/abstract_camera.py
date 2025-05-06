@@ -1,30 +1,19 @@
-from enum import Enum
 import time
 from typing import Dict, Type
-import cv2
+
 import numpy as np
+from cscore import CvSink, UsbCamera, VideoSource
 
 from generated.thrift.config.camera.ttypes import CameraType
 
 
-class AbstractCaptureDevice(cv2.VideoCapture):
-    """
-    This class is a base class for all camera capture devices.
-    It provides a common interface for all camera capture devices.
-
-    NOTE: This class is meant to be used as an extension of a new class. THE _configure_camera method is not implemented in this class by default.
-    """
-
+class AbstractCaptureDevice:
     _registry: Dict[CameraType, Type["AbstractCaptureDevice"]] = {}
 
     def __init_subclass__(cls, type: CameraType, **kwargs):
         super().__init_subclass__(**kwargs)
         if type is not None:
             AbstractCaptureDevice._registry[type] = cls
-
-    @classmethod
-    def get_registry(cls) -> Dict[CameraType, Type["AbstractCaptureDevice"]]:
-        return cls._registry
 
     def __init__(
         self,
@@ -42,29 +31,61 @@ class AbstractCaptureDevice(cv2.VideoCapture):
             except ValueError:
                 pass
 
-        super().__init__(camera_port)
         self.port = camera_port
         self.width = width
         self.height = height
         self.max_fps = max_fps
         self.hard_limit = hard_fps_limit
-
         self.camera_matrix = camera_matrix
         self.dist_coeff = dist_coeff
+        self.frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
 
-        self._configure_camera()
+        self.camera: UsbCamera | None = None
+        self.sink: CvSink | None = None  # CameraServer.getVideo(self.camera)
+
+        self._is_ready = False
+        self._initialize_camera()
         self._last_ts = time.time()
 
-    def __super__init__(self, port: int | str):
-        super().__init__(port)
+    def _initialize_camera(self):
+        self._configure_camera()
+        if self.camera:
+            self.camera.setConnectionStrategy(
+                VideoSource.ConnectionStrategy.kConnectionKeepOpen
+            )
+
+            max_attempts = 5
+            attempt = 0
+            while attempt < max_attempts:
+                if self.camera.isConnected() and self.sink is not None:
+                    test_frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+                    ts, _ = self.sink.grabFrame(test_frame)
+                    if ts > 0:
+                        self._is_ready = True
+                        print(f"Camera successfully connected and initialized")
+                        return
+                attempt += 1
+                print(
+                    f"Waiting for camera to connect (attempt {attempt}/{max_attempts})..."
+                )
+                time.sleep(1.0)
+
+            print(f"WARNING: Failed to initialize camera after {max_attempts} attempts")
 
     def get_frame(self) -> tuple[bool, np.ndarray | None]:
         start = time.time()
 
-        ret, frame = super().read()
+        if self.sink is None or not self._is_ready:
+            return False, self.frame
+
+        ts, self.frame = self.sink.grabFrame(self.frame)
         now = time.time()
-        if not ret or frame is None:
-            self._configure_camera()
+
+        if ts == 0:
+            error = self.sink.getError()
+            print(f"Error grabbing frame: {error}")
+            self._is_ready = False
+            self._initialize_camera()
             self._last_ts = now
             return False, None
 
@@ -75,10 +96,12 @@ class AbstractCaptureDevice(cv2.VideoCapture):
                 time.sleep(interval - took)
 
         self._last_ts = time.time()
-        return True, frame
+        return True, self.frame
 
     def release(self):
-        super().release()
+        self._is_ready = False
+        self.sink = None
+        self.camera = None
 
     def get_matrix(self) -> np.ndarray:
         return self.camera_matrix

@@ -32,3 +32,5 @@ pyvistaqt
 pyqt5
 thrift
 ursina
+robotpy
+robotpy-cscore

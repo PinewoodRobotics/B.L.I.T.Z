@@ -2,8 +2,6 @@ import subprocess
 import json
 from typing import Dict, Any
 
-from dacite import from_dict
-
 from generated.thrift.config.ttypes import Config
 from project.common.util.thrift_loader import dict_to_thrift
 

@@ -9,8 +9,8 @@ const prod1: CameraParameters = {
   name: "one",
   camera_path: "0",
   flags: 0,
-  width: 800,
-  height: 600,
+  width: 640,
+  height: 480,
   max_fps: 30,
   camera_matrix: MatrixUtil.buildMatrix<3, 3>([
     [450, 0, 400],
