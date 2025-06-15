@@ -2,16 +2,34 @@
   "name": "blitz",
   "version": "1.0.0",
   "description": "Battle-Linked Intelligent Tactical Pi Swarm",
-  "main": "index.js",
+  "type": "module",
+  "main": "src/config/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/config/index.ts",
+      "require": "./src/config/index.ts"
+    },
+    "./config/*": "./src/config/config/*",
+    "./src/*": "./src/*"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "config": "tsx src/config/index.ts",
+    "dev": "tsx --watch src/config/index.ts"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/PinewoodRobotics/B.L.I.T.Z.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "robotics",
+    "swarm",
+    "ai",
+    "lidar",
+    "computer-vision",
+    "raspberry-pi"
+  ],
+  "author": "Pinewood Robotics",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/PinewoodRobotics/B.L.I.T.Z/issues"

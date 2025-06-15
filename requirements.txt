@@ -34,3 +34,4 @@ thrift
 ursina
 robotpy
 robotpy-cscore
+autobahn_client

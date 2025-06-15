@@ -3,11 +3,11 @@ ARGS ?=
 
 VENV_PYTHON := .venv/bin/python
 
-THRIFT_DIR = config/schema
+THRIFT_DIR = src/config/schema
 THRIFT_ROOT_FILE = $(THRIFT_DIR)/config.thrift
-PROTO_DIR = proto
+PROTO_DIR = src/proto
 
-GEN_DIR = generated
+GEN_DIR = src/blitz/generated
 PROTO_GEN_DIR = $(GEN_DIR)/proto
 THRIFT_GEN_DIR = $(GEN_DIR)/thrift
 
@@ -32,23 +32,29 @@ lidar-point-processor:
 	$(VENV_PYTHON) project/lidar/lidar_point_processor/main.py $(ARGS)
 
 prepare:
-	if [ ! -d "generated" ]; then mkdir generated; fi
-	touch generated/__init__.py
-	mkdir -p generated/proto
-	touch generated/proto/__init__.py
+	mkdir -p $(GEN_DIR)
+	touch $(GEN_DIR)/__init__.py
+	mkdir -p $(PROTO_GEN_DIR)
+	touch $(PROTO_GEN_DIR)/__init__.py
+	mkdir -p $(THRIFT_GEN_DIR)
+	touch $(THRIFT_GEN_DIR)/__init__.py
 
 generate-proto-cpp-lidar:
 	mkdir -p project/hybrid-frustum-pointnet/lidar/include/proto
-	protoc -I=proto --cpp_out=project/hybrid-frustum-pointnet/lidar/include/proto$(find proto -name "*.proto")
+	protoc -I=$(PROTO_DIR) --cpp_out=project/hybrid-frustum-pointnet/lidar/include/proto $(shell find $(PROTO_DIR) -name "*.proto")
 
 generate-proto-python: prepare
 	mkdir -p $(PROTO_PY_GEN_DIR)
-	protoc -I=proto \
+	protoc -I=$(PROTO_DIR) \
 		--python_out=$(PROTO_PY_GEN_DIR) \
 		--pyi_out=$(PROTO_PY_GEN_DIR) \
-		$(shell find proto -name "*.proto")
+		$(shell find $(PROTO_DIR) -name "*.proto")
 	
-	.venv/bin/protol --create-package --in-place --python-out generated/proto protoc --proto-path=proto/ $(shell find proto -name "*.proto")
+	if [ -f .venv/bin/protol ]; then \
+		.venv/bin/protol --create-package --in-place --python-out $(PROTO_GEN_DIR) protoc --proto-path=$(PROTO_DIR)/ $(shell find $(PROTO_DIR) -name "*.proto"); \
+	else \
+		echo "protol not found, skipping package creation (install with: pip install protol)"; \
+	fi
 
 position-extrapolator:
 	$(VENV_PYTHON) -u project/pos_extrapolator/src/main.py $(ARGS)
@@ -66,17 +72,17 @@ check-project:
 	ruff check project/
 
 run-config-ts:
-	npx tsx config/ $(ARGS)
+	npm run config
 
 send-to-target:
 	rsync -av --progress --exclude-from=.gitignore --delete ./ ubuntu@10.47.65.$(ARGS):~/Documents/B.L.I.T.Z/
 
 test:
-	pytest project
+	pytest
 
 thrift-to-py:
 	mkdir -p $(THRIFT_GEN_DIR)
-	thrift -r --gen py:enum,type_hints,package_prefix=generated.thrift. \
+	thrift -r --gen py:enum,type_hints,package_prefix=blitz.generated.thrift. \
 	  	-I $(THRIFT_DIR) \
 	  	-out $(THRIFT_GEN_DIR) \
 	  	$(THRIFT_ROOT_FILE)
