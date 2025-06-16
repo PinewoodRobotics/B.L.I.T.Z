@@ -16,7 +16,7 @@ from blitz.generated.thrift.config.ttypes import Config
 from blitz.common.autobahn_python.autobahn import Autobahn
 from blitz.common.autobahn_python.util import Address
 from blitz.common.config import from_file
-from blitz.common.util.system import get_system_name
+from blitz.common.util.system import get_system_name, load_basic_system_config
 from blitz.watchdog.helper import ProcessType, process_watcher
 from blitz.watchdog.monitor import ProcessMonitor
 
@@ -84,16 +84,34 @@ def stop(request: Request):
 
 
 async def main():
-    autobahn_server = Autobahn(Address("localhost", 8080))
+    basic_system_config = load_basic_system_config()
+
+    autobahn_server = Autobahn(
+        Address(
+            basic_system_config.autobahn.host,
+            basic_system_config.autobahn.port,
+        )
+    )
     await autobahn_server.begin()
 
-    init_logging("WATCHDOG", LogLevel.INFO, autobahn_server)
-    await success("Watchdog started!")
+    init_logging(
+        "WATCHDOG",
+        LogLevel(basic_system_config.logging.global_logging_level),
+        basic_system_config.logging.global_log_pub_topic,
+        autobahn_server,
+    )
 
-    asyncio.create_task(process_watcher(config))
-    await success("Process watcher started!")
+    success("Watchdog started!")
 
-    app.run(host="0.0.0.0", port=1000, debug=False)
+    asyncio.create_task(process_watcher(basic_system_config))
+    success("Process watcher started!")
+
+    await asyncio.to_thread(
+        app.run,
+        host=basic_system_config.watchdog.host,
+        port=basic_system_config.watchdog.port,
+        debug=False,
+    )
 
 
 def cli_main():

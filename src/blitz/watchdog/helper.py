@@ -2,10 +2,18 @@ import asyncio
 from enum import Enum
 import psutil
 from blitz.common.debug.logger import error, stats, success
-from blitz.generated.proto.python.status.PiStatus_pb2 import PiProcess, PiStatus
+from blitz.generated.proto.python.status.PiStatus_pb2 import (
+    PiProcess,
+    PiStatus,
+    StatusType,
+)
 from blitz.generated.thrift.config.ttypes import Config
 from blitz.common.autobahn_python.autobahn import Autobahn
-from blitz.common.util.system import get_system_name, get_top_10_processes
+from blitz.common.util.system import (
+    BasicSystemConfig,
+    get_system_name,
+    get_top_10_processes,
+)
 
 
 class ProcessType(Enum):
@@ -16,7 +24,7 @@ class ProcessType(Enum):
     CAMERA_PROCESSING = "april-server"
 
 
-async def process_watcher(config: Config | None):
+async def process_watcher(config: BasicSystemConfig | None):
     while True:
         if config and config.watchdog.send_stats:
             cpu_per_core = psutil.cpu_percent(interval=1, percpu=True)
@@ -26,6 +34,7 @@ async def process_watcher(config: Config | None):
             net_info = psutil.net_io_counters()
             top_10_processes = get_top_10_processes()
             pi_status = PiStatus(
+                type=StatusType.SYSTEM_STATUS,
                 pi_name=get_system_name(),
                 cpu_usage_cores=cpu_per_core,
                 cpu_usage_total=cpu_usage_total,
@@ -46,7 +55,7 @@ async def process_watcher(config: Config | None):
             await stats(pi_status.SerializeToString())
 
         await asyncio.sleep(
-            config.watchdog.stats_interval_seconds
+            config.watchdog.stats_pub_period_s
             if config and config.watchdog.send_stats
             else 1
         )

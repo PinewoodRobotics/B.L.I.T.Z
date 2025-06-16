@@ -2,6 +2,15 @@ syntax = "proto3";
 
 package proto.status;
 
+enum StatusType {
+    SYSTEM_STATUS = 0;
+    LOG_MESSAGE = 1;
+}
+
+message StatusBase {
+    StatusType type = 1;
+}
+
 message PiProcess {
     string name = 1;
     int32 pid = 2;
@@ -9,7 +18,8 @@ message PiProcess {
 }
 
 message PiStatus {
-    string pi_name = 1;
+    StatusType type = 1;
+    string pi_name = 2;
 
     repeated float cpu_usage_cores = 3;
     float cpu_usage_total = 4;
@@ -24,7 +34,8 @@ message PiStatus {
 }
 
 message LogMessage {
-    string prefix = 1;
-    string message = 2;
-    string color = 3;
+    StatusType type = 1;
+    string prefix = 2;
+    string message = 3;
+    string color = 4;
 }
