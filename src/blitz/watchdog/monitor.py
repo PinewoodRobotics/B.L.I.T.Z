@@ -1,4 +1,5 @@
 import asyncio
+from logging import debug, info, warning
 import subprocess
 from typing import Dict, List
 
@@ -41,25 +42,25 @@ class ProcessMonitor:
                 if process.poll() is None:
                     alive_processes.append(process_type)
             except (psutil.NoSuchProcess, psutil.AccessDenied):
-                print(f"Process {process_type} already dead or inaccessible")
+                debug(f"Process {process_type} already dead or inaccessible")
 
         return alive_processes
 
     def stop_process(self, process_type: ProcessType):
         process = self.processes.get(process_type)
         if process:
-            print(f"Stopping process {process_type}")
+            info(f"Stopping process {process_type}")
 
             # Kill child processes first (to prevent zombie processes)
             try:
                 parent = psutil.Process(process.pid)
                 children = parent.children(recursive=True)
                 for child in children:
-                    print(f"Killing child process {child.pid}")
+                    debug(f"Killing child process {child.pid}")
                     child.terminate()  # Try terminate first
                 gone, alive = psutil.wait_procs(children, timeout=2)
                 for child in alive:
-                    print(f"Force killing stubborn child process {child.pid}")
+                    debug(f"Force killing stubborn child process {child.pid}")
                     child.kill()  # Force kill if still alive
 
                 # Now terminate the main process
@@ -67,21 +68,21 @@ class ProcessMonitor:
                 process.wait(timeout=2)  # Wait for process to exit
 
             except (psutil.NoSuchProcess, psutil.AccessDenied):
-                print(f"Process {process_type} already dead or inaccessible")
+                debug(f"Process {process_type} already dead or inaccessible")
 
             process.kill()
 
             del self.processes[process_type]
-            print(f"Process {process_type} stopped successfully")
+            info(f"Process {process_type} stopped successfully")
 
     def abort_all_processes(self):
-        print("Start Abort!")
+        info("Start Abort!")
         # Create a copy of the processes dictionary to avoid modification during iteration
         processes_to_abort = list(self.processes.keys())
         for process_type in processes_to_abort:
             self.stop_process(process_type)
 
-        print("Aborted Sucessfully!")
+        info("Aborted Successfully!")
 
     async def monitor_process(self, process_type: ProcessType):
         while True:
@@ -91,16 +92,16 @@ class ProcessMonitor:
 
             return_code = process.poll()
             if return_code is not None:
-                print(f"Process {process_type} exited with code {return_code}")
+                debug(f"Process {process_type} exited with code {return_code}")
                 if self.config_path is None:
                     raise ValueError("Config path not set")
 
                 new_process = start_process(process_type, self.config_path)
                 if new_process:
                     self.processes[process_type] = new_process
-                    print(f"Restarted process {process_type}")
+                    debug(f"Restarted process {process_type}")
                     break
                 else:
-                    print(f"Failed to restart process {process_type}")
+                    warning(f"Failed to restart process {process_type}")
 
             await asyncio.sleep(1)

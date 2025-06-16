@@ -7,7 +7,6 @@ name = "blitz"
 version = "1.0.0"
 description = "Battle-Linked Intelligent Tactical Pi Swarm"
 readme = "README.md"
-license = { text = "ISC" }
 authors = [{ name = "Pinewood Robotics" }]
 requires-python = ">=3.8"
 dependencies = [

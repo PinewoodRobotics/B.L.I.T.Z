@@ -11,7 +11,6 @@ class ProcessType(Enum):
     LIDAR_POINT_PROCESSOR = "lidar-point-processor"
     LIDAR_PROCESSING = "lidar-processing"
     CAMERA_PROCESSING = "april-server"
-    ABC = "abc"
 
 
 class AutobahnBaseConfig(BaseModel):

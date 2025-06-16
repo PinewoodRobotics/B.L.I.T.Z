@@ -1,48 +1,35 @@
+from logging import debug, info
 import subprocess
 from typing import Optional, List
 import sys
+import os
 
 from blitz.common.util.system import ProcessType
 
 
 def start_process(process_type: ProcessType, config_path: str):
-    args = [construct_argument("--config", config_path)]
-    match process_type:
-        case 0:  # POS_EXTRAPOLATOR
-            return start_process_make("position-extrapolator", args)
-        case 1:  # LIDAR_READER_2D
-            return start_process_make("lidar-reader-2d", args)
-        case 2:  # LIDAR_POINT_PROCESSOR
-            return start_process_make("lidar-point-processor", args)
-        case 3:  # LIDAR_PROCESSING
-            return start_process_make("lidar-processing", args)
-        case 4:  # CAMERA_PROCESSING
-            return start_process_make("april-server", args)
-        case _:
-            raise ValueError(f"Unknown process type: {process_type}")
-
-
-def construct_argument(main_name: str, arg_value: str) -> str:
-    return f"{main_name} {arg_value}"
+    return start_process_make(process_type.value, ["--config", config_path])
 
 
 def start_process_make(process_name: str, extra_args: Optional[List[str]] = None):
     try:
-        args_str = f'ARGS="{" ".join(extra_args)}"' if extra_args else ""
-        cmd = f"make {process_name} {args_str}"
-        sys.stderr.write("make " + process_name + " " + args_str + "\n")
+        env = os.environ.copy()
+        if extra_args:
+            env["ARGS"] = " ".join(extra_args)
 
-        process = subprocess.Popen(
+        cmd = ["make", process_name]
+
+        debug(f"Starting: {' '.join(cmd)} with ARGS={env.get('ARGS', '')}\n")
+
+        return subprocess.Popen(
             cmd,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
             universal_newlines=True,
-            shell=True,
+            env=env,
         )
-
-        return process
     except subprocess.SubprocessError as e:
         print(f"Failed to start {process_name}: {str(e)}")
         return None
