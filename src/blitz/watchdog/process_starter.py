@@ -2,7 +2,7 @@ import subprocess
 from typing import Optional, List
 import sys
 
-from blitz.watchdog.helper import ProcessType
+from blitz.common.util.system import ProcessType
 
 
 def start_process(process_type: ProcessType, config_path: str):

@@ -4,7 +4,8 @@ from typing import Dict, List
 
 import psutil
 
-from blitz.watchdog.helper import ProcessType
+
+from blitz.common.util.system import ProcessType
 from blitz.watchdog.process_starter import start_process
 
 
@@ -28,6 +29,9 @@ class ProcessMonitor:
 
     def set_config_path(self, config_path: str):
         self.config_path = config_path
+
+    def get_active_processes(self):
+        return self.processes.keys()
 
     def ping_processes_and_get_alive(self):
         alive_processes = []

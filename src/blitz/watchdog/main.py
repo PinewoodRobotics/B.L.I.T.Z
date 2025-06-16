@@ -4,7 +4,7 @@ import subprocess
 import sys
 from typing import Dict, List
 
-from flask import Flask, Request, jsonify
+from flask import Flask, request, jsonify
 import psutil
 
 from blitz.common.debug.logger import LogLevel, init_logging, success
@@ -16,8 +16,12 @@ from blitz.generated.thrift.config.ttypes import Config
 from blitz.common.autobahn_python.autobahn import Autobahn
 from blitz.common.autobahn_python.util import Address
 from blitz.common.config import from_file
-from blitz.common.util.system import get_system_name, load_basic_system_config
-from blitz.watchdog.helper import ProcessType, process_watcher
+from blitz.common.util.system import (
+    ProcessType,
+    get_system_name,
+    load_basic_system_config,
+)
+from blitz.watchdog.helper import process_watcher
 from blitz.watchdog.monitor import ProcessMonitor
 
 app = Flask(__name__)
@@ -29,7 +33,7 @@ process_monitor = ProcessMonitor()
 
 
 @app.route("/set/config", methods=["POST"])
-def set_config(request: Request):
+def set_config():
     global config
     data = request.get_json()
     if "config" not in data:
@@ -46,18 +50,29 @@ def set_config(request: Request):
 
 
 @app.route("/start/process", methods=["POST"])
-def start(request: Request):
+def start():
     data = request.get_json()
     if config is None:
         return jsonify({"status": "error", "message": "Config not set"}), 400
-    if "process_type" not in data:
-        return jsonify({"status": "error", "message": "Missing process type"}), 400
-    if data["process_type"] not in ProcessType:
-        return jsonify({"status": "error", "message": "Invalid process type"}), 400
+    if "process_types" not in data:
+        return jsonify({"status": "error", "message": "Missing process_types"}), 400
 
-    process_types = [
-        ProcessType(process_type) for process_type in data["process_types"]
-    ]
+    process_types = []
+    for process_type_str in data["process_types"]:
+        try:
+            process_type = ProcessType(process_type_str)
+            process_types.append(process_type)
+        except ValueError:
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": f"Invalid process type: {process_type_str}",
+                    }
+                ),
+                400,
+            )
+
     for process_type in process_types:
         process_monitor.start_and_monitor_process(process_type)
 
@@ -65,22 +80,46 @@ def start(request: Request):
 
 
 @app.route("/stop/process", methods=["POST"])
-def stop(request: Request):
+def stop():
     data = request.get_json()
     if config is None:
         return jsonify({"status": "error", "message": "Config not set"}), 400
-    if "process_type" not in data:
-        return jsonify({"status": "error", "message": "Missing process type"}), 400
-    if data["process_type"] not in ProcessType:
-        return jsonify({"status": "error", "message": "Invalid process type"}), 400
+    if "process_types" not in data:
+        return jsonify({"status": "error", "message": "Missing process_types"}), 400
 
-    process_types = [
-        ProcessType(process_type) for process_type in data["process_types"]
-    ]
+    process_types = []
+    for process_type_str in data["process_types"]:
+        try:
+            process_type = ProcessType(process_type_str)
+            process_types.append(process_type)
+        except ValueError:
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": f"Invalid process type: {process_type_str}",
+                    }
+                ),
+                400,
+            )
+
     for process_type in process_types:
         process_monitor.stop_process(process_type)
 
     return jsonify({"status": "success"})
+
+
+@app.route("/get/system/status", methods=["GET"])
+def get_system_info():
+    active_processes = process_monitor.get_active_processes()
+    return jsonify(
+        {
+            "status": "success",
+            "system_info": get_system_name(),
+            "active_processes": list(active_processes),
+            "config_set": config is not None,
+        }
+    )
 
 
 async def main():

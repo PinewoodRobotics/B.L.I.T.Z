@@ -1,7 +1,17 @@
+from enum import Enum
 import psutil
 import json
 import re
 from pydantic import BaseModel
+
+
+class ProcessType(Enum):
+    POS_EXTRAPOLATOR = "position-extrapolator"
+    LIDAR_READER_2D = "lidar-reader-2d"
+    LIDAR_POINT_PROCESSOR = "lidar-point-processor"
+    LIDAR_PROCESSING = "lidar-processing"
+    CAMERA_PROCESSING = "april-server"
+    ABC = "abc"
 
 
 class AutobahnBaseConfig(BaseModel):

@@ -46,6 +46,7 @@ dependencies = [
     "robotpy",
     "robotpy-cscore",
     "autobahn_client",
+    "rich",
 ]
 
 [project.optional-dependencies]
@@ -58,7 +59,7 @@ blitz-lidar-2d = "blitz.lidar.lidar_2d.main:main"
 blitz-lidar-processor = "blitz.lidar.lidar_point_processor.main:main"
 blitz-position-extrapolator = "blitz.pos_extrapolator.src.main:main"
 blitz-watchdog = "blitz.watchdog.main:cli_main"
-blitz = "blitz.terminal.main:main"
+blitz = "blitz.terminal.main:cli_main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
