@@ -1,12 +1,22 @@
 import asyncio
+from enum import Enum
 import psutil
-from blitz.generated.proto.status.PiStatus_pb2 import PiProcess, PiStatus
-from blitz.generated.thrift.ttypes import Config
+from blitz.common.debug.logger import error, stats, success
+from blitz.generated.proto.python.status.PiStatus_pb2 import PiProcess, PiStatus
+from blitz.generated.thrift.config.ttypes import Config
 from blitz.common.autobahn_python.autobahn import Autobahn
 from blitz.common.util.system import get_system_name, get_top_10_processes
 
 
-async def process_watcher(config: Config | None, autobahn_server: Autobahn):
+class ProcessType(Enum):
+    POS_EXTRAPOLATOR = "position-extrapolator"
+    LIDAR_READER_2D = "lidar-reader-2d"
+    LIDAR_POINT_PROCESSOR = "lidar-point-processor"
+    LIDAR_PROCESSING = "lidar-processing"
+    CAMERA_PROCESSING = "april-server"
+
+
+async def process_watcher(config: Config | None):
     while True:
         if config and config.watchdog.send_stats:
             cpu_per_core = psutil.cpu_percent(interval=1, percpu=True)
@@ -33,10 +43,7 @@ async def process_watcher(config: Config | None, autobahn_server: Autobahn):
                 ],
             )
 
-            await autobahn_server.publish(
-                config.watchdog.stats_publish_topic,
-                pi_status.SerializeToString(),
-            )
+            await stats(pi_status.SerializeToString())
 
         await asyncio.sleep(
             config.watchdog.stats_interval_seconds

@@ -1,3 +1,4 @@
+import { CameraType } from "../../../blitz/generated/thrift/ts_schema/camera_types";
 import { KalmanFilterSensorType } from "../../../blitz/generated/thrift/ts_schema/kalman_filter_types";
 import type { Level } from "../../../blitz/generated/thrift/ts_schema/logger_types";
 
@@ -50,6 +51,21 @@ export const KalmanFilterSensorTypeUtil = {
         return 1 as KalmanFilterSensorType;
       default:
         throw new Error(`Invalid sensor type: ${type}`);
+    }
+  },
+};
+
+export enum CameraTypeE {
+  OV2311 = "OV2311",
+}
+
+export const CameraTypeUtil = {
+  fromEnum(type: CameraTypeE): CameraType {
+    switch (type) {
+      case CameraTypeE.OV2311:
+        return "OV2311" as unknown as CameraType;
+      default:
+        throw new Error(`Invalid camera type: ${type}`);
     }
   },
 };

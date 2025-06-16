@@ -22,3 +22,9 @@ message PiStatus {
 
     repeated PiProcess top_10_processes = 9;
 }
+
+message LogMessage {
+    string prefix = 1;
+    string message = 2;
+    string color = 3;
+}

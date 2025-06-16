@@ -1,8 +1,6 @@
-import {
-  type CameraParameters,
-  type CameraType,
-} from "../../../blitz/generated/thrift/ts_schema/camera_types";
+import { type CameraParameters } from "../../../blitz/generated/thrift/ts_schema/camera_types";
 import { MatrixUtil, VectorUtil } from "../util/math";
+import { CameraTypeE, CameraTypeUtil } from "../util/struct";
 
 const prod1: CameraParameters = {
   pi_to_run_on: "tripoli",
@@ -22,7 +20,7 @@ const prod1: CameraParameters = {
     0.0010526889774734997, -0.032565426732841275,
   ]),
   exposure_time: 8,
-  camera_type: "OV2311" as unknown as CameraType, // unfortunately we have to do this because the thrift types are not properly exported
+  camera_type: CameraTypeUtil.fromEnum(CameraTypeE.OV2311),
 };
 
 export default prod1;

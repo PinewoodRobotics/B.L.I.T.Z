@@ -4,25 +4,30 @@ from typing import Dict, List
 
 import psutil
 
-from blitz.generated.proto.python.WatchDogMessage_pb2 import ProcessType
+from blitz.watchdog.helper import ProcessType
 from blitz.watchdog.process_starter import start_process
 
 
 class ProcessMonitor:
-    def __init__(self, config_path: str):
+    def __init__(self):
         self.processes: Dict[ProcessType, subprocess.Popen] = {}
         self.process_args: Dict[ProcessType, List[str]] = {}
-        self.config_path = config_path
+        self.config_path: str | None = None
 
-    async def start_and_monitor_process(
+    def start_and_monitor_process(
         self,
         process_type: ProcessType,
-        config_path: str,
     ):
-        process = start_process(process_type, config_path)
+        if self.config_path is None:
+            raise ValueError("Config path not set")
+
+        process = start_process(process_type, self.config_path)
         if process:
             self.processes[process_type] = process
             asyncio.create_task(self.monitor_process(process_type))
+
+    def set_config_path(self, config_path: str):
+        self.config_path = config_path
 
     def ping_processes_and_get_alive(self):
         alive_processes = []
@@ -83,6 +88,9 @@ class ProcessMonitor:
             return_code = process.poll()
             if return_code is not None:
                 print(f"Process {process_type} exited with code {return_code}")
+                if self.config_path is None:
+                    raise ValueError("Config path not set")
+
                 new_process = start_process(process_type, self.config_path)
                 if new_process:
                     self.processes[process_type] = new_process

@@ -1,14 +1,14 @@
-from blitz.generated.proto.WatchDogMessage_pb2 import ProcessType
 import subprocess
 from typing import Optional, List
 import sys
+
+from blitz.watchdog.helper import ProcessType
 
 
 def start_process(process_type: ProcessType, config_path: str):
     args = [construct_argument("--config", config_path)]
     match process_type:
         case 0:  # POS_EXTRAPOLATOR
-            sys.stderr.write("!!!!!!!!!!!!\n")
             return start_process_make("position-extrapolator", args)
         case 1:  # LIDAR_READER_2D
             return start_process_make("lidar-reader-2d", args)

@@ -57,7 +57,8 @@ blitz-april-server = "blitz.recognition.position.april.src.main:main"
 blitz-lidar-2d = "blitz.lidar.lidar_2d.main:main"
 blitz-lidar-processor = "blitz.lidar.lidar_point_processor.main:main"
 blitz-position-extrapolator = "blitz.pos_extrapolator.src.main:main"
-blitz-watchdog = "blitz.watchdog.main:main"
+blitz-watchdog = "blitz.watchdog.main:cli_main"
+blitz = "blitz.terminal.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
