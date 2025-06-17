@@ -46,6 +46,7 @@ dependencies = [
     "robotpy-cscore",
     "autobahn_client",
     "rich",
+    "zeroconf",
 ]
 
 [project.optional-dependencies]

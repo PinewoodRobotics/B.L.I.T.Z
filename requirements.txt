@@ -36,3 +36,4 @@ robotpy
 robotpy-cscore
 autobahn_client
 rich
+zeroconf

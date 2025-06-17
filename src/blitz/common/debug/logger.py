@@ -109,7 +109,6 @@ async def stats(message: bytes):
 
 def log(prefix: str, message: str, color: str):
     if autobahn_instance:
-        print(STATS_PUBLISH_TOPIC)
         asyncio.create_task(
             autobahn_instance.publish(
                 STATS_PUBLISH_TOPIC,

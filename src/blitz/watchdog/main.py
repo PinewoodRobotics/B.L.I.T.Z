@@ -1,11 +1,14 @@
 import argparse
 import asyncio
+from logging import info
+import socket
 import subprocess
 import sys
 from typing import Dict, List
 
 from flask import Flask, request, jsonify
 import psutil
+from zeroconf import ServiceInfo, Zeroconf
 
 from blitz.common.debug.logger import LogLevel, init_logging, success
 from blitz.generated.proto.python.WatchDogMessage_pb2 import (
@@ -30,6 +33,7 @@ CONFIG_PATH = "config/config.json"
 
 config: Config | None = None
 process_monitor = ProcessMonitor()
+zeroconf = None
 
 
 @app.route("/set/config", methods=["POST"])
@@ -122,6 +126,29 @@ def get_system_info():
     )
 
 
+def enable_discovery():
+    """
+    Enables zeroconf discovery for the system.
+
+    This allows other devices on the same network to discover this Pi.
+    Uses the zeroconf protocol to broadcast the Pi's presence and details.
+    """
+    global zeroconf
+    zeroconf = Zeroconf()
+
+    hostname = socket.gethostname()
+    _info = ServiceInfo(
+        "_deploy._udp.local.",
+        f"{hostname}._deploy._udp.local.",
+        addresses=[socket.inet_aton(socket.gethostbyname(hostname))],
+        port=9999,
+        properties={"id": hostname},
+    )
+
+    zeroconf.register_service(_info)
+    info(f"Registered service {hostname} on {socket.gethostbyname(hostname)}")
+
+
 async def main():
     basic_system_config = load_basic_system_config()
 
@@ -144,6 +171,9 @@ async def main():
 
     asyncio.create_task(process_watcher(basic_system_config))
     success("Process watcher started!")
+
+    await asyncio.to_thread(enable_discovery)
+    success("Discovery enabled!")
 
     await asyncio.to_thread(
         app.run,
