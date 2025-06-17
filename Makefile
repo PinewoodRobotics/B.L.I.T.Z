@@ -23,13 +23,13 @@ ai-server:
 	cd project/recognition/detection/image-recognition && $(VENV_PYTHON) src/main.py $(ARGS)
 	
 april-server:
-	$(VENV_PYTHON) -u project/recognition/position/april/src/main.py $(ARGS)
+	$(VENV_PYTHON) -u src/blitz/recognition/position/april/src/main.py $(ARGS)
 
 lidar-reader-2d:
-	$(VENV_PYTHON) project/lidar/lidar_2d/main.py $(ARGS)
+	$(VENV_PYTHON) src/blitz/lidar/lidar_2d/main.py $(ARGS)
 
 lidar-point-processor:
-	$(VENV_PYTHON) project/lidar/lidar_point_processor/main.py $(ARGS)
+	$(VENV_PYTHON) src/blitz/lidar/lidar_point_processor/main.py $(ARGS)
 
 prepare:
 	mkdir -p $(GEN_DIR)

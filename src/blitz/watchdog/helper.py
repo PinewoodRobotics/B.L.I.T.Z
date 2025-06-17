@@ -8,7 +8,6 @@ from blitz.generated.proto.python.status.PiStatus_pb2 import (
     StatusType,
 )
 from blitz.generated.thrift.config.ttypes import Config
-from blitz.common.autobahn_python.autobahn import Autobahn
 from blitz.common.util.system import (
     BasicSystemConfig,
     get_system_name,

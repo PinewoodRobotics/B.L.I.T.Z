@@ -15,9 +15,9 @@ from blitz.generated.proto.python.WatchDogMessage_pb2 import (
     MessageRetrievalConfirmation,
     StartupMessage,
 )
+from autobahn_client.client import Autobahn
+from autobahn_client.util import Address
 from blitz.generated.thrift.config.ttypes import Config
-from blitz.common.autobahn_python.autobahn import Autobahn
-from blitz.common.autobahn_python.util import Address
 from blitz.common.config import from_file
 from blitz.common.util.system import (
     ProcessType,

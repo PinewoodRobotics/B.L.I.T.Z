@@ -6,7 +6,7 @@ from blitz.generated.thrift.config.ttypes import Config
 from blitz.common.util.thrift_loader import dict_to_thrift
 
 
-def load_config(config_path: str = "config/") -> Config:
+def load_config() -> Config:
     try:
         result = subprocess.run(
             ["npm", "run", "config", "--silent"],

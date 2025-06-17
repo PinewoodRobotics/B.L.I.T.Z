@@ -25,15 +25,15 @@ if [ -z "$name" ]; then
     exit 1
 fi
 
-output_file="name.txt"
+output_file="system_data/name.txt"
 
 echo "${name}" > "${output_file}"
 
 echo "Successfully created ${output_file}"
 
-make initiate-project
 sudo apt install -y protobuf-compiler
-make generate-proto
+make initiate-project
+make generate
 
 sudo cp scripts/startup.service /etc/systemd/system/
 sudo systemctl daemon-reload

@@ -2,7 +2,7 @@ import asyncio
 import colorama
 from enum import Enum
 
-from blitz.common.autobahn_python.autobahn import Autobahn
+from autobahn_client.client import Autobahn
 from blitz.common.util.system import get_system_name
 from blitz.generated.proto.python.status.PiStatus_pb2 import LogMessage, StatusType
 
