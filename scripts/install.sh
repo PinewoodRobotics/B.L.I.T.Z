@@ -31,7 +31,9 @@ echo "${name}" > "${output_file}"
 
 echo "Successfully created ${output_file}"
 
+sudo apt-get update
 sudo apt install -y protobuf-compiler
+sudo apt install -y thrift-compiler
 make initiate-project
 make generate
 

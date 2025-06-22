@@ -2,9 +2,7 @@ import asyncio
 import time
 from collections import deque
 from statistics import mean
-
-from blitz.common.autobahn_python.autobahn import Autobahn
-from blitz.common.autobahn_python.util import Address
+from autobahn_client.client import Autobahn, Address
 
 
 # Store last N measurements for moving average
@@ -28,7 +26,7 @@ async def on_ping_received(payload: bytes):
 
 
 async def main():
-    autobahn = Autobahn(Address("10.47.65.11", 8080))
+    autobahn = Autobahn(Address("10.47.65.7", 8080))
     await autobahn.begin()
 
     await autobahn.subscribe("pong", on_ping_received)

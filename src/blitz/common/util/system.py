@@ -1,4 +1,5 @@
 from enum import Enum
+import subprocess
 import psutil
 import json
 import re
@@ -66,3 +67,23 @@ def load_basic_system_config() -> BasicSystemConfig:
 
     config_dict = json.loads(config_content)
     return BasicSystemConfig(**config_dict)
+
+
+def get_local_ip() -> str | None:
+    """
+    TODO: this is a hack to get the local IP address. Later we should use netifaces.
+    """
+    try:
+        result = subprocess.run(
+            ["ip", "route", "get", "1.1.1.1"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        output = result.stdout.strip()
+
+        match = re.search(r"src\s+(\d+\.\d+\.\d+\.\d+)", output)
+        if match:
+            return match.group(1)
+    except Exception:
+        return None

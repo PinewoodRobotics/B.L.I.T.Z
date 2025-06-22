@@ -32,6 +32,7 @@ PREFIX = ""
 LOG_LEVEL = LogLevel.DEBUG
 autobahn_instance: Autobahn | None = None
 STATS_PUBLISH_TOPIC = ""
+main_event_loop: asyncio.AbstractEventLoop | None = None
 
 
 def init_logging(
@@ -51,11 +52,17 @@ def init_logging(
     global LOG_LEVEL
     global STATS_PUBLISH_TOPIC
     global autobahn_instance
+    global main_event_loop
 
     autobahn_instance = autobahn
     colorama.init()
     PREFIX = prefix
     LOG_LEVEL = log_level
+
+    try:
+        main_event_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        main_event_loop = None
 
     if autobahn_instance:
         if system_pub_topic:
@@ -109,16 +116,22 @@ async def stats(message: bytes):
 
 def log(prefix: str, message: str, color: str):
     if autobahn_instance:
-        asyncio.create_task(
-            autobahn_instance.publish(
-                STATS_PUBLISH_TOPIC,
-                LogMessage(
-                    type=StatusType.LOG_MESSAGE,
-                    prefix=prefix,
-                    message=message,
-                    color=color,
-                ).SerializeToString(),
+        log_message = LogMessage(
+            type=StatusType.LOG_MESSAGE,
+            prefix=prefix,
+            message=message,
+            color=color,
+        ).SerializeToString()
+
+        try:
+            asyncio.create_task(
+                autobahn_instance.publish(STATS_PUBLISH_TOPIC, log_message)
             )
-        )
+        except RuntimeError:
+            if main_event_loop and not main_event_loop.is_closed():
+                asyncio.run_coroutine_threadsafe(
+                    autobahn_instance.publish(STATS_PUBLISH_TOPIC, log_message),
+                    main_event_loop,
+                )
 
     print(f"[{prefix}] {color}{message}{colorama.Fore.RESET}")

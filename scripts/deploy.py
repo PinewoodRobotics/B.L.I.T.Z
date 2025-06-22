@@ -8,12 +8,13 @@ from zeroconf import Zeroconf, ServiceBrowser, ServiceStateChange
 SERVICE = "_deploy._udp.local."
 DISCOVERY_TIMEOUT = 2.0
 TARGET_FOLDER = "~/Documents/B.L.I.T.Z/"
+SSH_PASSWORD = "ubuntu"
 
 pis: dict[str, str] = {}
 
 
-def on_state_change(zeroconf: Zeroconf, service_type, name, state):
-    if state is ServiceStateChange.Added:
+def on_state_change(zeroconf: Zeroconf, service_type, name, state_change):
+    if state_change is ServiceStateChange.Added:
         info = zeroconf.get_service_info(service_type, name)
         if not info:
             return
@@ -38,7 +39,12 @@ def deploy(project_dir):
         target = f"ubuntu@{ip}:{TARGET_FOLDER}"
         print(f"\n->  Deploying to {name} ({ip})…")
 
+        # rsync -av --progress --exclude-from=.gitignore --delete ./ ubuntu@10.47.65.7:~/Documents/B.L.I.T.Z/
+
         rsync_cmd = [
+            "sshpass",
+            "-p",
+            SSH_PASSWORD,
             "rsync",
             "-av",
             "--progress",
@@ -47,27 +53,38 @@ def deploy(project_dir):
             f"{project_dir.rstrip('/')}/",
             target,
         ]
+        print(rsync_cmd)
         ret = subprocess.run(rsync_cmd)
         if ret.returncode != 0:
-            print(f"   ❌ rsync failed for {name}")
+            print(f"❌ rsync failed for {name}")
             continue
 
+        print(f"->  Restarting service on {name}...")
         ssh_cmd = [
+            "sshpass",
+            "-p",
+            SSH_PASSWORD,
             "ssh",
             f"ubuntu@{ip}",
             f"sudo systemctl restart startup.service",
         ]
-        ret = subprocess.run(ssh_cmd, capture_output=True, text=True)
-        print("->  stdout:", ret.stdout.strip())
-        print("->  stderr:", ret.stderr.strip())
+        ret = subprocess.run(ssh_cmd)
+        if ret.returncode == 0:
+            print(f"✅ Service restarted successfully on {name}")
+        else:
+            print(f"❌ Service restart failed on {name}")
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print(f"Usage: {sys.argv[0]} <project_dir>")
-        sys.exit(1)
-
-    project_dir = sys.argv[1]
+        print(
+            "Since no project_dir is provided, we will deploy using the current directory (.)"
+        )
+        project_dir = "."
+        input("Press enter to continue...")
+    else:
+        project_dir = sys.argv[1]
 
     print("🔍 Discovering Pis on the LAN…")
     discover_pis()

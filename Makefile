@@ -19,6 +19,9 @@ initiate-project:
 	$(VENV_PYTHON) -m pip install -r requirements.txt
 	$(VENV_PYTHON) -m pip install -e .
 
+mac-deps:
+	brew install sshpass
+
 ai-server:
 	cd project/recognition/detection/image-recognition && $(VENV_PYTHON) src/main.py $(ARGS)
 	
@@ -60,7 +63,7 @@ position-extrapolator:
 	$(VENV_PYTHON) -u project/pos_extrapolator/src/main.py $(ARGS)
 
 watchdog:
-	$(VENV_PYTHON) -u project/watchdog/main.py
+	$(VENV_PYTHON) -u src/blitz/watchdog/main.py
 
 flash:
 	./scripts/flash.bash $(ARGS)
@@ -75,7 +78,7 @@ run-config-ts:
 	npm run config
 
 send-to-target:
-	rsync -av --progress --exclude-from=.gitignore --delete ./ ubuntu@10.47.65.$(ARGS):~/Documents/B.L.I.T.Z/
+	rsync -av --progress --exclude-from=.gitignore --delete ./ ubuntu@10.47.65.7:~/Documents/B.L.I.T.Z/
 
 test:
 	pytest
@@ -88,8 +91,12 @@ thrift-to-py:
 	  	$(THRIFT_ROOT_FILE)
 
 thrift-to-ts:
-	mkdir -p $(THRIFT_TS_SCHEMA_GEN_DIR)
-	thrift-ts $(THRIFT_DIR) -o $(THRIFT_TS_SCHEMA_GEN_DIR)
+	@if [ "$$(uname)" = "Linux" ]; then \
+		echo "Skipping thrift-to-ts on Linux"; \
+	else \
+		mkdir -p $(THRIFT_TS_SCHEMA_GEN_DIR); \
+		thrift-ts $(THRIFT_DIR) -o $(THRIFT_TS_SCHEMA_GEN_DIR); \
+	fi
 
 thrift: thrift-to-py thrift-to-ts
 

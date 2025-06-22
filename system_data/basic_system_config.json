@@ -10,8 +10,8 @@
     },
     "watchdog": {
         "host": "0.0.0.0",
-        "port": 1000,
-        "stats_pub_period_s": 0.25,
+        "port": 5000,
+        "stats_pub_period_s": 0.5,
         "send_stats": true
     }
 }

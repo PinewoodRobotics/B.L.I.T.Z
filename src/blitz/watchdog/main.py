@@ -10,7 +10,7 @@ from flask import Flask, request, jsonify
 import psutil
 from zeroconf import ServiceInfo, Zeroconf
 
-from blitz.common.debug.logger import LogLevel, init_logging, success
+from blitz.common.debug.logger import LogLevel, error, init_logging, success
 from blitz.generated.proto.python.WatchDogMessage_pb2 import (
     MessageRetrievalConfirmation,
     StartupMessage,
@@ -21,6 +21,7 @@ from blitz.generated.thrift.config.ttypes import Config
 from blitz.common.config import from_file
 from blitz.common.util.system import (
     ProcessType,
+    get_local_ip,
     get_system_name,
     load_basic_system_config,
 )
@@ -137,16 +138,23 @@ def enable_discovery():
     zeroconf = Zeroconf()
 
     hostname = socket.gethostname()
+    local_ip = get_local_ip()
+    if local_ip is None:
+        error("No local IP found, cannot register service")
+        return
+
+    addr = socket.inet_aton(local_ip)
+
     _info = ServiceInfo(
         "_deploy._udp.local.",
         f"{hostname}._deploy._udp.local.",
-        addresses=[socket.inet_aton(socket.gethostbyname(hostname))],
+        addresses=[addr],
         port=9999,
         properties={"id": hostname},
     )
 
     zeroconf.register_service(_info)
-    info(f"Registered service {hostname} on {socket.gethostbyname(hostname)}")
+    success(f"Registered service {hostname} on {local_ip}")
 
 
 async def main():

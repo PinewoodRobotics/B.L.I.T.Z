@@ -7,8 +7,6 @@ from rich import print as rprint
 
 import requests
 
-from blitz.common.autobahn_python.autobahn import Autobahn
-from blitz.common.autobahn_python.util import Address
 from blitz.common.util.system import ProcessType, load_basic_system_config
 
 
