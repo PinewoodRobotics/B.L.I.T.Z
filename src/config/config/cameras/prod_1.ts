@@ -5,11 +5,11 @@ import { CameraTypeE, CameraTypeUtil } from "../util/struct";
 const prod1: CameraParameters = {
   pi_to_run_on: "tripoli",
   name: "one",
-  camera_path: "0",
+  camera_path: "/dev/video0",
   flags: 0,
-  width: 640,
-  height: 480,
-  max_fps: 30,
+  width: 800,
+  height: 600,
+  max_fps: 100,
   camera_matrix: MatrixUtil.buildMatrix<3, 3>([
     [450, 0, 400],
     [0, 450, 300],

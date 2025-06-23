@@ -33,6 +33,6 @@ thrift
 ursina
 robotpy
 robotpy-cscore
-autobahn_client
+autobahn_client==0.1.2
 rich
 zeroconf

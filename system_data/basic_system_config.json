@@ -13,5 +13,6 @@
         "port": 5000,
         "stats_pub_period_s": 0.5,
         "send_stats": true
-    }
+    },
+    "config_path": "config/config.json"
 }

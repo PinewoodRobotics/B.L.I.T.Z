@@ -1,7 +1,7 @@
 import asyncio
 from logging import debug, info, warning
 import subprocess
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import psutil
 
@@ -11,10 +11,11 @@ from blitz.watchdog.process_starter import start_process
 
 
 class ProcessMonitor:
-    def __init__(self):
+    def __init__(self, event_loop: Optional[asyncio.AbstractEventLoop] = None):
         self.processes: Dict[ProcessType, subprocess.Popen] = {}
         self.process_args: Dict[ProcessType, List[str]] = {}
         self.config_path: str | None = None
+        self.event_loop = event_loop
 
     def start_and_monitor_process(
         self,
@@ -26,7 +27,12 @@ class ProcessMonitor:
         process = start_process(process_type, self.config_path)
         if process:
             self.processes[process_type] = process
-            asyncio.create_task(self.monitor_process(process_type))
+            if self.event_loop:
+                asyncio.run_coroutine_threadsafe(
+                    self.monitor_process(process_type), self.event_loop
+                )
+            else:
+                asyncio.create_task(self.monitor_process(process_type))
 
     def set_config_path(self, config_path: str):
         self.config_path = config_path

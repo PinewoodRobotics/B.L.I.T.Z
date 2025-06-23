@@ -7,14 +7,15 @@ import time
 import cv2
 import pyapriltags
 
+from blitz.common.debug.logger import LogLevel, init_logging, success
 from blitz.generated.proto.python.Image_pb2 import ImageMessage
 from blitz.generated.thrift.config.apriltag.ttypes import AprilDetectionConfig
 from blitz.generated.thrift.config.camera.ttypes import CameraParameters, CameraType
-from blitz.common.autobahn_python.autobahn import Autobahn
-from blitz.common.autobahn_python.util import Address
+from autobahn_client.client import Autobahn
+from autobahn_client.util import Address
 from blitz.common.config import from_uncertainty_config
 from blitz.common.util.math import get_np_from_matrix, get_np_from_vector
-from blitz.common.util.system import get_system_name
+from blitz.common.util.system import get_system_name, load_basic_system_config
 from blitz.recognition.position.april.src.camera.OV2311_camera import (
     AbstractCaptureDevice,
     OV2311Camera,
@@ -39,8 +40,6 @@ def build_detector(config: AprilDetectionConfig):
 
 def get_camera_capture_device(camera: CameraParameters) -> AbstractCaptureDevice:
     if camera.camera_type == CameraType.OV2311.value:
-        print(camera.camera_matrix)
-        print(get_np_from_matrix(camera.camera_matrix))
         return OV2311Camera(
             camera.camera_path,
             camera.width,
@@ -54,33 +53,38 @@ def get_camera_capture_device(camera: CameraParameters) -> AbstractCaptureDevice
 
 
 async def main():
+    basic_system_config = load_basic_system_config()
     args = parser.parse_args()
     config = from_uncertainty_config(args.config)
 
     camera_detector_list = []
 
-    autobahn_server = Autobahn(Address("localhost", config.autobahn.port))
+    autobahn_server = Autobahn(
+        Address(
+            basic_system_config.autobahn.host,
+            basic_system_config.autobahn.port,
+        )
+    )
     await autobahn_server.begin()
+
+    init_logging(
+        "APRIL_SERVER",
+        LogLevel(basic_system_config.logging.global_logging_level),
+        basic_system_config.logging.global_log_pub_topic,
+        autobahn_server,
+    )
 
     loop = asyncio.get_running_loop()
 
-    async def publish_a(topic, data):
-        time_now = time.time()
-        await autobahn_server.publish(topic, data)
-        if time.time() - time_now >= 0.03:
-            print(
-                f"WARNING! Took too long to publish! ({time.time() - time_now} seconds)"
-            )
-
     def publish_nowait(topic: str, data: bytes):
-        asyncio.run_coroutine_threadsafe(publish_a(topic, data), loop)
+        asyncio.run_coroutine_threadsafe(autobahn_server.publish(topic, data), loop)
 
+    success("Starting APRIL server")
     for camera in config.cameras:
         if camera is not None and camera.pi_to_run_on != get_system_name():
             continue
 
-        print(camera)
-
+        success(f"Starting camera: {camera.name}")
         detector_cam = DetectionCamera(
             name=camera.name,
             video_capture=get_camera_capture_device(camera),
@@ -101,6 +105,10 @@ async def main():
         detector_cam.start()
 
     await asyncio.Event().wait()
+
+
+def cli_main():
+    asyncio.run(main())
 
 
 if __name__ == "__main__":

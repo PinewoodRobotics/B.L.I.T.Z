@@ -63,7 +63,7 @@ export const CameraTypeUtil = {
   fromEnum(type: CameraTypeE): CameraType {
     switch (type) {
       case CameraTypeE.OV2311:
-        return "OV2311" as unknown as CameraType;
+        return 0 as CameraType;
       default:
         throw new Error(`Invalid camera type: ${type}`);
     }

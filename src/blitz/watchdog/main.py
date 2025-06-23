@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 from logging import info
+import os
 import socket
 import subprocess
 import sys
@@ -30,10 +31,10 @@ from blitz.watchdog.monitor import ProcessMonitor
 
 app = Flask(__name__)
 
-CONFIG_PATH = "config/config.json"
+CONFIG_PATH = ""
 
 config: Config | None = None
-process_monitor = ProcessMonitor()
+process_monitor: ProcessMonitor | None = None
 zeroconf = None
 
 
@@ -44,12 +45,17 @@ def set_config():
     if "config" not in data:
         return jsonify({"status": "error", "message": "Missing config"}), 400
 
+    config_dir = os.path.dirname(CONFIG_PATH)
+    if config_dir and not os.path.exists(config_dir):
+        os.makedirs(config_dir, exist_ok=True)
+
     with open(CONFIG_PATH, "w") as f:
         f.write(data["config"])
 
     config = from_file(CONFIG_PATH)
 
-    process_monitor.set_config_path(CONFIG_PATH)
+    if process_monitor is not None:
+        process_monitor.set_config_path(CONFIG_PATH)
 
     return jsonify({"status": "success"})
 
@@ -59,6 +65,11 @@ def start():
     data = request.get_json()
     if config is None:
         return jsonify({"status": "error", "message": "Config not set"}), 400
+    if process_monitor is None:
+        return (
+            jsonify({"status": "error", "message": "Process monitor not initialized"}),
+            500,
+        )
     if "process_types" not in data:
         return jsonify({"status": "error", "message": "Missing process_types"}), 400
 
@@ -79,6 +90,7 @@ def start():
             )
 
     for process_type in process_types:
+        success(f"Starting process: {process_type}")
         process_monitor.start_and_monitor_process(process_type)
 
     return jsonify({"status": "success"})
@@ -89,6 +101,11 @@ def stop():
     data = request.get_json()
     if config is None:
         return jsonify({"status": "error", "message": "Config not set"}), 400
+    if process_monitor is None:
+        return (
+            jsonify({"status": "error", "message": "Process monitor not initialized"}),
+            500,
+        )
     if "process_types" not in data:
         return jsonify({"status": "error", "message": "Missing process_types"}), 400
 
@@ -109,6 +126,7 @@ def stop():
             )
 
     for process_type in process_types:
+        success(f"Stopping process: {process_type}")
         process_monitor.stop_process(process_type)
 
     return jsonify({"status": "success"})
@@ -116,6 +134,12 @@ def stop():
 
 @app.route("/get/system/status", methods=["GET"])
 def get_system_info():
+    if process_monitor is None:
+        return (
+            jsonify({"status": "error", "message": "Process monitor not initialized"}),
+            500,
+        )
+
     active_processes = process_monitor.get_active_processes()
     return jsonify(
         {
@@ -158,7 +182,14 @@ def enable_discovery():
 
 
 async def main():
+    global CONFIG_PATH, process_monitor
+
     basic_system_config = load_basic_system_config()
+    CONFIG_PATH = basic_system_config.config_path
+
+    # Get the current event loop and pass it to ProcessMonitor
+    event_loop = asyncio.get_running_loop()
+    process_monitor = ProcessMonitor(event_loop)
 
     autobahn_server = Autobahn(
         Address(

@@ -36,6 +36,7 @@ class BasicSystemConfig(BaseModel):
     autobahn: AutobahnBaseConfig
     logging: GlobalLoggingBaseConfig
     watchdog: WatchdogBaseConfig
+    config_path: str
 
 
 def get_system_name() -> str:

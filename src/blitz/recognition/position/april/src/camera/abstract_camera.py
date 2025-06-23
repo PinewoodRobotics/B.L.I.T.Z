@@ -4,6 +4,7 @@ from typing import Dict, Type
 import numpy as np
 from cscore import CvSink, UsbCamera, VideoSource
 
+from blitz.common.debug.logger import error, success
 from blitz.generated.thrift.config.camera.ttypes import CameraType
 
 
@@ -62,15 +63,15 @@ class AbstractCaptureDevice:
                     ts, _ = self.sink.grabFrame(test_frame)
                     if ts > 0:
                         self._is_ready = True
-                        print(f"Camera successfully connected and initialized")
+                        success(f"Camera successfully connected and initialized")
                         return
                 attempt += 1
-                print(
+                error(
                     f"Waiting for camera to connect (attempt {attempt}/{max_attempts})..."
                 )
                 time.sleep(1.0)
 
-            print(f"WARNING: Failed to initialize camera after {max_attempts} attempts")
+            error(f"WARNING: Failed to initialize camera after {max_attempts} attempts")
 
     def get_frame(self) -> tuple[bool, np.ndarray | None]:
         start = time.time()
@@ -82,8 +83,8 @@ class AbstractCaptureDevice:
         now = time.time()
 
         if ts == 0:
-            error = self.sink.getError()
-            print(f"Error grabbing frame: {error}")
+            error_msg = self.sink.getError()
+            error(f"Error grabbing frame: {error_msg}")
             self._is_ready = False
             self._initialize_camera()
             self._last_ts = now

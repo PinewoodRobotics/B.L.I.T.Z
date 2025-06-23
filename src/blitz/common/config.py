@@ -8,16 +8,24 @@ from blitz.common.util.thrift_loader import dict_to_thrift
 
 def load_config() -> Config:
     try:
+        config_json = get_config_json()
+        config_dict = json.loads(config_json)
+        return load_config_from_dict(config_dict)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to run 'npm run config': {e}")
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Invalid JSON output from npm run config: {e}")
+
+
+def get_config_json() -> str:
+    try:
         result = subprocess.run(
             ["npm", "run", "config", "--silent"],
             capture_output=True,
             text=True,
             check=True,
         )
-        config_json = result.stdout
-        print(config_json)
-        config_dict = json.loads(config_json)
-        return load_config_from_dict(config_dict)
+        return result.stdout
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to run 'npm run config': {e}")
     except json.JSONDecodeError as e:
