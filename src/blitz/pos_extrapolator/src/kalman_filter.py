@@ -1,9 +1,9 @@
 from filterpy.kalman import KalmanFilter
 import numpy as np
-from project.common.config_class.filters.kalman_filter_config import (
+
+from blitz.generated.thrift.config.kalman_filter.ttypes import (
     KalmanFilterConfig,
     KalmanFilterSensorConfig,
-    MeasurementType,
 )
 
 

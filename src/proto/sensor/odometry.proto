@@ -1,13 +1,11 @@
 syntax = "proto3";
 
-package proto;
-
 import "util/position.proto";
 import "util/vector.proto";
 
-message Odometry {
+package proto.sensor;
+
+message OdometryData {
     util.Position2d position = 1;
     util.Vector2 velocity = 2;
-    float rotation_rads = 3;
-    int64 timestamp = 4;
 }

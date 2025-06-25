@@ -6,7 +6,6 @@ import numpy as np
 import pyapriltags
 import pytest
 
-from blitz.generated.proto.python.AprilTag_pb2 import Corner, TagCorners
 from blitz.recognition.position.april.src.__tests__.fixtures.shared_resources import (
     camera_1_dist_coeff,
     camera_1_matrix,

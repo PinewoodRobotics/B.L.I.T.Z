@@ -52,12 +52,8 @@ generate-proto-python: prepare
 		--python_out=$(PROTO_PY_GEN_DIR) \
 		--pyi_out=$(PROTO_PY_GEN_DIR) \
 		$(shell find $(PROTO_DIR) -name "*.proto")
-	
-	if [ -f .venv/bin/protol ]; then \
-		.venv/bin/protol --create-package --in-place --python-out $(PROTO_GEN_DIR) protoc --proto-path=$(PROTO_DIR)/ $(shell find $(PROTO_DIR) -name "*.proto"); \
-	else \
-		echo "protol not found, skipping package creation (install with: pip install protol)"; \
-	fi
+	.venv/bin/fix-protobuf-imports $(PROTO_PY_GEN_DIR)
+
 
 position-extrapolator:
 	$(VENV_PYTHON) -u project/pos_extrapolator/src/main.py $(ARGS)

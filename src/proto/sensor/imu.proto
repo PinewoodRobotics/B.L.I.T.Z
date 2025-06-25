@@ -1,14 +1,12 @@
 syntax = "proto3";
 
-package proto;
-
 import "util/vector.proto";
 import "util/position.proto";
 
-message Imu {
+package proto.sensor;
+
+message ImuData {
     util.Position3d position = 1;
     util.Vector3 velocity = 2;
     util.Vector3 acceleration = 3;
-    int64 timestamp = 4;
-    string imu_id = 5;
 }

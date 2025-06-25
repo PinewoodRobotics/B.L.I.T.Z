@@ -8,7 +8,6 @@ import cv2
 import pyapriltags
 
 from blitz.common.debug.logger import LogLevel, init_logging, success
-from blitz.generated.proto.python.Image_pb2 import ImageMessage
 from blitz.generated.thrift.config.apriltag.ttypes import AprilDetectionConfig
 from blitz.generated.thrift.config.camera.ttypes import CameraParameters, CameraType
 from autobahn_client.client import Autobahn

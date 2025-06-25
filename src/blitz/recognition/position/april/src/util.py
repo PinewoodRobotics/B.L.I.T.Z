@@ -10,13 +10,11 @@ import cv2
 import numpy as np
 import pyapriltags
 
-from blitz.generated.proto.python.AprilTag_pb2 import (
-    AprilTags,
-    Corner,
-    RawAprilTagCorners,
-    Tag,
-    TagCorners,
+from blitz.generated.proto.python.sensor.apriltags_pb2 import (
+    ProcessedTag,
+    UnprocessedTag,
 )
+from blitz.generated.proto.python.util.vector_pb2 import Vector2
 
 
 class TagSolvingStrategyTagCorners(Enum):
@@ -34,12 +32,12 @@ def to_float(val) -> float:
     return float(val) if val is not None else 0.0
 
 
-def from_detection_to_proto_tag(detection: pyapriltags.Detection) -> Tag:
+def from_detection_to_proto_tag(detection: pyapriltags.Detection) -> ProcessedTag:
     if detection.pose_t is None:
         raise ValueError("Detection has no pose data")
 
-    return Tag(
-        tag_id=detection.tag_id,
+    return ProcessedTag(
+        id=detection.tag_id,
         pose_R=to_float_list(detection.pose_R) if detection.pose_R is not None else [],
         pose_t=to_float_list(detection.pose_t),
     )
@@ -49,7 +47,7 @@ def get_tag_corners_undistorted(
     detection: pyapriltags.Detection,
     camera_matrix: np.ndarray,
     dist_coeff: np.ndarray,
-) -> list[Corner]:
+) -> list[Vector2]:
     corners = []
     for corner in detection.corners:
         corner = np.array([[corner[0], corner[1]]], dtype=np.float32)
@@ -57,7 +55,7 @@ def get_tag_corners_undistorted(
         corner = cv2.undistortPoints(corner, camera_matrix, dist_coeff, P=camera_matrix)
         corner = corner.reshape(2)
 
-        corners.append(Corner(x=corner[0], y=corner[1]))
+        corners.append(Vector2(x=corner[0], y=corner[1]))
 
     return corners
 
@@ -66,21 +64,22 @@ def post_process_detection(
     detection: list[pyapriltags.Detection],
     camera_matrix: np.ndarray,
     dist_coeff: np.ndarray,
-) -> list[TagCorners]:
-    detections = []
-    for det in detection:
-        corners = get_tag_corners_undistorted(det, camera_matrix, dist_coeff)
-        detections.append(TagCorners(id=det.tag_id, corners=corners))
+) -> list[UnprocessedTag]:
+    return [
+        UnprocessedTag(
+            id=det.tag_id,
+            corners=get_tag_corners_undistorted(det, camera_matrix, dist_coeff),
+        )
+        for det in detection
+    ]
 
-    return detections
 
-
-def from_detection_to_corners(
+def from_detection_to_corners_raw(
     detection: pyapriltags.Detection,
-) -> list[Corner]:
+) -> list[Vector2]:
     corners = []
     for corner in detection.corners:
-        corners.append(Corner(x=corner[0], y=corner[1]))
+        corners.append(Vector2(x=corner[0], y=corner[1]))
 
     return corners
 
@@ -125,22 +124,8 @@ def get_map1_and_map2(
     return map1, map2, new_camera_matrix
 
 
-def py_time_to_fps(time_sec_one: float, time_sec_two: float) -> float:
-    return 1 / (time_sec_two - time_sec_one)
-
-
-def to_position_proto(
-    rotation: np.ndarray, translation: np.ndarray, tag_id: int
-) -> Tag:
-    return Tag(
-        tag_id=tag_id,
-        pose_R=to_float_list(rotation),
-        pose_t=to_float_list(translation),
-    )
-
-
 def solve_pnp_tag_corners(
-    tag_corners: TagCorners,
+    tag_corners: UnprocessedTag,
     tag_size: float,
     camera_matrix: np.ndarray,
     dist_coeff: np.ndarray,
@@ -184,7 +169,7 @@ def solve_pnp_tag_corners(
 
 
 def solve_pnp_tags_iterative(
-    tags: list[TagCorners],
+    tags: list[UnprocessedTag],
     tag_size: float,
     camera_matrix: np.ndarray,
     dist_coeff: np.ndarray,

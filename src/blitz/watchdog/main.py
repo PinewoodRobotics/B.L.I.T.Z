@@ -12,10 +12,6 @@ import psutil
 from zeroconf import ServiceInfo, Zeroconf
 
 from blitz.common.debug.logger import LogLevel, error, init_logging, success
-from blitz.generated.proto.python.WatchDogMessage_pb2 import (
-    MessageRetrievalConfirmation,
-    StartupMessage,
-)
 from autobahn_client.client import Autobahn
 from autobahn_client.util import Address
 from blitz.generated.thrift.config.ttypes import Config

@@ -13,3 +13,12 @@ message Position2d {
   util.Vector2 position = 1;
   util.Vector2 direction = 2;
 }
+
+message RobotPosition {
+  oneof position {
+    Position2d position_2d = 1;
+    Position3d position_3d = 2;
+  }
+  float timestamp = 3;
+  float confidence = 4;
+}

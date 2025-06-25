@@ -7,13 +7,16 @@ import cv2
 import numpy as np
 import pyapriltags
 
-from blitz.generated.proto.python.AprilTag_pb2 import (
-    AprilTags,
-    RawAprilTagCorners,
-    Tag,
-    TagCorners,
+from blitz.generated.proto.python.sensor.apriltags_pb2 import (
+    AprilTagData,
+    ProcessedTag,
+    UnprocessedTag,
 )
-from blitz.generated.proto.python.Image_pb2 import ImageMessage
+from blitz.generated.proto.python.sensor.camera_sensor_pb2 import ImageData, ImageFormat
+from blitz.generated.proto.python.sensor.general_sensor_data_pb2 import (
+    GeneralSensorData,
+    SensorName,
+)
 from blitz.recognition.position.april.src.camera.OV2311_camera import (
     AbstractCaptureDevice,
 )
@@ -21,7 +24,7 @@ from blitz.recognition.position.april.src.util import (
     post_process_detection,
     process_image,
     solve_pnp_tag_corners,
-    to_position_proto,
+    to_float_list,
 )
 
 
@@ -57,14 +60,14 @@ class DetectionCamera:
                 print("No frame found!")
                 continue
 
-            found_tags = post_process_detection(
+            tag_id_corners_found = post_process_detection(
                 process_image(frame, self.detector),
                 self.video_capture.get_matrix(),
                 self.video_capture.get_dist_coeff(),
             )
 
             tags_world = []
-            for tag in found_tags:
+            for tag in tag_id_corners_found:
                 R, t = solve_pnp_tag_corners(
                     tag,
                     self.tag_size,
@@ -72,33 +75,37 @@ class DetectionCamera:
                     self.video_capture.get_dist_coeff(),
                 )
 
-                tags_world.append(to_position_proto(R, t, tag.id))
+                tags_world.append(
+                    ProcessedTag(
+                        id=tag.id,
+                        pose_R=to_float_list(R),
+                        pose_t=to_float_list(t),
+                    )
+                )
 
             self._publish(frame, tags_world)
 
-    def _publish(self, frame: np.ndarray, found_tags: list[Tag]):
-        if self.publication_image_lambda is not None:
-            self.publication_image_lambda(
-                ImageMessage(
-                    image=frame.tobytes(),
-                    width=frame.shape[1],
-                    height=frame.shape[0],
-                    is_gray=True,
-                    timestamp=int(time.time() * 1000),
-                    image_id=random.randint(0, 1000000),
-                    camera_name=self.name,
-                ).SerializeToString()
+    def _publish(self, frame: np.ndarray, found_tags: list[ProcessedTag]):
+        data = GeneralSensorData()
+        data.sensor_id = self.name
+        data.timestamp = int(time.time() * 1000)
+
+        if self.publication_lambda is not None:
+            data.sensor_name = SensorName.APRIL_TAGS
+            data.apriltags.world_tags.tags.extend(found_tags)
+
+            self.publication_lambda(
+                data.SerializeToString(),
             )
 
-        if self.publication_lambda is not None and len(found_tags) > 0:
-            self.publication_lambda(
-                AprilTags(
-                    camera_name=self.name,
-                    image_id=random.randint(0, 1000000),
-                    timestamp=int(time.time() * 1000),
-                    tags=found_tags,
-                ).SerializeToString(),
-            )
+        if self.publication_image_lambda is not None:
+            data.sensor_name = SensorName.CAMERA
+            data.image.image = frame.tobytes()
+            data.image.width = frame.shape[1]
+            data.image.height = frame.shape[0]
+            data.image.format = ImageFormat.GRAY
+
+            self.publication_image_lambda(data.SerializeToString())
 
     def release(self):
         self.running = False

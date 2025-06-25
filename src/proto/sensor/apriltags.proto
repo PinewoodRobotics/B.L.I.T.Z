@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+import "util/vector.proto";
+
+package proto.sensor;
+
+message AprilTagData {
+    oneof data {
+        WorldTags world_tags = 1;
+        RawTags raw_tags = 2;
+    }
+}
+
+message WorldTags {
+    repeated ProcessedTag tags = 1;
+}
+
+message RawTags {
+    repeated UnprocessedTag corners = 1;
+}
+
+message ProcessedTag {
+    int32 id = 1;
+    repeated float pose_R = 2;
+    repeated float pose_t = 3;
+}
+
+message UnprocessedTag {
+    int32 id = 1;
+    repeated util.Vector2 corners = 2;
+}
