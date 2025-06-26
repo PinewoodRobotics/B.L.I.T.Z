@@ -56,7 +56,7 @@ generate-proto-python: prepare
 
 
 position-extrapolator:
-	$(VENV_PYTHON) -u project/pos_extrapolator/src/main.py $(ARGS)
+	$(VENV_PYTHON) -u src/blitz/pos_extrapolator/main.py $(ARGS)
 
 watchdog:
 	$(VENV_PYTHON) -u src/blitz/watchdog/main.py
