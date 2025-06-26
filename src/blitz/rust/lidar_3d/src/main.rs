@@ -1,6 +1,7 @@
 use clap::Parser;
 use common_core::autobahn::{Address, Autobahn};
 use common_core::config::LidarConfig;
+use common_core::device_info::load_system_config;
 use common_core::math::to_transformation_matrix;
 use common_core::proto::sensor::general_sensor_data::Data;
 use common_core::proto::sensor::lidar_data;
@@ -32,10 +33,16 @@ struct Args {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
+    let system_config = load_system_config()?;
+
     let config_str = fs::read_to_string(args.config)?;
     let config: LidarConfig = serde_json::from_str(&config_str)?;
 
-    let autobahn = Autobahn::new(Address::new("localhost", 8080), true, 5.0);
+    let autobahn = Autobahn::new(
+        Address::new(system_config.autobahn.host, system_config.autobahn.port),
+        true,
+        5.0,
+    );
     autobahn.begin().await?;
 
     let mut timed_point_map = TimedPointMap::new(1000);

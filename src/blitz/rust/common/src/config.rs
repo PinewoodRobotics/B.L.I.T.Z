@@ -13,3 +13,32 @@ pub struct LidarConfig {
     pub position_in_robot: Vector3<f64>,
     pub direction_vector_in_robot: Vector3<f64>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemConfig {
+    pub autobahn: AutobahnConfig,
+    pub logging: LoggingConfig,
+    pub watchdog: WatchdogConfig,
+    pub config_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutobahnConfig {
+    pub host: String,
+    pub port: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoggingConfig {
+    pub global_log_pub_topic: String,
+    pub global_logging_publishing_enabled: bool,
+    pub global_logging_level: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatchdogConfig {
+    pub host: String,
+    pub port: u16,
+    pub stats_pub_period_s: f32,
+    pub send_stats: bool,
+}

@@ -507,6 +507,7 @@ dependencies = [
  "prost",
  "prost-build",
  "serde",
+ "serde_json",
  "tokio",
  "tokio-tungstenite",
  "url",
