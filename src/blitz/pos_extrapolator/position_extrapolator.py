@@ -11,7 +11,6 @@ from blitz.generated.thrift.config.pos_extrapolator.ttypes import (
 )
 from blitz.pos_extrapolator.data_prep import DataPreparerManager
 from blitz.pos_extrapolator.filter_strat import GenericFilterStrategy
-from blitz.pos_extrapolator.kalman_filter import KalmanFilterStrategy
 
 
 class PositionExtrapolator:

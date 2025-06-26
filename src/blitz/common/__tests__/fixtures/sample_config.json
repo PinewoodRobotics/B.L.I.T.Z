@@ -198,7 +198,7 @@
         "k5": -0.032565426732841275
       },
       "exposure_time": 8,
-      "camera_type": "OV2311"
+      "camera_type": 0
     }
   ],
   "april_detection": {

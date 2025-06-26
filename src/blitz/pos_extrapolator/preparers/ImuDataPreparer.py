@@ -33,11 +33,9 @@ class ImuDataPreparer(DataPreparer[ImuData, ImuDataPreparerConfig]):
                 [
                     data.position.position.x,
                     data.position.position.y,
-                    data.position.position.z,
                     data.velocity.x,
                     data.velocity.y,
-                    data.acceleration.x,
-                    data.acceleration.y,
+                    np.arctan2(data.position.direction.x, data.position.direction.y),
                 ]
             ),
             sensor_id=sensor_id,

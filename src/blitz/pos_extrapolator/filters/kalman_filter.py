@@ -21,6 +21,7 @@ class KalmanFilterStrategy(KalmanFilter, GenericFilterStrategy):
 
     def insert_data(self, data: KalmanFilterInput) -> None:
         self.predict()
+        # self.x[4] = np.arctan2(np.sin(self.x[4]), np.cos(self.x[4]))
 
         z = np.array(data.input_list)
 
@@ -44,10 +45,6 @@ class KalmanFilterStrategy(KalmanFilter, GenericFilterStrategy):
                 ].measurement_conversion_matrix
             ),
         )
-
-    def predict(self):
-        self.predict()
-        self.x[4] = np.arctan2(np.sin(self.x[4]), np.cos(self.x[4]))
 
     def get_state(self) -> list[float]:
         return [float(x) for x in self.x.flatten()]

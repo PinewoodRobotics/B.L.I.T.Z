@@ -16,7 +16,7 @@ from blitz.generated.proto.python.sensor.imu_pb2 import ImuData
 from blitz.generated.proto.python.sensor.odometry_pb2 import OdometryData
 from blitz.generated.proto.python.util.position_pb2 import RobotPosition
 from blitz.pos_extrapolator.data_prep import DataPreparerManager
-from blitz.pos_extrapolator.kalman_filter import KalmanFilterStrategy
+from blitz.pos_extrapolator.filters.kalman_filter import KalmanFilterStrategy
 from blitz.pos_extrapolator.position_extrapolator import PositionExtrapolator
 from blitz.pos_extrapolator.preparers.AprilTagPreparer import AprilTagDataPreparerConfig
 from blitz.pos_extrapolator.preparers.ImuDataPreparer import ImuDataPreparerConfig
@@ -85,7 +85,7 @@ async def main():
         )
 
         await asyncio.sleep(
-            0.05
+            0.025
         )  # TODO: figure out the delay that needs to be set here.
 
 
