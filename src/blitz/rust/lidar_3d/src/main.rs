@@ -2,7 +2,11 @@ use clap::Parser;
 use common_core::autobahn::{Address, Autobahn};
 use common_core::config::LidarConfig;
 use common_core::math::to_transformation_matrix;
-use common_core::project_proto::{PointCloud2d, Scan2d};
+use common_core::proto::sensor::general_sensor_data::Data;
+use common_core::proto::sensor::lidar_data;
+use common_core::proto::sensor::{GeneralSensorData, SensorName};
+use common_core::proto::sensor::{LidarData, PointCloud2d};
+use common_core::proto::util::Vector2;
 use futures_util::StreamExt;
 use point_util::{filter_all_limited, to_2d, transform_point};
 use prost::Message;
@@ -57,21 +61,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
             .map(|point| transform_point(point, &lidar_in_robot_transformation))
             .map(|f| to_2d(f))
-            .map(|f| Scan2d {
-                position_x: f.get(0).unwrap().clone() as f32,
-                position_y: f.get(1).unwrap().clone() as f32,
+            .map(|f| Vector2 {
+                x: f.get(0).unwrap().clone() as f32,
+                y: f.get(1).unwrap().clone() as f32,
             })
             .collect::<Vec<_>>();
 
-        let out_point_cloud = PointCloud2d {
-            ranges: points,
-            lidar_id: config.lidar_name.clone(),
+        let general_sensor_data = GeneralSensorData {
+            sensor_name: SensorName::Lidar as i32,
+            sensor_id: config.lidar_name.clone(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64,
+            data: Some(Data::Lidar(LidarData {
+                data: Some(lidar_data::Data::PointCloud2d(PointCloud2d {
+                    ranges: points,
+                    lidar_id: config.lidar_name.clone(),
+                })),
+            })),
         };
 
         let _ = autobahn
             .publish(
                 &format!("lidar/lidar3d/pointcloud/2d/robotframe"),
-                out_point_cloud.encode_to_vec(),
+                general_sensor_data.encode_to_vec(),
             )
             .await;
     }

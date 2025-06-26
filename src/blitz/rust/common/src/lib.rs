@@ -3,9 +3,17 @@ pub mod config;
 pub mod device_info;
 pub mod math;
 
-pub mod project_proto {
-    include!(concat!(env!("OUT_DIR"), "/proto.autobahn.rs"));
-    include!(concat!(env!("OUT_DIR"), "/proto.lidar.rs"));
-    include!(concat!(env!("OUT_DIR"), "/proto.status.rs"));
-    include!(concat!(env!("OUT_DIR"), "/proto.util.rs"));
+pub mod proto {
+    pub mod autobahn {
+        include!(concat!(env!("OUT_DIR"), "/proto.autobahn.rs"));
+    }
+    pub mod sensor {
+        include!(concat!(env!("OUT_DIR"), "/proto.sensor.rs"));
+    }
+    pub mod status {
+        include!(concat!(env!("OUT_DIR"), "/proto.status.rs"));
+    }
+    pub mod util {
+        include!(concat!(env!("OUT_DIR"), "/proto.util.rs"));
+    }
 }

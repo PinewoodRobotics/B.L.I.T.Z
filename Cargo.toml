@@ -2,9 +2,9 @@
 
 [workspace]
 members = [
-    "project/rust/common",
-    "project/rust/lidar_3d",
-    "project/rust/lidar_data_processing",
+    "src/blitz/rust/common",
+    "src/blitz/rust/lidar_3d",
+    "src/blitz/rust/lidar_data_processing",
 ]
 
 [workspace.dependencies]
@@ -27,4 +27,4 @@ image = "0.25.6"
 clap = { version = "4.5", features = ["derive"] }
 
 [workspace.metadata]
-rust-project = { path = "project/rust" }
+rust-project = { path = "src/blitz/rust" }

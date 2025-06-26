@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use tokio::time;
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
 
-use crate::project_proto::{MessageType, PublishMessage, TopicMessage};
+use crate::proto::autobahn::{MessageType, PublishMessage, TopicMessage};
 
 #[derive(Clone, Debug)]
 pub struct Address {

@@ -2,7 +2,6 @@ use clap::Parser;
 use common_core::{
     autobahn::{Address, Autobahn},
     config::LidarConfig,
-    project_proto::PointCloud2d,
 };
 use std::{fs, path::PathBuf};
 

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-import "util/vector.proto";
+import "proto/util/vector.proto";
 
 package proto.sensor;
 
