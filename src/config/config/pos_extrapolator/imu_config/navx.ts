@@ -1,7 +1,6 @@
 import { MatrixUtil, VectorUtil } from "../../util/math";
-import { MapUtil } from "../../util/struct";
 
-export const nav_x_config = MapUtil.fromRecord({
+export const nav_x_config = {
   "0": {
     use_position: true,
     use_rotation: true,
@@ -15,4 +14,4 @@ export const nav_x_config = MapUtil.fromRecord({
       ]),
     },
   },
-});
+};

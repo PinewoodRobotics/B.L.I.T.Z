@@ -1,19 +1,19 @@
 {
     "pi_to_run_on": "tripoli",
     "port": "/dev/ttyUSB0",
-    "baudrate": 256000,
+    "baudrate": 2000000,
     "lidar_name": "lidar_3d",
     "is_2d": false,
-    "min_distance_meters": 0.1,
-    "max_distance_meters": 30.0,
-    "position_in_robot": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.3
-    },
-    "direction_vector_in_robot": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 1.0
-    }
+    "min_distance_meters": 0.0,
+    "max_distance_meters": 50.0,
+    "position_in_robot": [
+        0.0,
+        0.0,
+        0.3
+    ],
+    "direction_vector_in_robot": [
+        0.0,
+        0.0,
+        1.0
+    ]
 }

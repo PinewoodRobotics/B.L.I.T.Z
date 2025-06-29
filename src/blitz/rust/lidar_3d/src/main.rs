@@ -1,19 +1,17 @@
 use clap::Parser;
 use common_core::autobahn::{Address, Autobahn};
-use common_core::config::LidarConfig;
-use common_core::device_info::load_system_config;
-use common_core::math::to_transformation_matrix;
+use common_core::config::from_uncertainty_config;
+use common_core::device_info::{get_system_name, load_system_config};
+use common_core::math::{from_thrift_vector, to_transformation_matrix};
 use common_core::proto::sensor::general_sensor_data::Data;
-use common_core::proto::sensor::lidar_data;
+use common_core::proto::sensor::LidarData;
+use common_core::proto::sensor::{lidar_data, ImuData, PointCloud3d};
 use common_core::proto::sensor::{GeneralSensorData, SensorName};
-use common_core::proto::sensor::{LidarData, PointCloud2d};
-use common_core::proto::util::Vector2;
+use common_core::proto::util::{Position3d, Vector3};
+use common_core::thrift::config::Config;
+use common_core::thrift::lidar::LidarConfig;
 use futures_util::StreamExt;
-use point_util::{filter_all_limited, to_2d, transform_point};
 use prost::Message;
-use std::fs;
-use std::path::PathBuf;
-use timed_point_map::TimedPointMap;
 
 mod lidar;
 mod point_util;
@@ -21,12 +19,24 @@ mod timed_point_map;
 
 use lidar::reader::LidarReader;
 
+use crate::lidar::reader::LidarResult;
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Path to the config file
     #[arg(short, long)]
-    config: PathBuf,
+    config_path: Option<String>,
+}
+
+fn get_lidar_config(config: &Config, current_pi: &str) -> Vec<(String, LidarConfig)> {
+    let mut output_lidar_configs = Vec::new();
+    for (key, lidar_config) in config.lidar_configs.iter() {
+        if lidar_config.pi_to_run_on == current_pi {
+            output_lidar_configs.push((key.clone(), lidar_config.clone()));
+        }
+    }
+
+    output_lidar_configs
 }
 
 #[tokio::main]
@@ -34,67 +44,113 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let system_config = load_system_config()?;
+    let current_pi = get_system_name()?;
+    let config = from_uncertainty_config(args.config_path.as_deref())?;
 
-    let config_str = fs::read_to_string(args.config)?;
-    let config: LidarConfig = serde_json::from_str(&config_str)?;
+    let autobahn = Autobahn::new_default(Address::new(
+        system_config.autobahn.host,
+        system_config.autobahn.port,
+    ));
 
-    let autobahn = Autobahn::new(
-        Address::new(system_config.autobahn.host, system_config.autobahn.port),
-        true,
-        5.0,
-    );
     autobahn.begin().await?;
 
-    let mut timed_point_map = TimedPointMap::new(1000);
+    let lidar_configs = get_lidar_config(&config, &current_pi);
 
-    let lidar_in_robot_transformation =
-        to_transformation_matrix(config.position_in_robot, config.direction_vector_in_robot);
+    let (lidar_name, config) = lidar_configs[0].clone(); // TODO: Handle multiple lidars
+    let lidar_in_robot_transformation = to_transformation_matrix(
+        from_thrift_vector(config.position_in_robot),
+        nalgebra::Vector3::new(0.0, 0.0, 1.0), // TODO: Handle rotation
+    );
 
-    let mut reader = LidarReader::new_with_initialize(config.clone())?.into_stream();
+    let mut reader = LidarReader::new_with_initialize(
+        config.port,
+        config.baudrate as u32,
+        config.min_distance_meters.into(),
+        config.max_distance_meters.into(),
+    )?;
+    reader.start_lidar()?;
 
-    while let Some(points) = reader.next().await {
-        timed_point_map.add_all(points.clone());
+    let mut reader = reader.into_stream();
+    while let Some(result) = reader.next().await {
+        match result {
+            LidarResult::PointCloud(points) => {
+                let points = points
+                    .iter()
+                    .map(|point| Vector3 {
+                        x: point.x as f32,
+                        y: point.y as f32,
+                        z: point.z as f32,
+                    })
+                    .collect::<Vec<_>>();
 
-        let points = points
-            .iter()
-            .filter(|point| {
-                filter_all_limited(
-                    point,
-                    -20.0,
-                    20.0,
-                    config.max_distance_meters,
-                    config.min_distance_meters,
-                )
-            })
-            .map(|point| transform_point(point, &lidar_in_robot_transformation))
-            .map(|f| to_2d(f))
-            .map(|f| Vector2 {
-                x: f.get(0).unwrap().clone() as f32,
-                y: f.get(1).unwrap().clone() as f32,
-            })
-            .collect::<Vec<_>>();
+                let general_sensor_data = GeneralSensorData {
+                    sensor_name: SensorName::Lidar as i32,
+                    sensor_id: lidar_name.clone(),
+                    timestamp: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs() as i64,
+                    data: Some(Data::Lidar(LidarData {
+                        data: Some(lidar_data::Data::PointCloud3d(PointCloud3d {
+                            ranges: points,
+                            lidar_id: lidar_name.clone(),
+                        })),
+                    })),
+                };
 
-        let general_sensor_data = GeneralSensorData {
-            sensor_name: SensorName::Lidar as i32,
-            sensor_id: config.lidar_name.clone(),
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64,
-            data: Some(Data::Lidar(LidarData {
-                data: Some(lidar_data::Data::PointCloud2d(PointCloud2d {
-                    ranges: points,
-                    lidar_id: config.lidar_name.clone(),
-                })),
-            })),
-        };
+                println!("Publishing lidar data");
 
-        let _ = autobahn
-            .publish(
-                &format!("lidar/lidar3d/pointcloud/2d/robotframe"),
-                general_sensor_data.encode_to_vec(),
-            )
-            .await;
+                let _ = autobahn
+                    .publish(
+                        &format!("lidar/lidar3d/pointcloud/3d/robotframe"),
+                        general_sensor_data.encode_to_vec(),
+                    )
+                    .await;
+            }
+            LidarResult::ImuReading(imu) => {
+                let imu = ImuData {
+                    position: Some(Position3d {
+                        position: Some(Vector3 {
+                            x: imu.quaternion[0],
+                            y: imu.quaternion[1],
+                            z: imu.quaternion[2],
+                        }),
+                        direction: Some(Vector3 {
+                            x: imu.quaternion[0],
+                            y: imu.quaternion[1],
+                            z: imu.quaternion[2],
+                        }),
+                    }),
+                    velocity: Some(Vector3 {
+                        x: imu.angular_velocity[0],
+                        y: imu.angular_velocity[1],
+                        z: imu.angular_velocity[2],
+                    }),
+                    acceleration: Some(Vector3 {
+                        x: imu.linear_acceleration[0],
+                        y: imu.linear_acceleration[1],
+                        z: imu.linear_acceleration[2],
+                    }),
+                };
+
+                let general_sensor_data = GeneralSensorData {
+                    sensor_name: SensorName::Imu as i32,
+                    sensor_id: lidar_name.clone(),
+                    timestamp: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs() as i64,
+                    data: Some(Data::Imu(imu)),
+                };
+
+                let _ = autobahn
+                    .publish(
+                        &format!("lidar/lidar3d/imu/robotframe"),
+                        general_sensor_data.encode_to_vec(),
+                    )
+                    .await;
+            }
+        }
     }
 
     Ok(())

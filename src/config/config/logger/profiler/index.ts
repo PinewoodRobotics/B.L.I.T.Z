@@ -1,4 +1,4 @@
-import { ProfilerConfig } from "../../../../blitz/generated/thrift/ts_schema/logger_types";
+import { ProfilerConfig } from "../../../../blitz/generated/thrift/gen-nodejs/logger_types";
 
 const profiler_config = new ProfilerConfig({
   activated: true,

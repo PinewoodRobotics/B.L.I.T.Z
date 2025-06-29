@@ -1,7 +1,7 @@
 import {
   Level,
   LoggerConfig,
-} from "../../../blitz/generated/thrift/ts_schema/logger_types";
+} from "../../../blitz/generated/thrift/gen-nodejs/logger_types";
 import profiler_config from "./profiler";
 
 const logger: LoggerConfig = {

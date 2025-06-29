@@ -1,4 +1,4 @@
-import { AutobahnConfig } from "../../../blitz/generated/thrift/ts_schema/autobahn_types";
+import { AutobahnConfig } from "../../../blitz/generated/thrift/gen-nodejs/autobahn_types";
 
 export const autobahn_config: AutobahnConfig = {
   host: "localhost",

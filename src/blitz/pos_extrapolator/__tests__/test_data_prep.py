@@ -46,7 +46,7 @@ def sample_odometry_data():
 
 def test_data_prep():
     set_config_data_preparer_manager(
-        from_file("src/blitz/pos_extrapolator/__tests__/fixtures/sample_config.json")
+        from_file("src/blitz/pos_extrapolator/__tests__/fixtures/sample_config.txt")
     )
     data_preparer_manager = DataPreparerManager()
     imu_data = sample_imu_data()
@@ -70,7 +70,7 @@ def test_get_config():
     DataPreparerManager._config_instances = {}
 
     config = from_file(
-        "src/blitz/pos_extrapolator/__tests__/fixtures/sample_config.json"
+        "src/blitz/pos_extrapolator/__tests__/fixtures/sample_config.txt"
     )
 
     preparer_manager = DataPreparerManager()

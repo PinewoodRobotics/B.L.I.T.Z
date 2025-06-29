@@ -1,8 +1,7 @@
-use common_core::config::LidarConfig;
 use futures_util::Stream;
 use lidar_3d::{
-    createUnitreeLidarReaderCpp, delete_reader, getCloud, initialize, runParse, MessageType,
-    PointCloudUnitree,
+    createUnitreeLidarReaderCpp, delete_reader, getCloud, getImu, initialize, runParse,
+    setLidarWorkingMode, Imu, LidarWorkingMode, MessageType, PointCloudUnitree,
 };
 use nalgebra::Vector3;
 use std::ffi::{c_void, CString};
@@ -14,24 +13,29 @@ pub struct LidarReader {
 }
 
 impl LidarReader {
-    pub fn new_with_initialize(config: LidarConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new_with_initialize(
+        port: String,
+        baudrate: u32,
+        min_distance_meters: f64,
+        max_distance_meters: f64,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let reader = unsafe { createUnitreeLidarReaderCpp() };
         if reader.is_null() {
             return Err("Failed to create LiDAR reader".into());
         }
 
-        let port = CString::new(config.port.as_str())?;
+        let port = CString::new(port.as_str())?;
         let result = unsafe {
             initialize(
                 reader,
                 18,
                 port.as_ptr(),
-                config.baudrate,
+                baudrate,
+                min_distance_meters as f32,
+                max_distance_meters as f32,
                 0.0,
-                0.001,
-                0.0,
-                config.max_distance_meters as f32,
-                config.min_distance_meters as f32,
+                max_distance_meters as f32,
+                min_distance_meters as f32,
             )
         };
 
@@ -42,9 +46,24 @@ impl LidarReader {
         Ok(Self { reader })
     }
 
+    pub fn start_lidar(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        unsafe {
+            setLidarWorkingMode(self.reader, LidarWorkingMode::STANDBY);
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            setLidarWorkingMode(self.reader, LidarWorkingMode::NORMAL);
+        }
+
+        Ok(())
+    }
+
     pub fn into_stream(self) -> LidarStream {
         LidarStream { reader: self }
     }
+}
+
+pub enum LidarResult {
+    PointCloud(Vec<Vector3<f64>>),
+    ImuReading(Imu),
 }
 
 pub struct LidarStream {
@@ -52,7 +71,7 @@ pub struct LidarStream {
 }
 
 impl Stream for LidarStream {
-    type Item = Vec<Vector3<f64>>;
+    type Item = LidarResult;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         unsafe {
@@ -65,13 +84,18 @@ impl Stream for LidarStream {
                         cx.waker().wake_by_ref();
                         Poll::Pending
                     } else {
-                        Poll::Ready(Some(
+                        Poll::Ready(Some(LidarResult::PointCloud(
                             points
                                 .iter()
                                 .map(|p| Vector3::new(p.x as f64, p.y as f64, p.z as f64))
                                 .collect(),
-                        ))
+                        )))
                     }
+                }
+                MessageType::IMU => {
+                    let mut imu = Imu::default();
+                    getImu(self.reader.reader, &mut imu);
+                    Poll::Ready(Some(LidarResult::ImuReading(imu)))
                 }
                 _ => {
                     // If no data, wake up after a short delay

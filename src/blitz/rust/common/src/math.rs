@@ -1,5 +1,7 @@
 use nalgebra::{Matrix3, Matrix4, UnitVector3, Vector3};
 
+use crate::thrift::common::Vector3D;
+
 pub fn to_transformation_matrix(
     position_in_robot: Vector3<f64>,
     direction_in_robot: Vector3<f64>,
@@ -19,4 +21,8 @@ pub fn to_transformation_matrix(
         .copy_from(&position_in_robot);
 
     transform
+}
+
+pub fn from_thrift_vector(vector: Vector3D) -> Vector3<f64> {
+    Vector3::new(vector.k1.into(), vector.k2.into(), vector.k3.into())
 }

@@ -1,6 +1,6 @@
-import { CameraType } from "../../../blitz/generated/thrift/ts_schema/camera_types";
-import { KalmanFilterSensorType } from "../../../blitz/generated/thrift/ts_schema/kalman_filter_types";
-import type { Level } from "../../../blitz/generated/thrift/ts_schema/logger_types";
+import { CameraType } from "../../../blitz/generated/thrift/gen-nodejs/camera_types";
+import { KalmanFilterSensorType } from "../../../blitz/generated/thrift/gen-nodejs/kalman_filter_types";
+import type { Level } from "../../../blitz/generated/thrift/gen-nodejs/logger_types";
 
 export const MapUtil = {
   fromRecord<K extends string | number | symbol, V>(

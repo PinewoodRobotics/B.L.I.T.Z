@@ -91,7 +91,7 @@ thrift-to-ts:
 		echo "Skipping thrift-to-ts on Linux"; \
 	else \
 		mkdir -p $(THRIFT_TS_SCHEMA_GEN_DIR); \
-		thrift-ts $(THRIFT_DIR) -o $(THRIFT_TS_SCHEMA_GEN_DIR); \
+		npm run generate-thrift; \
 	fi
 
 thrift: thrift-to-py thrift-to-ts

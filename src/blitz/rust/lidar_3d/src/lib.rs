@@ -106,6 +106,28 @@ pub enum MessageType {
     TIMESYNC = 6,
 }
 
+#[repr(C)]
+#[derive(Debug)]
+pub struct Imu {
+    pub stamp: f64,
+    pub id: u32,
+    pub quaternion: [f32; 4],          // Fixed array instead of pointer
+    pub angular_velocity: [f32; 3],    // Fixed array instead of pointer
+    pub linear_acceleration: [f32; 3], // Fixed array instead of pointer
+}
+
+impl Default for Imu {
+    fn default() -> Self {
+        Imu {
+            stamp: 0.0,
+            id: 0,
+            quaternion: [0.0; 4],
+            angular_velocity: [0.0; 3],
+            linear_acceleration: [0.0; 3],
+        }
+    }
+}
+
 extern "C" {
     pub fn createUnitreeLidarReaderCpp() -> *mut c_void;
     pub fn initialize(
@@ -121,6 +143,7 @@ extern "C" {
     ) -> c_int;
     pub fn runParse(reader: *mut c_void) -> MessageType;
     pub fn getCloud(reader: *mut c_void, cloud: *mut PointCloudUnitree);
+    pub fn getImu(reader: *mut c_void, imu: *mut Imu);
     pub fn freePointCloudMemory(points_ptr: *mut PointUnitree);
     pub fn getVersionOfFirmware(reader: *mut c_void, buffer: *mut c_char, buffer_size: usize);
     pub fn getVersionOfSDK(reader: *mut c_void, buffer: *mut c_char, buffer_size: usize);

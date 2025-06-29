@@ -59,6 +59,10 @@ impl Autobahn {
         }
     }
 
+    pub fn new_default(address: Address) -> Self {
+        Self::new(address, true, 5.0)
+    }
+
     async fn connect(
         &self,
     ) -> Result<

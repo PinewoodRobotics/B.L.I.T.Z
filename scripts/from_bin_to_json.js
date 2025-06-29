@@ -1,0 +1,24 @@
+import fs from "fs";
+import { TBinaryProtocol, TFramedTransport } from "thrift";
+import { Config } from "../src/blitz/generated/thrift/gen-nodejs/config_types.js";
+
+if (process.argv.length < 3) {
+  console.error("Please provide a binary config file path");
+  process.exit(1);
+}
+
+const filePath = process.argv[2];
+const fileData = fs.readFileSync(filePath);
+const buff = Buffer.from(fileData);
+
+try {
+  const readTransport = new TFramedTransport(buff);
+  const readProtocol = new TBinaryProtocol(readTransport);
+
+  const configNew = new Config();
+  configNew[Symbol.for("read")](readProtocol);
+  console.log("Successfully read config:", JSON.stringify(configNew, null, 2));
+} catch (error) {
+  console.log("Error reading config:", error.message);
+  console.error(error?.stack);
+}

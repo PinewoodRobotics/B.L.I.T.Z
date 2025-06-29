@@ -1,8 +1,6 @@
 colorama
 numpy
 opencv-python
-torch
-torchvision
 ultralytics
 pyapriltags
 requests

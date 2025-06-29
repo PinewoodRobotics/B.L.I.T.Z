@@ -27,7 +27,7 @@ from blitz.watchdog.monitor import ProcessMonitor
 
 app = Flask(__name__)
 
-CONFIG_PATH = ""
+CONFIG_PATH = "system_data/snapshot_config.txt"
 
 config: Config | None = None
 process_monitor: ProcessMonitor | None = None

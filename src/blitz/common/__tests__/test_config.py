@@ -15,14 +15,14 @@ def test_load_config():
 
 
 def test_from_file():
-    config = from_file(add_cur_dir("fixtures/sample_config.json"))
+    config = from_file(add_cur_dir("fixtures/sample_config.txt"))
     assert config is not None
     assert config.autobahn is not None
     assert config.autobahn.port == 8080
     assert config.cameras is not None
     assert len(config.cameras) == 1
     assert config.cameras[0].name == "one"
-    assert config.cameras[0].camera_path == "0"
+    assert config.cameras[0].camera_path == "/dev/video0"
     assert config.cameras[0].flags == 0
     assert config.cameras[0].width == 800
     assert config.cameras[0].height == 600
@@ -34,7 +34,7 @@ def test_from_file():
 
 
 def test_from_uncertainty_config():
-    config = from_uncertainty_config(add_cur_dir("fixtures/sample_config.json"))
+    config = from_uncertainty_config(add_cur_dir("fixtures/sample_config.txt"))
     assert config is not None
 
 

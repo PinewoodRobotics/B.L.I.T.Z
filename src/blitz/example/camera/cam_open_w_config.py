@@ -1,9 +1,9 @@
 import time
 import requests
-from blitz.common.config import get_config_json
+from blitz.common.config import get_config_raw
 from blitz.common.util.system import ProcessType, load_basic_system_config
 
-config_json = get_config_json()
+config_json = get_config_raw()
 basic_system_config = load_basic_system_config()
 
 response = requests.post(

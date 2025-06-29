@@ -1,4 +1,4 @@
-import type { Config } from "../../blitz/generated/thrift/ts_schema/config_types.d";
+import type { Config } from "../../blitz/generated/thrift/gen-nodejs/config_types";
 import { april_tag_detection_config } from "./april_tags_detection";
 import { autobahn_config } from "./autobahn";
 import prod1 from "./cameras/prod_1";

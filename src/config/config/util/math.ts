@@ -6,7 +6,7 @@ import type {
   Vector4D,
   Vector5D,
   Vector6D,
-} from "../../../blitz/generated/thrift/ts_schema/common_types";
+} from "../../../blitz/generated/thrift/gen-nodejs/common_types";
 
 export type TransformationMatrix3D = Matrix4x4;
 

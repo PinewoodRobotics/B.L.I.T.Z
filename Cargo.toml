@@ -25,6 +25,8 @@ rstar = "0.12.2"
 dbscan = "0.3.1"
 image = "0.25.6"
 clap = { version = "4.5", features = ["derive"] }
+thrift = "0.17"
+prost-build = "0.13.5"
 
 [workspace.metadata]
 rust-project = { path = "src/blitz/rust" }
