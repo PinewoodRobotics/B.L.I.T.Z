@@ -47,12 +47,12 @@ pub struct ConfigGetterOutput {
 }
 
 pub fn load_config() -> Result<Config, Box<dyn std::error::Error>> {
-    let config_json = get_config_json()?;
+    let config_json = get_config_raw()?;
     let config_output: ConfigGetterOutput = serde_json::from_str(&config_json)?;
     from_base64(&config_output.binary_base64)
 }
 
-pub fn get_config_json() -> Result<String, Box<dyn std::error::Error>> {
+pub fn get_config_raw() -> Result<String, Box<dyn std::error::Error>> {
     let output = Command::new("npm")
         .args(&["run", "config", "--silent"])
         .output()?;
