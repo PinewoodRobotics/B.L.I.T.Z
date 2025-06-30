@@ -10,7 +10,8 @@ fn main() {
 
         println!("cargo:rustc-link-search=native={}", lib_path.display());
 
-        // Add rpath so the executable can find the dynamic library
+        // Add rpath with $ORIGIN to make library lookup relative to executable
+        println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN/lib"); // TODO: EXPERIMENTAL
         println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_path.display());
 
         // Link the C++ wrapper library
