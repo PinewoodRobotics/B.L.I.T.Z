@@ -62,7 +62,7 @@ impl LidarReader {
 }
 
 pub enum LidarResult {
-    PointCloud(Vec<Vector3<f64>>),
+    PointCloud(Vec<Vector3<f32>>),
     ImuReading(Imu),
 }
 
@@ -85,10 +85,7 @@ impl Stream for LidarStream {
                         Poll::Pending
                     } else {
                         Poll::Ready(Some(LidarResult::PointCloud(
-                            points
-                                .iter()
-                                .map(|p| Vector3::new(p.x as f64, p.y as f64, p.z as f64))
-                                .collect(),
+                            points.iter().map(|p| Vector3::new(p.x, p.y, p.z)).collect(),
                         )))
                     }
                 }

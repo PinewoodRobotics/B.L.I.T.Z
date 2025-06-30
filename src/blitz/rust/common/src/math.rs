@@ -1,6 +1,7 @@
 use nalgebra::{Matrix3, Matrix4, UnitVector3, Vector3};
 
-use crate::thrift::common::Vector3D;
+pub mod proto_to_nalgebra;
+pub mod thrift_to_nalgebra;
 
 pub fn to_transformation_matrix(
     position_in_robot: Vector3<f64>,
@@ -11,18 +12,20 @@ pub fn to_transformation_matrix(
     let left = up.cross(&direction).normalize();
 
     let rotation_matrix = Matrix3::from_columns(&[direction, left, up]);
+    to_transformation_matrix_vec_matrix(position_in_robot, rotation_matrix)
+}
 
+pub fn to_transformation_matrix_vec_matrix(
+    position_in_robot: Vector3<f64>,
+    matrix_rotation: Matrix3<f64>,
+) -> Matrix4<f64> {
     let mut transform = Matrix4::identity();
     transform
         .fixed_view_mut::<3, 3>(0, 0)
-        .copy_from(&rotation_matrix);
+        .copy_from(&matrix_rotation);
     transform
         .fixed_view_mut::<3, 1>(0, 3)
         .copy_from(&position_in_robot);
 
     transform
-}
-
-pub fn from_thrift_vector(vector: Vector3D) -> Vector3<f64> {
-    Vector3::new(vector.k1.into(), vector.k2.into(), vector.k3.into())
 }

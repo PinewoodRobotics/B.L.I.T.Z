@@ -2,7 +2,7 @@ use clap::Parser;
 use common_core::autobahn::{Address, Autobahn};
 use common_core::config::from_uncertainty_config;
 use common_core::device_info::{get_system_name, load_system_config};
-use common_core::math::{from_thrift_vector, to_transformation_matrix};
+use common_core::math::to_transformation_matrix_vec_matrix;
 use common_core::proto::sensor::general_sensor_data::Data;
 use common_core::proto::sensor::LidarData;
 use common_core::proto::sensor::{lidar_data, ImuData, PointCloud3d};
@@ -57,9 +57,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let lidar_configs = get_lidar_config(&config, &current_pi);
 
     let (lidar_name, config) = lidar_configs[0].clone(); // TODO: Handle multiple lidars
-    let lidar_in_robot_transformation = to_transformation_matrix(
-        from_thrift_vector(config.position_in_robot),
-        nalgebra::Vector3::new(0.0, 0.0, 1.0), // TODO: Handle rotation
+    let lidar_in_robot_transformation = to_transformation_matrix_vec_matrix(
+        config.position_in_robot.into(),
+        config.rotation_in_robot.into(),
     );
 
     let mut reader = LidarReader::new_with_initialize(
@@ -77,9 +77,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let points = points
                     .iter()
                     .map(|point| Vector3 {
-                        x: point.x as f32,
-                        y: point.y as f32,
-                        z: point.z as f32,
+                        x: point.x,
+                        y: point.y,
+                        z: point.z,
                     })
                     .collect::<Vec<_>>();
 
@@ -139,7 +139,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     timestamp: std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
-                        .as_secs() as i64,
+                        .as_millis() as i64,
                     data: Some(Data::Imu(imu)),
                 };
 
