@@ -72,5 +72,5 @@ async function generateConfig(
   }
 }
 
-generateConfig("stdout", "json-binary").catch(console.error);
+generateConfig("stdout", "binary").catch(console.error);
 

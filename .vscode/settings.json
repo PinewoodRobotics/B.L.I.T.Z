@@ -15,7 +15,15 @@
     "unordered_set": "cpp",
     "vector": "cpp",
     "*.tcc": "cpp",
-    "array": "cpp"
+    "array": "cpp",
+    "*.rs": "rust",
+    "cstddef": "cpp",
+    "memory": "cpp",
+    "type_traits": "cpp",
+    "new": "cpp",
+    "ranges": "cpp",
+    "stdexcept": "cpp",
+    "utility": "cpp"
   },
   "cmake.sourceDirectory": "/Users/godbrigero/Documents/BLITZ/project/hybrid-frustum-pointnet/lidar",
   "cSpell.words": ["pyapriltags", "Threshholding"],

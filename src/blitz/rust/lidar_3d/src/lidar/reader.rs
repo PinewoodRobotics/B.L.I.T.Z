@@ -1,15 +1,15 @@
+use cxx::UniquePtr;
 use futures_util::Stream;
-use lidar_3d::{
-    createUnitreeLidarReaderCpp, delete_reader, getCloud, getImu, initialize, runParse,
-    setLidarWorkingMode, Imu, LidarWorkingMode, MessageType, PointCloudUnitree,
+use lidar_3d::bridge::ffi::{
+    make_unitree_lidar_reader, ImuRust, LidarWorkingModeRust, MessageTypeRust, PointUnitreeRust,
+    UnitreeLidarWrapper,
 };
 use nalgebra::Vector3;
-use std::ffi::{c_void, CString};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 pub struct LidarReader {
-    reader: *mut c_void,
+    reader: UniquePtr<UnitreeLidarWrapper>,
 }
 
 impl LidarReader {
@@ -19,27 +19,20 @@ impl LidarReader {
         min_distance_meters: f64,
         max_distance_meters: f64,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let reader = unsafe { createUnitreeLidarReaderCpp() };
-        if reader.is_null() {
-            return Err("Failed to create LiDAR reader".into());
-        }
+        let mut reader = make_unitree_lidar_reader();
 
-        let port = CString::new(port.as_str())?;
-        let result = unsafe {
-            initialize(
-                reader,
-                18,
-                port.as_ptr(),
-                baudrate,
-                min_distance_meters as f32,
-                max_distance_meters as f32,
-                0.0,
-                max_distance_meters as f32,
-                min_distance_meters as f32,
-            )
-        };
+        let result = reader.pin_mut().initialize(
+            18,
+            &port,
+            baudrate,
+            min_distance_meters as f32,
+            max_distance_meters as f32,
+            0.0,
+            max_distance_meters as f32,
+            min_distance_meters as f32,
+        );
 
-        if result != 0 {
+        if !result {
             return Err("Failed to initialize LiDAR".into());
         }
 
@@ -47,11 +40,13 @@ impl LidarReader {
     }
 
     pub fn start_lidar(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        unsafe {
-            setLidarWorkingMode(self.reader, LidarWorkingMode::STANDBY);
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            setLidarWorkingMode(self.reader, LidarWorkingMode::NORMAL);
-        }
+        self.reader
+            .pin_mut()
+            .set_lidar_working_mode(LidarWorkingModeRust::Standby);
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        self.reader
+            .pin_mut()
+            .set_lidar_working_mode(LidarWorkingModeRust::Normal);
 
         Ok(())
     }
@@ -63,7 +58,7 @@ impl LidarReader {
 
 pub enum LidarResult {
     PointCloud(Vec<Vector3<f32>>),
-    ImuReading(Imu),
+    ImuReading(ImuRust),
 }
 
 pub struct LidarStream {
@@ -73,41 +68,28 @@ pub struct LidarStream {
 impl Stream for LidarStream {
     type Item = LidarResult;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        unsafe {
-            match runParse(self.reader.reader) {
-                MessageType::POINTCLOUD => {
-                    let mut cloud = PointCloudUnitree::default();
-                    getCloud(self.reader.reader, &mut cloud);
-                    let points = cloud.points();
-                    if points.is_empty() {
-                        cx.waker().wake_by_ref();
-                        Poll::Pending
-                    } else {
-                        Poll::Ready(Some(LidarResult::PointCloud(
-                            points.iter().map(|p| Vector3::new(p.x, p.y, p.z)).collect(),
-                        )))
-                    }
-                }
-                MessageType::IMU => {
-                    let mut imu = Imu::default();
-                    getImu(self.reader.reader, &mut imu);
-                    Poll::Ready(Some(LidarResult::ImuReading(imu)))
-                }
-                _ => {
-                    // If no data, wake up after a short delay
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        match self.reader.reader.pin_mut().run_parse() {
+            MessageTypeRust::PointCloud => {
+                let points = self.reader.reader.pin_mut().get_cloud();
+                if points.is_empty() {
                     cx.waker().wake_by_ref();
                     Poll::Pending
+                } else {
+                    Poll::Ready(Some(LidarResult::PointCloud(
+                        points.iter().map(|p| Vector3::new(p.x, p.y, p.z)).collect(),
+                    )))
                 }
             }
-        }
-    }
-}
-
-impl Drop for LidarReader {
-    fn drop(&mut self) {
-        unsafe {
-            delete_reader(self.reader);
+            MessageTypeRust::Imu => {
+                let imu = self.reader.reader.pin_mut().get_imu();
+                Poll::Ready(Some(LidarResult::ImuReading(imu)))
+            }
+            _ => {
+                // If no data, wake up after a short delay
+                cx.waker().wake_by_ref();
+                Poll::Pending
+            }
         }
     }
 }

@@ -25,7 +25,7 @@ use crate::lidar::reader::LidarResult;
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[arg(short, long)]
-    config_path: Option<String>,
+    config: Option<String>,
 }
 
 fn get_lidar_config(config: &Config, current_pi: &str) -> Vec<(String, LidarConfig)> {
@@ -45,7 +45,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let system_config = load_system_config()?;
     let current_pi = get_system_name()?;
-    let config = from_uncertainty_config(args.config_path.as_deref())?;
+    println!("Current pi: {}", current_pi);
+    let config = from_uncertainty_config(args.config.as_deref())?;
 
     let autobahn = Autobahn::new_default(Address::new(
         system_config.autobahn.host,
