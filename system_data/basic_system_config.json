@@ -14,5 +14,5 @@
         "stats_pub_period_s": 0.5,
         "send_stats": true
     },
-    "config_path": "config/config.json"
+    "config_path": "config/config.txt"
 }

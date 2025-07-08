@@ -4,6 +4,7 @@ import psutil
 import json
 import re
 from pydantic import BaseModel
+import netifaces
 
 
 class ProcessType(Enum):
@@ -12,6 +13,7 @@ class ProcessType(Enum):
     LIDAR_POINT_PROCESSOR = "lidar-point-processor"
     LIDAR_PROCESSING = "lidar-processing"
     CAMERA_PROCESSING = "april-server"
+    LIDAR_3D = "lidar-3d"
 
 
 class AutobahnBaseConfig(BaseModel):
@@ -70,21 +72,16 @@ def load_basic_system_config() -> BasicSystemConfig:
     return BasicSystemConfig(**config_dict)
 
 
-def get_local_ip() -> str | None:
+def get_local_ip(iface: str = "eth0") -> str | None:
     """
-    TODO: this is a hack to get the local IP address. Later we should use netifaces.
+    Returns the IPv4 address for the given interface (e.g. "eth0" or "en0"),
+    or None if the interface isn't found or has no IPv4 address.
     """
     try:
-        result = subprocess.run(
-            ["ip", "route", "get", "1.1.1.1"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        output = result.stdout.strip()
-
-        match = re.search(r"src\s+(\d+\.\d+\.\d+\.\d+)", output)
-        if match:
-            return match.group(1)
-    except Exception:
-        return None
+        addrs = netifaces.ifaddresses(iface)
+        ipv4 = addrs.get(netifaces.AF_INET, [])
+        if ipv4 and 'addr' in ipv4[0]:
+            return ipv4[0]['addr']
+    except ValueError:
+        pass
+    return None

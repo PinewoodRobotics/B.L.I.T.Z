@@ -7,19 +7,15 @@ use common_core::proto::sensor::general_sensor_data::Data;
 use common_core::proto::sensor::LidarData;
 use common_core::proto::sensor::{lidar_data, ImuData, PointCloud3d};
 use common_core::proto::sensor::{GeneralSensorData, SensorName};
-use common_core::proto::util::{Position3d, Vector3};
+use common_core::proto::util::{Position3d, Vector2, Vector3};
 use common_core::thrift::config::Config;
 use common_core::thrift::lidar::LidarConfig;
 use futures_util::StreamExt;
 use prost::Message;
+use unitree_lidar_l1_rust::lidar::reader::{LidarReader, LidarResult};
 
-mod lidar;
 mod point_util;
 mod timed_point_map;
-
-use lidar::reader::LidarReader;
-
-use crate::lidar::reader::LidarResult;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -64,10 +60,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let mut reader = LidarReader::new_with_initialize(
+        config.cloud_scan_num as u32,
         config.port,
         config.baudrate as u32,
         config.min_distance_meters.into(),
         config.max_distance_meters.into(),
+        0.0,
+        0.001,
+        0.0,
     )?;
     reader.start_lidar()?;
 

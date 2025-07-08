@@ -35,17 +35,10 @@ lidar-point-processor:
 	$(VENV_PYTHON) src/blitz/lidar/lidar_point_processor/main.py $(ARGS)
 
 lidar-3d:
-	@if [ -f "target/release/lidar-3d" ]; then \
-		target/release/lidar-3d $(ARGS) \
-	else \
-		echo "Lidar 3D is not built, run 'cargo build --release' in src/blitz/rust/lidar_3d"; \
-	fi
+	@if [ -f "target/release/lidar-3d" ]; then target/release/lidar-3d $(ARGS); else echo "Lidar 3D is not built, run 'make build-lidar-3d'"; fi
 
 build-lidar-3d:
-	cd src/blitz/rust/lidar_3d && \
-		g++ -shared -o libunitree_lidar_sdk_wrapper.so -fPIC src/cpp/unitree_lidar_sdk_wrapper.cpp -I./include -L./lib -lunitree_lidar_sdk -std=c++11 && \
-		mv libunitree_lidar_sdk_wrapper.so lib/ && \
-		cargo build --release
+	cd src/blitz/rust/lidar_3d && cargo build --release
 
 prepare:
 	mkdir -p $(GEN_DIR)

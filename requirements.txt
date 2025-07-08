@@ -27,7 +27,6 @@ plotly
 dash
 pytest
 pyvistaqt
-thrift
 ursina
 robotpy
 robotpy-cscore
@@ -35,3 +34,4 @@ autobahn_client==0.1.2
 rich
 zeroconf
 fix-protobuf-imports
+netifaces

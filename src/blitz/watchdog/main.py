@@ -45,8 +45,10 @@ def set_config():
     if config_dir and not os.path.exists(config_dir):
         os.makedirs(config_dir, exist_ok=True)
 
+    config_data = data["config"].replace("\\n", "").replace("\n", "")
+
     with open(CONFIG_PATH, "w") as f:
-        f.write(data["config"])
+        f.write(config_data)
 
     config = from_file(CONFIG_PATH)
 
