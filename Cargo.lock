@@ -1679,7 +1679,6 @@ dependencies = [
  "clap",
  "common-core",
  "cxx",
- "cxx-build",
  "dbscan",
  "futures-util",
  "image 0.25.6",
