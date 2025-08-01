@@ -2,7 +2,9 @@ use clap::Parser;
 use common_core::autobahn::{Address, Autobahn};
 use common_core::config::from_uncertainty_config;
 use common_core::device_info::{get_system_name, load_system_config};
-use common_core::math::to_transformation_matrix_vec_matrix;
+use common_core::math::{
+    to_transformation_matrix_vec_matrix, to_transformation_matrix_vec_matrix_f64,
+};
 use common_core::proto::sensor::general_sensor_data::Data;
 use common_core::proto::sensor::LidarData;
 use common_core::proto::sensor::{lidar_data, ImuData, PointCloud3d};
@@ -14,8 +16,8 @@ use futures_util::StreamExt;
 use prost::Message;
 use unitree_lidar_l1_rust::lidar::reader::{LidarReader, LidarResult};
 
-mod point_util;
 mod timed_point_map;
+mod util;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -54,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let lidar_configs = get_lidar_config(&config, &current_pi);
 
     let (lidar_name, config) = lidar_configs[0].clone(); // TODO: Handle multiple lidars
-    let lidar_in_robot_transformation = to_transformation_matrix_vec_matrix(
+    let lidar_in_robot_transformation = to_transformation_matrix_vec_matrix_f64(
         config.position_in_robot.into(),
         config.rotation_in_robot.into(),
     );

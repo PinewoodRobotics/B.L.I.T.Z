@@ -1,12 +1,25 @@
-use kiss3d::nalgebra::Vector2;
-use nalgebra::{Matrix4, Vector3};
+use std::{collections::HashMap, time};
+
+use nalgebra::{Matrix4, Quaternion, UnitQuaternion, Vector2, Vector3};
+use unitree_lidar_l1_rust::bridge::ffi::{ImuRust, PointUnitreeRust};
+
+pub mod imu;
+pub mod model;
+pub mod point_cloud;
 
 ///
 /// Having a point in the lidar's frame and a transform matrix (lidar in robot) transform point to the robot's frame
 ///
-pub fn transform_point(point: &Vector3<f64>, transform: &Matrix4<f64>) -> Vector3<f64> {
+pub fn transform_point(point: &Vector3<f32>, transform: &Matrix4<f32>) -> Vector3<f32> {
     let p4 = transform * Vector3::new(point.x, point.y, point.z).push(1.0);
     Vector3::new(p4.x, p4.y, p4.z)
+}
+
+pub fn transform_points(points: &Vec<Vector3<f32>>, transform: &Matrix4<f32>) -> Vec<Vector3<f32>> {
+    points
+        .iter()
+        .map(|point| transform_point(point, transform))
+        .collect()
 }
 
 pub fn filter_all_limited(
