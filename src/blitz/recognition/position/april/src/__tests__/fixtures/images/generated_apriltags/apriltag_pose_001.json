@@ -1,0 +1,41 @@
+{
+  "pose_id": 1,
+  "timestamp": 1754047832.157411,
+  "image_filename": "apriltag_pose_001.png",
+  "pose": {
+    "position": [
+      -2.0,
+      0.0,
+      5.0
+    ],
+    "rotation_matrix": [
+      [
+        0.984807753012208,
+        0.0,
+        -0.17364817766693033
+      ],
+      [
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.17364817766693033,
+        0.0,
+        0.984807753012208
+      ]
+    ]
+  },
+  "camera": {
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": -5
+    },
+    "target": "apriltag"
+  },
+  "apriltag": {
+    "scale": 1.0,
+    "source_image": "apriltag.png"
+  }
+}

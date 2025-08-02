@@ -1,4 +1,6 @@
 import asyncio
+import threading
+from typing import Coroutine
 import colorama
 from enum import Enum
 
@@ -28,16 +30,36 @@ class LogLevel(Enum):
         return self.get_importance() <= other.get_importance()
 
 
+class LogEventLoop(threading.Thread):
+    def __init__(self):
+        super().__init__()
+        self.loop = asyncio.new_event_loop()
+        self.is_running = True
+        self.start()
+
+    def run(self):
+        pass
+
+    def run_coroutine(self, coroutine: Coroutine):
+        asyncio.run_coroutine_threadsafe(coroutine, self.loop)
+
+    def stop(self):
+        self.is_running = False
+        self.loop.stop()
+        self.loop.close()
+
+
 PREFIX = ""
 LOG_LEVEL = LogLevel.DEBUG
 autobahn_instance: Autobahn | None = None
 STATS_PUBLISH_TOPIC = ""
-main_event_loop: asyncio.AbstractEventLoop | None = None
+main_event_loop: LogEventLoop | None = None
 
 
 def init_logging(
     prefix: str,
     log_level: LogLevel,
+    main_event_loop_=LogEventLoop(),
     system_pub_topic: str | None = None,
     autobahn: Autobahn | None = None,
 ):
@@ -58,11 +80,7 @@ def init_logging(
     colorama.init()
     PREFIX = prefix
     LOG_LEVEL = log_level
-
-    try:
-        main_event_loop = asyncio.get_running_loop()
-    except RuntimeError:
-        main_event_loop = None
+    main_event_loop = main_event_loop_
 
     if autobahn_instance:
         if system_pub_topic:
@@ -128,10 +146,9 @@ def log(prefix: str, message: str, color: str):
                 autobahn_instance.publish(STATS_PUBLISH_TOPIC, log_message)
             )
         except RuntimeError:
-            if main_event_loop and not main_event_loop.is_closed():
-                asyncio.run_coroutine_threadsafe(
+            if main_event_loop:
+                main_event_loop.run_coroutine(
                     autobahn_instance.publish(STATS_PUBLISH_TOPIC, log_message),
-                    main_event_loop,
                 )
 
     print(f"[{prefix}] {color}{message}{colorama.Fore.RESET}")

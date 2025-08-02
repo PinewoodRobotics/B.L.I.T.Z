@@ -39,11 +39,13 @@ def bbox_to_frustum(K, bbox, depth):
 
 def transform_frustum(
     frustum_list: list[tuple[float, float, float]],
-    rotation_transformation: tuple[float, float],
-    linear_transformation: tuple[float, float, float],
+    *args,
+    rotation: tuple[float, float],
+    linear: tuple[float, float, float],
 ) -> list[tuple[float, float, float]]:
-    cos_theta, sin_theta = rotation_transformation
-    tx, ty, tz = linear_transformation
+    cos_theta, sin_theta = rotation
+    tx, ty, tz = linear
+
     rotation_matrix = np.array(
         [[cos_theta, -sin_theta, 0], [sin_theta, cos_theta, 0], [0, 0, 1]]
     )

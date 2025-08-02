@@ -13,6 +13,7 @@ from blitz.recognition.position.april.src.__tests__.fixtures.shared_resources im
 from blitz.recognition.position.april.src.__tests__.util import (
     add_cur_dir,
     detector,
+    get_all_generated_tags,
     preprocess_image,
     tag_size,
 )
@@ -166,3 +167,38 @@ def test_detected_position_1_cam_1_74cm(camera_1_matrix, camera_1_dist_coeff):
 
     assert position[1][0] == pytest.approx(0.44, abs=0.01)
     assert position[1][2] == pytest.approx(0.73, abs=0.01)
+
+
+def test_generated_tags():
+    all_generated_tags = get_all_generated_tags()
+    matrix = np.array(
+        [
+            [691.5, 0, 691.0],
+            [0, 691.5, 446.5],
+            [0, 0, 1],
+        ]
+    )
+    coeff = np.zeros(5)
+    for generated_tag in all_generated_tags:
+        detector = pyapriltags.Detector(
+            families="tag36h11",
+            nthreads=1,
+            quad_decimate=1.0,
+        )
+        tag_corners = process_image(generated_tag.image, detector)
+        post_processed_tag_corners = post_process_detection(tag_corners, matrix, coeff)
+
+        position = solve_pnp_tag_corners(
+            post_processed_tag_corners[0], 1, matrix, coeff
+        )
+
+        assert len(post_processed_tag_corners) == 1
+        assert generated_tag.data.pose.position[0] == pytest.approx(
+            position[1][0], abs=0.1
+        )
+        assert generated_tag.data.pose.position[1] == pytest.approx(
+            position[1][1], abs=0.1
+        )
+        assert generated_tag.data.pose.position[2] == pytest.approx(
+            position[1][2], abs=0.1
+        )

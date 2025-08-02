@@ -18,14 +18,7 @@ class ConfigGetterOutput:
 
 def load_config() -> Config:
     try:
-        config_json = get_config_raw()
-        config_dict = json.loads(config_json)
-        config_output = ConfigGetterOutput(
-            json=config_dict["json"],
-            binary_base64=config_dict["binary_base64"],
-        )
-
-        return from_base64(config_output.binary_base64)
+        return from_base64(get_config_raw())
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to run 'npm run config': {e}")
     except json.JSONDecodeError as e:

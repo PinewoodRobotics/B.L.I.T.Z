@@ -4,7 +4,7 @@ from typing import Dict, Type
 import numpy as np
 from cscore import CvSink, UsbCamera, VideoSource
 
-from blitz.common.debug.logger import error, info, success
+from blitz.common.debug.logger import error, success
 from blitz.generated.thrift.config.camera.ttypes import CameraType
 
 

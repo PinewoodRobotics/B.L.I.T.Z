@@ -1,8 +1,10 @@
+from dataclasses import dataclass
 import os
 import time
 import cv2
 import numpy as np
 import pyapriltags
+from pydantic import BaseModel
 
 from blitz.recognition.position.april.src.camera.OV2311_camera import (
     AbstractCaptureDevice,
@@ -52,3 +54,73 @@ def get_avg_fps(device: AbstractCaptureDevice):
     avg_time = sum(frame_times) / len(frame_times) if frame_times else 0
 
     return 1 / avg_time
+
+
+class Pose(BaseModel):
+    position: list[float]
+    rotation_matrix: list[list[float]]
+
+
+class CameraPosition(BaseModel):
+    x: float
+    y: float
+    z: float
+
+
+class Camera(BaseModel):
+    position: CameraPosition
+    target: str
+
+
+class AprilTag(BaseModel):
+    scale: float
+    source_image: str
+
+
+class GeneratedTagData(BaseModel):
+    pose_id: int
+    timestamp: float
+    image_filename: str
+    pose: Pose
+    camera: Camera
+    apriltag: AprilTag
+
+
+@dataclass
+class GeneratedTagDataWithImage:
+    image: np.ndarray
+    data: GeneratedTagData
+
+
+def get_generated_tag_metadata(file_name: str) -> GeneratedTagData:
+    with open(
+        add_cur_dir(f"fixtures/images/generated_apriltags/{file_name}.json"), "r"
+    ) as f:
+        return GeneratedTagData.model_validate_json(f.read())
+
+
+def load_png_image(file_name: str) -> np.ndarray:
+    return cv2.imread(
+        add_cur_dir(f"fixtures/images/generated_apriltags/{file_name}.png")
+    )
+
+
+def get_all_generated_tags() -> list[GeneratedTagDataWithImage]:
+    generated_tags = []
+    for file in os.listdir(add_cur_dir("fixtures/images/generated_apriltags")):
+        if not file.endswith(".png"):
+            continue
+
+        file_base = file[:-4]
+        file_json_name = f"{file_base}.json"
+        file_png_name = f"{file_base}.png"
+        data = get_generated_tag_metadata(file_base)
+        image = load_png_image(file_base)
+        generated_tags.append(
+            GeneratedTagDataWithImage(
+                image=image,
+                data=data,
+            )
+        )
+
+    return generated_tags
