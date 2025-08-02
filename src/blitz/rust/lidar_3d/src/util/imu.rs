@@ -1,34 +1,55 @@
-use std::time::{self, Duration, Instant};
-
 use nalgebra::{Quaternion, UnitQuaternion, Vector3};
+use std::time::{self, Duration, Instant};
 use unitree_lidar_l1_rust::bridge::ffi::ImuRust;
 
 use crate::util::model::UpdateModel;
 
-static GRAVITY: Vector3<f32> = Vector3::new(0.0, 0.0, -9.81);
+use std::sync::LazyLock;
+
+static GRAVITY: LazyLock<Vector3<f32>> = LazyLock::new(|| Vector3::new(0.0, 0.0, 9.81));
 
 pub struct VelEstimator {
-    prev_stamp: time::Duration,
+    prev_stamp: Option<time::Duration>,
     velocity: Vector3<f32>,
+    max_dt: f32,
+    velocity_decay: f32,
 }
 
 impl VelEstimator {
     pub fn new(start_stamp: time::Duration) -> Self {
         VelEstimator {
-            prev_stamp: start_stamp,
+            prev_stamp: Some(start_stamp),
             velocity: Vector3::zeros(),
+            max_dt: 0.1,           // 100ms max - reset if larger gaps
+            velocity_decay: 0.995, // 0.5% decay per update to prevent drift
         }
+    }
+
+    pub fn reset_velocity(&mut self) {
+        self.velocity = Vector3::zeros();
+        println!("Manually reset velocity to zero");
     }
 }
 
 impl UpdateModel<ImuRust, Vector3<f32>> for VelEstimator {
     fn update(&mut self, imu: &ImuRust) -> Vector3<f32> {
-        let time_imu = time::Duration::from_secs_f64(imu.stamp);
-        // 1. Δt
-        let dt = time_imu - self.prev_stamp;
-        self.prev_stamp = time_imu;
+        if self.prev_stamp.is_none() {
+            self.prev_stamp = Some(time::Duration::from_secs_f64(imu.stamp));
+            return Vector3::zeros();
+        }
 
-        // 2. Build world‐frame accel
+        let time_imu = time::Duration::from_secs_f64(imu.stamp);
+        let dt = time_imu - self.prev_stamp.unwrap();
+        let dt_f32 = dt.as_secs_f32();
+
+        if dt_f32 > self.max_dt {
+            self.velocity = Vector3::zeros();
+            self.prev_stamp = Some(time_imu);
+            return Vector3::zeros();
+        }
+
+        self.prev_stamp = Some(time_imu);
+
         let q = UnitQuaternion::from_quaternion(Quaternion::new(
             imu.quaternion[3],
             imu.quaternion[0],
@@ -42,11 +63,21 @@ impl UpdateModel<ImuRust, Vector3<f32>> for VelEstimator {
         );
         let a_world = q.transform_vector(&a_body);
 
-        // 3. Subtract gravity (Z‐up convention)
-        let a_net = a_world - GRAVITY;
+        let a_net = a_world - *GRAVITY;
 
-        // 4. Integrate
-        self.velocity += a_net * dt.as_secs_f32();
+        self.velocity *= self.velocity_decay;
+
+        let velocity_delta = a_net * dt_f32;
+        self.velocity += velocity_delta;
+
+        let vel_magnitude = self.velocity.magnitude();
+        if vel_magnitude > 100.0 {
+            println!(
+                "Velocity magnitude too large: {:.3} m/s - resetting",
+                vel_magnitude
+            );
+            self.velocity = Vector3::zeros();
+        }
 
         self.velocity
     }
@@ -56,7 +87,7 @@ impl UpdateModel<ImuRust, Vector3<f32>> for VelEstimator {
     }
 
     fn reset(&mut self, reset_time: Instant) -> Vector3<f32> {
-        self.prev_stamp = reset_time.duration_since(reset_time);
+        self.prev_stamp = Some(reset_time.duration_since(reset_time));
         self.velocity = Vector3::zeros();
         self.velocity
     }
@@ -64,16 +95,22 @@ impl UpdateModel<ImuRust, Vector3<f32>> for VelEstimator {
 
 pub struct ImuPositionVelocityEstimator {
     last_position: Vector3<f32>,
+    last_rotation: Vector3<f32>,
     velocity_estimator: VelEstimator,
-    last_time_stamp: Duration,
+    last_time_stamp: Option<Duration>,
+    vel_estimator_reset_time: Duration,
+    last_reset_time: Duration,
 }
 
 impl ImuPositionVelocityEstimator {
-    pub fn new() -> Self {
+    pub fn new(vel_estimator_reset_time: Duration) -> Self {
         ImuPositionVelocityEstimator {
             last_position: Vector3::zeros(),
+            last_rotation: Vector3::zeros(),
             velocity_estimator: VelEstimator::new(time::Duration::new(0, 0)),
-            last_time_stamp: Duration::new(0, 0),
+            last_time_stamp: None,
+            vel_estimator_reset_time,
+            last_reset_time: Duration::new(0, 0),
         }
     }
 }
@@ -82,12 +119,28 @@ impl UpdateModel<ImuRust, Vector3<f32>> for ImuPositionVelocityEstimator {
     /// x(t) = x(t-1) + v(t) * Δt
 
     fn update(&mut self, imu: &ImuRust) -> Vector3<f32> {
+        // println!("imu: {:?}", imu.stamp);
+        if self.last_time_stamp.is_none() {
+            self.last_time_stamp = Some(Duration::from_secs_f64(imu.stamp));
+            return Vector3::zeros();
+        }
+
+        if self.last_time_stamp.unwrap() - self.last_reset_time > self.vel_estimator_reset_time {
+            self.velocity_estimator.reset(Instant::now());
+            self.velocity_estimator.update(imu);
+            self.last_reset_time = self.last_time_stamp.unwrap();
+            self.last_time_stamp = Some(Duration::from_secs_f64(imu.stamp));
+            return self.last_position;
+        }
+
         let newest_velocity = self.velocity_estimator.update(imu);
         let imu_time_stamp = Duration::from_secs_f64(imu.stamp);
-        let delta_time = (imu_time_stamp - self.last_time_stamp).as_secs_f32();
+        let delta_time = (imu_time_stamp - self.last_time_stamp.unwrap()).as_secs_f32();
         let delta_position = newest_velocity * delta_time;
-        self.last_time_stamp = imu_time_stamp;
+
         self.last_position += delta_position;
+        self.last_rotation += Vector3::from_row_slice(&imu.angular_velocity) * delta_time;
+
         self.last_position
     }
 
@@ -164,7 +217,7 @@ mod tests {
 
     #[test]
     fn test_imu_position_velocity_estimator_with_gravity() {
-        let mut imu_vel_estimator = ImuPositionVelocityEstimator::new();
+        let mut imu_vel_estimator = ImuPositionVelocityEstimator::new(Duration::new(10, 0));
         let imu_data = get_imu_data();
         for imu in imu_data {
             let position = imu_vel_estimator.update(&imu);

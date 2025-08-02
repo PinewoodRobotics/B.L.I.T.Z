@@ -1,9 +1,7 @@
 FROM --platform=linux/arm64 ubuntu:22.04
 
-# Prevent prompts during install
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Update + install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \

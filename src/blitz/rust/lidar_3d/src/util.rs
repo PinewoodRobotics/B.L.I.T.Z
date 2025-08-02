@@ -4,6 +4,7 @@ use nalgebra::{Matrix4, Quaternion, UnitQuaternion, Vector2, Vector3};
 use unitree_lidar_l1_rust::bridge::ffi::{ImuRust, PointUnitreeRust};
 
 pub mod imu;
+pub mod lidar_sink;
 pub mod model;
 pub mod point_cloud;
 

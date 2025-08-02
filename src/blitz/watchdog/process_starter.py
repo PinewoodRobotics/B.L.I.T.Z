@@ -1,4 +1,4 @@
-from logging import debug, info
+from logging import debug, error, info
 import subprocess
 from typing import Optional, List
 import sys
@@ -23,13 +23,11 @@ def start_process_make(process_name: str, extra_args: Optional[List[str]] = None
 
         return subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
             universal_newlines=True,
             env=env,
         )
     except subprocess.SubprocessError as e:
-        print(f"Failed to start {process_name}: {str(e)}")
+        error(f"Failed to start {process_name}: {str(e)}")
         return None

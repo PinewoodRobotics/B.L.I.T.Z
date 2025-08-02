@@ -12,27 +12,26 @@ from blitz.watchdog.process_starter import start_process
 
 class ProcessMonitor:
     def __init__(self, event_loop: Optional[asyncio.AbstractEventLoop] = None):
-        self.processes: Dict[ProcessType, subprocess.Popen] = {}
+        self.processes: Dict[ProcessType, subprocess.Popen | None] = {}
         self.process_args: Dict[ProcessType, List[str]] = {}
-        self.config_path: str | None = None
+        self.config_path: str = ""
         self.event_loop = event_loop
 
     def start_and_monitor_process(
         self,
         process_type: ProcessType,
     ):
-        if self.config_path is None:
+        if self.config_path == "":
             raise ValueError("Config path not set")
 
         process = start_process(process_type, self.config_path)
-        if process:
-            self.processes[process_type] = process
-            if self.event_loop:
-                asyncio.run_coroutine_threadsafe(
-                    self.monitor_process(process_type), self.event_loop
-                )
-            else:
-                asyncio.create_task(self.monitor_process(process_type))
+        self.processes[process_type] = process
+        if self.event_loop:
+            asyncio.run_coroutine_threadsafe(
+                self.monitor_process(process_type), self.event_loop
+            )
+        else:
+            asyncio.create_task(self.monitor_process(process_type))
 
     def set_config_path(self, config_path: str):
         self.config_path = config_path
@@ -43,6 +42,9 @@ class ProcessMonitor:
     def ping_processes_and_get_alive(self):
         alive_processes = []
         for process_type, process in self.processes.items():
+            if process is None:
+                continue
+            
             try:
                 process.poll()
                 if process.poll() is None:
@@ -91,23 +93,22 @@ class ProcessMonitor:
         info("Aborted Successfully!")
 
     async def monitor_process(self, process_type: ProcessType):
+        timer = 0
         while True:
-            process = self.processes.get(process_type)
-            if not process:
-                break
-
-            return_code = process.poll()
-            if return_code is not None:
-                debug(f"Process {process_type} exited with code {return_code}")
-                if self.config_path is None:
-                    raise ValueError("Config path not set")
-
-                new_process = start_process(process_type, self.config_path)
-                if new_process:
-                    self.processes[process_type] = new_process
-                    debug(f"Restarted process {process_type}")
+            if process_type not in self.processes:
+                timer += 1
+                if timer > 10:
+                    warning(f"Process {process_type} is not in the processes dictionary, skipping...")
                     break
-                else:
-                    warning(f"Failed to restart process {process_type}")
+                    
+                await asyncio.sleep(1)
+                continue
+            
+            process = self.processes.get(process_type)
+            timer = 0
+            
+            if process is None or process.poll() is not None:
+                warning(f"Process {process_type} is dead, restarting...")
+                self.processes[process_type] = start_process(process_type, self.config_path)
 
             await asyncio.sleep(1)

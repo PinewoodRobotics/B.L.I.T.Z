@@ -11,7 +11,7 @@ const lidar_configs: {
     is_2d: false,
     min_distance_meters: 0,
     max_distance_meters: 40.0,
-    cloud_scan_num: 60,
+    cloud_scan_num: 28,
     position_in_robot: VectorUtil.fromArray<3>([0.0, 0.0, 0.0]),
     rotation_in_robot: MatrixUtil.buildMatrix<3, 3>([
       [1, 0, 0],

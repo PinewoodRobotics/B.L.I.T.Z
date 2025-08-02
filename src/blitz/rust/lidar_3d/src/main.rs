@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use clap::Parser;
 use common_core::autobahn::{Address, Autobahn};
 use common_core::config::from_uncertainty_config;
@@ -15,6 +17,9 @@ use common_core::thrift::lidar::LidarConfig;
 use futures_util::StreamExt;
 use prost::Message;
 use unitree_lidar_l1_rust::lidar::reader::{LidarReader, LidarResult};
+
+use crate::util::imu::ImuPositionVelocityEstimator;
+use crate::util::model::UpdateModel;
 
 mod timed_point_map;
 mod util;
@@ -73,6 +78,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     reader.start_lidar()?;
 
+    let mut imu_pos_estimator = ImuPositionVelocityEstimator::new(Duration::new(2, 0));
+
     let mut reader = reader.into_stream();
     while let Some(result) = reader.next().await {
         match result {
@@ -101,8 +108,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     })),
                 };
 
-                println!("Publishing lidar data");
-
                 let _ = autobahn
                     .publish(
                         &format!("lidar/lidar3d/pointcloud/3d/robotframe"),
@@ -111,45 +116,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await;
             }
             LidarResult::ImuReading(imu) => {
-                let imu = ImuData {
-                    position: Some(Position3d {
-                        position: Some(Vector3 {
-                            x: imu.quaternion[0],
-                            y: imu.quaternion[1],
-                            z: imu.quaternion[2],
-                        }),
-                        direction: Some(Vector3 {
-                            x: imu.quaternion[0],
-                            y: imu.quaternion[1],
-                            z: imu.quaternion[2],
-                        }),
-                    }),
-                    velocity: Some(Vector3 {
-                        x: imu.angular_velocity[0],
-                        y: imu.angular_velocity[1],
-                        z: imu.angular_velocity[2],
-                    }),
-                    acceleration: Some(Vector3 {
-                        x: imu.linear_acceleration[0],
-                        y: imu.linear_acceleration[1],
-                        z: imu.linear_acceleration[2],
-                    }),
-                };
+                let imu_new_pos = imu_pos_estimator.update(&imu);
 
-                let general_sensor_data = GeneralSensorData {
-                    sensor_name: SensorName::Imu as i32,
-                    sensor_id: lidar_name.clone(),
-                    timestamp: std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_millis() as i64,
-                    data: Some(Data::Imu(imu)),
+                let position_data = Position3d {
+                    position: Some(Vector3 {
+                        x: imu_new_pos.x,
+                        y: imu_new_pos.y,
+                        z: imu_new_pos.z,
+                    }),
+                    direction: Some(Vector3 {
+                        x: imu_new_pos.x,
+                        y: imu_new_pos.y,
+                        z: imu_new_pos.z,
+                    }),
                 };
 
                 let _ = autobahn
                     .publish(
-                        &format!("lidar/lidar3d/imu/robotframe"),
-                        general_sensor_data.encode_to_vec(),
+                        &format!("lidar/lidar3d/imu/position"),
+                        position_data.encode_to_vec(),
                     )
                     .await;
             }

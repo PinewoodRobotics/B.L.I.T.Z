@@ -20,7 +20,10 @@ serde_json = "1.0"
 libc = "0.2.171"
 cxx = "1.0.150"
 kiss3d = "0.35.0"
-nalgebra = { version = "0.33.2", features = ["serde-serialize"] }
+nalgebra = { version = "0.33.2", default-features = false, features = [
+    "serde-serialize",
+] }
+nalgebra25 = { package = "nalgebra", version = "0.25.4" }
 rstar = "0.12.2"
 dbscan = "0.3.1"
 image = "0.25.6"
@@ -28,6 +31,7 @@ clap = { version = "4.5", features = ["derive"] }
 thrift = "0.17"
 prost-build = "0.13.5"
 unitree-lidar-l1-rust = "0.1.0"
+eskf = "0.2.0"
 
 [workspace.metadata]
 rust-project = { path = "src/blitz/rust" }
