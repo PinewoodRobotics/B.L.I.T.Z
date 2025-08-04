@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+import "util/vector.proto";
+
+package proto.pathfind;
+
+message PathfindRequest {
+    util.Vector2 start = 1;
+    util.Vector2 goal = 2;
+}
+
+enum Cell {
+    PASSABLE = 0;
+    OBSTACLE = 1;
+    TEMPORARY = 2;
+}
+
+message Grid {
+    oneof grid {
+        Grid2d grid_2d = 1;
+        Grid3d grid_3d = 2;
+    }
+}
+
+message Grid2d {
+    repeated Cell grid = 1;
+    int32 width = 2;
+    int32 height = 3;
+}
+
+message Grid3d {
+    repeated Cell grid = 1;
+    int32 width = 2;
+    int32 height = 3;
+    int32 depth = 4;
+}

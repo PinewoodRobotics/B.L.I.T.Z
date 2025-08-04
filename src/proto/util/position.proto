@@ -21,4 +21,5 @@ message RobotPosition {
   }
   float timestamp = 3;
   float confidence = 4;
+  repeated float P = 5;
 }

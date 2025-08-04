@@ -3,10 +3,12 @@ use common_core::{
     autobahn::{Address, Autobahn},
     config::from_uncertainty_config,
     device_info::load_system_config,
+    proto::pathfind::grid::Grid,
     thrift::{config::Config, lidar::LidarConfig},
 };
+use tokio::time;
 
-use crate::grid::Grid;
+use crate::grid::Grid2d;
 
 pub mod astar;
 pub mod grid;
@@ -16,17 +18,6 @@ pub mod grid;
 struct Args {
     #[arg(short, long)]
     config: Option<String>,
-}
-
-fn get_lidar_config(config: &Config, current_pi: &str) -> Vec<(String, LidarConfig)> {
-    let mut output_lidar_configs = Vec::new();
-    for (key, lidar_config) in config.lidar_configs.iter() {
-        if lidar_config.pi_to_run_on == current_pi {
-            output_lidar_configs.push((key.clone(), lidar_config.clone()));
-        }
-    }
-
-    output_lidar_configs
 }
 
 #[tokio::main]
@@ -44,7 +35,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pathfind_config = config.pathfinding;
 
-    let grid = Grid::from_map_data(pathfind_config.map_data);
+    let grid = Grid2d::from_map_data(pathfind_config.map_data);
+
+    let sigint = tokio::signal::ctrl_c();
+    tokio::pin!(sigint);
+
+    loop {
+        tokio::select! {
+            _ = &mut sigint => {
+                break;
+            }
+            _ = time::sleep(time::Duration::from_millis(100)) => {
+
+                let grid_data = grid.serialize();
+                let mut buf = Vec::new();
+                Grid::Grid2d(grid_data).encode(&mut buf);
+                autobahn
+                    .publish(pathfind_config.map_pub_topic.as_str(), buf)
+                    .await?;
+            }
+        }
+    }
 
     return Ok(());
 }

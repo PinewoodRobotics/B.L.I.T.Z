@@ -16,6 +16,10 @@ pub mod proto {
     pub mod util {
         include!(concat!(env!("OUT_DIR"), "/proto.util.rs"));
     }
+
+    pub mod pathfind {
+        include!(concat!(env!("OUT_DIR"), "/proto.pathfind.rs"));
+    }
 }
 
 #[allow(dead_code, unused_imports, unused_extern_crates)]

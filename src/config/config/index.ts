@@ -3,6 +3,7 @@ import { april_tag_detection_config } from "./april_tags_detection";
 import { autobahn_config } from "./autobahn";
 import prod1 from "./cameras/prod_1";
 import lidar_configs from "./lidar";
+import pathfinding_config from "./pathfinding";
 import { pose_extrapolator } from "./pos_extrapolator";
 import { LogLevel, LogLevelUtil } from "./util/struct";
 
@@ -50,6 +51,7 @@ const config: Config = {
     confirmation_topic: "",
   },
   lidar_configs: lidar_configs,
+  pathfinding: pathfinding_config,
 };
 
 export default config;

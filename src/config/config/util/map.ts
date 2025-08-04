@@ -11,10 +11,12 @@ export function fromImageToMap(
   const { Image } = require("canvas");
   const imageBuffer = fs.readFileSync(imagePath);
   const img = new Image();
-  img.src = imageBuffer.buffer.slice(
-    imageBuffer.byteOffset,
-    imageBuffer.byteOffset + imageBuffer.byteLength
-  );
+  img.src = imageBuffer;
+
+  if (!img.complete || img.width === 0 || img.height === 0) {
+    throw new Error("Image failed to load or is invalid");
+  }
+
   const width = img.width;
   const height = img.height;
   const splitWidth = width * pixel_split_per_pixel;
@@ -35,7 +37,7 @@ export function fromImageToMap(
           if (r === 255 && g === 255 && b === 255) {
             boolArray.push(false);
           } else {
-            boolArray.push(false);
+            boolArray.push(true);
           }
         }
       }

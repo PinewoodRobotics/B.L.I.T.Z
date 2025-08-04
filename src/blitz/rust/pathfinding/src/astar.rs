@@ -1,7 +1,7 @@
 use nalgebra::Vector2;
 use std::collections::HashMap;
 
-use crate::grid::Grid;
+use crate::grid::Grid2d;
 
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
@@ -25,37 +25,11 @@ impl PartialOrd for Node {
     }
 }
 
-impl Grid {
+impl Grid2d {
     fn heuristic(a: Vector2<usize>, b: Vector2<usize>) -> usize {
         let dx = if a.x > b.x { a.x - b.x } else { b.x - a.x };
         let dy = if a.y > b.y { a.y - b.y } else { b.y - a.y };
         dx + dy
-    }
-
-    fn in_bounds(&self, pos: Vector2<usize>) -> bool {
-        pos.x < self.width && pos.y < self.height
-    }
-
-    fn is_passable(&self, pos: Vector2<usize>) -> bool {
-        self.cells[pos.y * self.width + pos.x]
-    }
-
-    fn neighbors(&self, pos: Vector2<usize>) -> impl Iterator<Item = Vector2<usize>> + '_ {
-        let deltas = [(1isize, 0isize), (0, 1), (-1, 0), (0, -1)];
-        deltas.into_iter().filter_map(move |(dx, dy)| {
-            let nx = pos.x as isize + dx;
-            let ny = pos.y as isize + dy;
-            if nx >= 0 && ny >= 0 {
-                let npos = Vector2::new(nx as usize, ny as usize);
-                if self.in_bounds(npos) && self.is_passable(npos) {
-                    Some(npos)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })
     }
 
     pub fn astar(&self, start: Vector2<usize>, goal: Vector2<usize>) -> Vec<Vector2<usize>> {
@@ -89,6 +63,7 @@ impl Grid {
                     path.push(prev);
                     curr = prev;
                 }
+
                 path.reverse();
                 return path;
             }
@@ -122,12 +97,12 @@ impl Grid {
 mod tests {
     use super::*;
 
-    fn make_grid(width: usize, height: usize, open: &[(usize, usize)]) -> Grid {
+    fn make_grid(width: usize, height: usize, open: &[(usize, usize)]) -> Grid2d {
         let mut cells = vec![false; width * height];
         for &(x, y) in open {
             cells[y * width + x] = true;
         }
-        Grid::new(width, height, &cells)
+        Grid2d::new(width, height, &cells)
     }
 
     #[test]
