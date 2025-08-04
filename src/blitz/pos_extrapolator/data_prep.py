@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Protocol, Type, TypeVar, Optional, Callable, Union
-from abc import ABC
+from typing import Any, Dict, Type, TypeVar, Optional, Callable, Protocol
 
 import numpy as np
 
@@ -16,6 +15,8 @@ class KalmanFilterInput:
     sensor_id: str
     sensor_type: KalmanFilterSensorType
     non_used_indices: Optional[list[int]] = None
+    jacobian_h: Optional[Callable[[np.ndarray], np.ndarray]] = None
+    hx: Optional[Callable[[np.ndarray], np.ndarray]] = None
 
 
 class ConfigProvider(Protocol[C]):

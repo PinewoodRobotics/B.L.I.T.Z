@@ -104,9 +104,9 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
             )
 
             render_direction_vector = render_rotation[0:3, 0]
-            rotation_angle_rad = np.arctan2(
-                render_direction_vector[1], render_direction_vector[0]
-            )
+            # rotation_angle_rad = np.arctan2( <- correct rotation theta angle
+            #    render_direction_vector[1], render_direction_vector[0]
+            # )
 
             input_list.append(
                 [
@@ -114,7 +114,8 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
                     render_pose[1],
                     0,
                     0,
-                    rotation_angle_rad,
+                    render_direction_vector[1],
+                    render_direction_vector[0],
                 ],
             )
 

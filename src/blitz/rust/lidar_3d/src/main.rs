@@ -18,7 +18,7 @@ use futures_util::StreamExt;
 use prost::Message;
 use unitree_lidar_l1_rust::lidar::reader::{LidarReader, LidarResult};
 
-use crate::util::imu::ImuPositionVelocityEstimator;
+use crate::util::imu::{ImuPositionVelocityEstimator, VelEstimator};
 use crate::util::model::UpdateModel;
 use crate::util::transform_point;
 
@@ -80,6 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     reader.start_lidar()?;
 
     let mut imu_pos_estimator = ImuPositionVelocityEstimator::new();
+    let mut imu_vel_estimator = VelEstimator::new(Duration::new(0, 0));
 
     let mut reader = reader.into_stream();
     while let Some(result) = reader.next().await {
@@ -119,6 +120,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             LidarResult::ImuReading(imu) => {
                 let imu_new_pos = imu_pos_estimator.update(&imu);
+                let imu_new_vel = imu_vel_estimator.update(&imu);
 
                 let position_data = Position3d {
                     position: Some(Vector3 {
@@ -140,6 +142,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .await;
 
+                // println!("!!! IMU Velocity: {:?}", imu_new_vel);
+
                 let _ = autobahn
                     .publish(
                         &format!("imu/imu"),
@@ -153,9 +157,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             data: Some(Data::Imu(ImuData {
                                 position: None,
                                 velocity: Some(Vector3 {
-                                    x: imu_new_pos.x,
-                                    y: imu_new_pos.y,
-                                    z: imu_new_pos.z,
+                                    x: imu_new_vel.x,
+                                    y: imu_new_vel.y,
+                                    z: imu_new_vel.z,
                                 }),
                                 acceleration: Some(Vector3 {
                                     x: imu_new_pos.x,

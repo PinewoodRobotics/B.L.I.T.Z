@@ -1,4 +1,4 @@
-use nalgebra::{Quaternion, UnitQuaternion, Vector3};
+use nalgebra::{Matrix1, Matrix2, Quaternion, RowVector2, UnitQuaternion, Vector2, Vector3};
 use std::time::{self, Duration, Instant};
 use unitree_lidar_l1_rust::bridge::ffi::ImuRust;
 
@@ -12,16 +12,16 @@ pub struct VelEstimator {
     prev_stamp: Option<time::Duration>,
     velocity: Vector3<f32>,
     max_dt: f32,
-    velocity_decay: f32,
 }
 
 impl VelEstimator {
     pub fn new(start_stamp: time::Duration) -> Self {
+        let dt = 0.01;
+
         VelEstimator {
             prev_stamp: Some(start_stamp),
             velocity: Vector3::zeros(),
-            max_dt: 0.1,           // 100ms max - reset if larger gaps
-            velocity_decay: 0.995, // 0.5% decay per update to prevent drift
+            max_dt: 0.1, // 100ms max - reset if larger gaps
         }
     }
 
@@ -64,8 +64,6 @@ impl UpdateModel<ImuRust, Vector3<f32>> for VelEstimator {
         let a_world = q.transform_vector(&a_body);
 
         let a_net = a_world - *GRAVITY;
-
-        self.velocity *= self.velocity_decay;
 
         let velocity_delta = a_net * dt_f32;
         self.velocity += velocity_delta;

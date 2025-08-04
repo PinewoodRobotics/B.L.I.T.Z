@@ -36,7 +36,8 @@ class OdomDataPreparer(DataPreparer[OdometryData, OdomDataPreparerConfig]):
                     data.position.position.y,
                     data.velocity.x,
                     data.velocity.y,
-                    math.atan2(data.position.direction.x, data.position.direction.y),
+                    data.position.direction.x,
+                    data.position.direction.y,
                 ]
             ),
             sensor_id=sensor_id,

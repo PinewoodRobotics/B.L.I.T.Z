@@ -24,18 +24,7 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
         self.last_update_time = time.time()
 
     def jacobian_h(self, x: np.ndarray) -> np.ndarray:
-        full_matrix = np.array(
-            [
-                [1, 0, 0, 0, 0, 0],
-                [0, 1, 0, 0, 0, 0],
-                [0, 0, 1, 0, 0, 0],
-                [0, 0, 0, 1, 0, 0],
-                [0, 0, 0, 0, 1, 0],
-                [0, 0, 0, 0, 0, 1],
-            ]
-        )
-
-        return full_matrix
+        return np.eye(6)
 
     def hx(self, x: np.ndarray) -> np.ndarray:
         return x
@@ -45,11 +34,7 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
         if dt > 5 or dt < 0:
             dt = 0.05
 
-        self._update_transformation_delta_t_with_size(
-            dt,
-            self.hw,
-            self.hw,
-        )
+        self._update_transformation_delta_t_with_size(dt)
 
         self.predict()
 
@@ -67,8 +52,8 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
 
         self.update(
             measurement,
-            self.jacobian_h,
-            self.hx,
+            data.jacobian_h if data.jacobian_h is not None else self.jacobian_h,
+            data.hx if data.hx is not None else self.hx,
             R=R,
         )
 
@@ -118,31 +103,12 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
             return 0.0
         return (pos_conf * vel_conf * rot_conf) ** (1 / 3)
 
-    def _update_transformation_delta_t_with_size(
-        self, new_delta_t: float, size_matrix_w: int, size_matrix_h: int
-    ):
-        if new_delta_t <= 0:
-            warnings.warn(f"Invalid delta_t: {new_delta_t}. Must be positive.")
-            return
-
-        if size_matrix_w <= 0 or size_matrix_h <= 0:
-            warnings.warn(f"Invalid matrix dimensions: {size_matrix_w}x{size_matrix_h}")
-            return
-
+    def _update_transformation_delta_t_with_size(self, new_delta_t: float):
         try:
             vel_idx_x = 2  # vx is at index 2 in [x, y, vx, vy, theta, omega]
             vel_idx_y = 3  # vy is at index 3 in [x, y, vx, vy, theta, omega]
-
-            if (
-                vel_idx_x < self.F.shape[1]
-                and vel_idx_y < self.F.shape[1]
-                and vel_idx_x >= 0
-                and vel_idx_y >= 0
-            ):
-                self.F[0][vel_idx_x] = new_delta_t
-                self.F[1][vel_idx_y] = new_delta_t
-            else:
-                warnings.warn(f"Matrix index out of bounds for F matrix update")
+            self.F[0][vel_idx_x] = new_delta_t
+            self.F[1][vel_idx_y] = new_delta_t
         except IndexError as e:
             warnings.warn(f"Error updating F matrix: {e}")
 

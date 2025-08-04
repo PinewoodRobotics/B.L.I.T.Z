@@ -56,12 +56,14 @@ def test_data_prep():
     odometry_input = data_preparer_manager.prepare_data(odometry_data, "odom")
 
     assert np.array_equal(
-        imu_input.input_list, np.array([1.0, 2.0, 0.5, 0.5, 10.0, 11.0])
+        imu_input.input_list, np.array([1.0, 2.0, 10.0, 11.0, 0.5, 0.5])
     )
     assert imu_input.sensor_id == "0"
     assert imu_input.sensor_type == KalmanFilterSensorType.IMU
 
-    assert np.allclose(odometry_input.input_list, [13, 14, 15, 16, 0.78539816])
+    assert np.allclose(
+        odometry_input.input_list, [13.0, 14.0, 15.0, 16.0, 0.69999999, 0.69999999]
+    )
     assert odometry_input.sensor_id == "odom"
     assert odometry_input.sensor_type == KalmanFilterSensorType.ODOMETRY
 

@@ -902,15 +902,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eskf"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04b2a1dede94b60138e5c8ac20176c14631396b2e98d778100137ff29b54980a"
-dependencies = [
- "nalgebra 0.25.4",
-]
-
-[[package]]
 name = "exr"
 version = "1.73.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1710,7 +1701,6 @@ dependencies = [
  "common-core",
  "cxx",
  "dbscan",
- "eskf",
  "futures-util",
  "image 0.25.6",
  "kiss3d",

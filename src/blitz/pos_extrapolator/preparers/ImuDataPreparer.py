@@ -32,10 +32,10 @@ class ImuDataPreparer(DataPreparer[ImuData, ImuDataPreparerConfig]):
         values = [
             (config.use_position, data.position.position.x),
             (config.use_position, data.position.position.y),
-            (config.use_rotation, data.position.direction.x),
-            (config.use_rotation, data.position.direction.y),
             (config.use_velocity, data.velocity.x),
             (config.use_velocity, data.velocity.y),
+            (config.use_rotation, data.position.direction.x),
+            (config.use_rotation, data.position.direction.y),
         ]
 
         # Only include values that are used
@@ -48,3 +48,9 @@ class ImuDataPreparer(DataPreparer[ImuData, ImuDataPreparerConfig]):
             sensor_type=KalmanFilterSensorType.IMU,
             non_used_indices=non_used_indices if non_used_indices else None,
         )
+
+    def jacobian_h(self, x: np.ndarray) -> np.ndarray:
+        return np.eye(6)
+
+    def hx(self, x: np.ndarray) -> np.ndarray:
+        return x
