@@ -47,7 +47,7 @@ async def main():
                 console.print(f"[green]Successfully started {args.process[0]}[/green]")
             else:
                 console.print(
-                    f"[red]Failed to start {args.process[0]}: {response.text}[/red]"
+                    f"[red]Failed to start {args.process[0]}: {response.json()}[/red]"
                 )
         except ValueError as e:
             console.print(f"[red]Error: {e}[/red]")

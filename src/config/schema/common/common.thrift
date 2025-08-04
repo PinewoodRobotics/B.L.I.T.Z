@@ -69,3 +69,14 @@ struct Matrix6x6 {
     5: required Vector6D r5,
     6: required Vector6D r6,
 }
+
+struct UnitConversion {
+    1: required double non_unit_to_unit,
+    2: required double unit_to_non_unit,
+}
+
+struct MapData {
+    1: required list<bool> map_data,
+    2: required i32 map_size_x,
+    3: required i32 map_size_y,
+}

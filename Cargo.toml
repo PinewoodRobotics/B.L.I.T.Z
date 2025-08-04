@@ -5,6 +5,7 @@ members = [
     "src/blitz/rust/common",
     "src/blitz/rust/lidar_3d",
     "src/blitz/rust/lidar_data_processing",
+    "src/blitz/rust/pathfinding",
 ]
 
 [workspace.dependencies]

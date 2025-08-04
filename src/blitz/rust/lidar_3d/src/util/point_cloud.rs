@@ -21,9 +21,7 @@ impl PointCloudUndistort {
     pub fn new(measurement_collection_duration: Duration) -> Self {
         Self {
             all_lidar_points: Vec::new(),
-            imu_position_velocity_estimator: ImuPositionVelocityEstimator::new(Duration::new(
-                10, 0,
-            )),
+            imu_position_velocity_estimator: ImuPositionVelocityEstimator::new(),
             last_measurement_position: Vector3::zeros(),
             measurement_collection_duration,
             last_reset_time: Instant::now(),

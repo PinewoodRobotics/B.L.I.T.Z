@@ -59,4 +59,7 @@ pub mod thrift {
     pub mod watchdog {
         include!(concat!(env!("OUT_DIR"), "/thrift/watchdog.rs"));
     }
+    pub mod pathfinding {
+        include!(concat!(env!("OUT_DIR"), "/thrift/pathfinding.rs"));
+    }
 }

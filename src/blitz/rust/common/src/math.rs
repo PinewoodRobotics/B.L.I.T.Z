@@ -33,7 +33,7 @@ pub fn to_transformation_matrix_vec_matrix(
 pub fn to_transformation_matrix_vec_matrix_f64(
     position_in_robot: Vector3<f64>,
     matrix_rotation: Matrix3<f64>,
-) -> Matrix4<f64> {
+) -> Matrix4<f32> {
     let mut transform = Matrix4::identity();
     transform
         .fixed_view_mut::<3, 3>(0, 0)
@@ -42,5 +42,5 @@ pub fn to_transformation_matrix_vec_matrix_f64(
         .fixed_view_mut::<3, 1>(0, 3)
         .copy_from(&position_in_robot);
 
-    transform
+    transform.map(|x| x as f32)
 }

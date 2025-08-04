@@ -8,6 +8,7 @@ include "./lidar/lidar.thrift"
 include "./logger/logger.thrift"
 include "./pos_extrapolator/pos_extrapolator.thrift"
 include "./watchdog/watchdog.thrift"
+include "./pathfinding/pathfinding.thrift"
 
 struct Config {
     1: required autobahn.AutobahnConfig autobahn,
@@ -17,5 +18,6 @@ struct Config {
     5: required list<camera.CameraParameters> cameras,
     6: required map<string, lidar.LidarConfig> lidar_configs,
     7: required apriltag.AprilDetectionConfig april_detection,
-    8: required logger.LoggerConfig logger,
+    8: required pathfinding.PathfindingConfig pathfinding,
+    9: required logger.LoggerConfig logger,
 }

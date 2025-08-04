@@ -20,6 +20,7 @@ use unitree_lidar_l1_rust::lidar::reader::{LidarReader, LidarResult};
 
 use crate::util::imu::ImuPositionVelocityEstimator;
 use crate::util::model::UpdateModel;
+use crate::util::transform_point;
 
 mod timed_point_map;
 mod util;
@@ -78,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     reader.start_lidar()?;
 
-    let mut imu_pos_estimator = ImuPositionVelocityEstimator::new(Duration::new(2, 0));
+    let mut imu_pos_estimator = ImuPositionVelocityEstimator::new();
 
     let mut reader = reader.into_stream();
     while let Some(result) = reader.next().await {
@@ -86,6 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             LidarResult::PointCloud(points) => {
                 let points = points
                     .iter()
+                    .map(|point| transform_point(point, &lidar_in_robot_transformation))
                     .map(|point| Vector3 {
                         x: point.x,
                         y: point.y,

@@ -98,19 +98,15 @@ pub struct ImuPositionVelocityEstimator {
     last_rotation: Vector3<f32>,
     velocity_estimator: VelEstimator,
     last_time_stamp: Option<Duration>,
-    vel_estimator_reset_time: Duration,
-    last_reset_time: Duration,
 }
 
 impl ImuPositionVelocityEstimator {
-    pub fn new(vel_estimator_reset_time: Duration) -> Self {
+    pub fn new() -> Self {
         ImuPositionVelocityEstimator {
             last_position: Vector3::zeros(),
             last_rotation: Vector3::zeros(),
             velocity_estimator: VelEstimator::new(time::Duration::new(0, 0)),
             last_time_stamp: None,
-            vel_estimator_reset_time,
-            last_reset_time: Duration::new(0, 0),
         }
     }
 }
@@ -123,14 +119,6 @@ impl UpdateModel<ImuRust, Vector3<f32>> for ImuPositionVelocityEstimator {
         if self.last_time_stamp.is_none() {
             self.last_time_stamp = Some(Duration::from_secs_f64(imu.stamp));
             return Vector3::zeros();
-        }
-
-        if self.last_time_stamp.unwrap() - self.last_reset_time > self.vel_estimator_reset_time {
-            self.velocity_estimator.reset(Instant::now());
-            self.velocity_estimator.update(imu);
-            self.last_reset_time = self.last_time_stamp.unwrap();
-            self.last_time_stamp = Some(Duration::from_secs_f64(imu.stamp));
-            return self.last_position;
         }
 
         let newest_velocity = self.velocity_estimator.update(imu);
@@ -217,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_imu_position_velocity_estimator_with_gravity() {
-        let mut imu_vel_estimator = ImuPositionVelocityEstimator::new(Duration::new(10, 0));
+        let mut imu_vel_estimator = ImuPositionVelocityEstimator::new();
         let imu_data = get_imu_data();
         for imu in imu_data {
             let position = imu_vel_estimator.update(&imu);
