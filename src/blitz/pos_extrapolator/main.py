@@ -34,21 +34,25 @@ async def main():
     autobahn_server = Autobahn(Address(config.autobahn.host, config.autobahn.port))
     await autobahn_server.begin()
 
-    DataPreparerManager.set_config(
-        ImuData, ImuDataPreparerConfig(config.pos_extrapolator.imu_config)
-    )
-    DataPreparerManager.set_config(
-        OdometryData, OdomDataPreparerConfig(config.pos_extrapolator.odom_config)
-    )
-    DataPreparerManager.set_config(
-        AprilTagData,
-        AprilTagDataPreparerConfig(
-            (
-                config.pos_extrapolator.tag_position_config,
-                config.pos_extrapolator.camera_position_config,
+    if config.pos_extrapolator.enable_imu:
+        DataPreparerManager.set_config(
+            ImuData, ImuDataPreparerConfig(config.pos_extrapolator.imu_config)
+        )
+    if config.pos_extrapolator.enable_odom:
+        DataPreparerManager.set_config(
+            OdometryData, OdomDataPreparerConfig(config.pos_extrapolator.odom_config)
+        )
+
+    if config.pos_extrapolator.enable_tags:
+        DataPreparerManager.set_config(
+            AprilTagData,
+            AprilTagDataPreparerConfig(
+                (
+                    config.pos_extrapolator.tag_position_config,
+                    config.pos_extrapolator.camera_position_config,
+                ),
             ),
-        ),
-    )
+        )
 
     position_extrapolator = PositionExtrapolator(
         config.pos_extrapolator,
@@ -63,13 +67,18 @@ async def main():
             data.__getattribute__(one_of_name), data.sensor_id
         )
 
+    subscribe_topics = [
+        config.pos_extrapolator.message_config.post_tag_input_topic,
+        config.pos_extrapolator.message_config.post_odometry_input_topic,
+        config.pos_extrapolator.message_config.post_imu_input_topic,
+    ]
+
+    if config.pos_extrapolator.composite_publish_topic:
+        subscribe_topics.append(config.pos_extrapolator.composite_publish_topic)
+
     await subscribe_to_multiple_topics(
         autobahn_server,
-        [
-            config.pos_extrapolator.message_config.post_tag_input_topic,
-            config.pos_extrapolator.message_config.post_odometry_input_topic,
-            config.pos_extrapolator.message_config.post_imu_input_topic,
-        ],
+        subscribe_topics,
         process_data,
     )
 
