@@ -139,6 +139,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         position_data.encode_to_vec(),
                     )
                     .await;
+
+                let _ = autobahn
+                    .publish(
+                        &format!("imu/imu"),
+                        GeneralSensorData {
+                            sensor_name: SensorName::Imu as i32,
+                            sensor_id: "0".to_string(),
+                            timestamp: std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs() as i64,
+                            data: Some(Data::Imu(ImuData {
+                                position: None,
+                                velocity: Some(Vector3 {
+                                    x: imu_new_pos.x,
+                                    y: imu_new_pos.y,
+                                    z: imu_new_pos.z,
+                                }),
+                                acceleration: Some(Vector3 {
+                                    x: imu_new_pos.x,
+                                    y: imu_new_pos.y,
+                                    z: imu_new_pos.z,
+                                }),
+                            })),
+                        }
+                        .encode_to_vec(),
+                    )
+                    .await;
             }
         }
     }

@@ -28,16 +28,23 @@ class ImuDataPreparer(DataPreparer[ImuData, ImuDataPreparerConfig]):
         return ImuData
 
     def prepare_input(self, data: ImuData, sensor_id: str) -> KalmanFilterInput:
+        config = self.config.config[sensor_id]
+        values = [
+            (config.use_position, data.position.position.x),
+            (config.use_position, data.position.position.y),
+            (config.use_rotation, data.position.direction.x),
+            (config.use_rotation, data.position.direction.y),
+            (config.use_velocity, data.velocity.x),
+            (config.use_velocity, data.velocity.y),
+        ]
+
+        # Only include values that are used
+        used_values = [value for use, value in values]
+        non_used_indices = [i for i, (use, _) in enumerate(values) if not use]
+
         return KalmanFilterInput(
-            input_list=np.array(
-                [
-                    data.position.position.x,
-                    data.position.position.y,
-                    data.velocity.x,
-                    data.velocity.y,
-                    np.arctan2(data.position.direction.x, data.position.direction.y),
-                ]
-            ),
+            input_list=np.array(used_values),
             sensor_id=sensor_id,
             sensor_type=KalmanFilterSensorType.IMU,
+            non_used_indices=non_used_indices if non_used_indices else None,
         )

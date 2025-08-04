@@ -29,10 +29,10 @@ export const kalman_filter: KalmanFilterConfig = {
     [0.0, 0.0, 0.0, 0.0, 0.01, 0.0],
     [0.0, 0.0, 0.0, 0.0, 0.0, 0.01],
   ]),
-  dim_x_z: [5, 5],
+  dim_x_z: [6, 6],
   sensors: {
     [KalmanFilterSensorTypeUtil.fromEnum(SensorType.APRIL_TAG)]: {
-      config: {
+      april_tag: {
         measurement_conversion_matrix: MatrixUtil.buildMatrix<6, 6>([
           [1, 0.0, 0.0, 0.0, 0.0, 0.0],
           [0.0, 1, 0.0, 0.0, 0.0, 0.0],
@@ -51,8 +51,8 @@ export const kalman_filter: KalmanFilterConfig = {
         ]),
       },
     },
-    [KalmanFilterSensorTypeUtil.fromEnum(SensorType.APRIL_TAG)]: {
-      config: {
+    [KalmanFilterSensorTypeUtil.fromEnum(SensorType.IMU)]: {
+      imu: {
         measurement_conversion_matrix: MatrixUtil.buildMatrix<6, 6>([
           [1, 0.0, 0.0, 0.0, 0.0, 0.0],
           [0.0, 1, 0.0, 0.0, 0.0, 0.0],
@@ -71,8 +71,8 @@ export const kalman_filter: KalmanFilterConfig = {
         ]),
       },
     },
-    [KalmanFilterSensorTypeUtil.fromEnum(SensorType.APRIL_TAG)]: {
-      config: {
+    [KalmanFilterSensorTypeUtil.fromEnum(SensorType.ODOM)]: {
+      odom: {
         measurement_conversion_matrix: MatrixUtil.buildMatrix<6, 6>([
           [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
           [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],

@@ -73,7 +73,10 @@ async def main():
         config.pos_extrapolator.message_config.post_imu_input_topic,
     ]
 
-    if config.pos_extrapolator.composite_publish_topic:
+    if (
+        hasattr(config.pos_extrapolator, "composite_publish_topic")
+        and config.pos_extrapolator.composite_publish_topic is not None
+    ):
         subscribe_topics.append(config.pos_extrapolator.composite_publish_topic)
 
     await subscribe_to_multiple_topics(
@@ -92,7 +95,7 @@ async def main():
         proto_position.position_2d.position.y = filtered_position[1]
         proto_position.position_2d.direction.x = filtered_position[4]
         proto_position.position_2d.direction.y = filtered_position[5]
-        proto_position.P.extend(position_extrapolator.get_position_covariance())
+        # proto_position.P.extend(position_extrapolator.get_position_covariance())
 
         await autobahn_server.publish(
             config.pos_extrapolator.message_config.post_robot_position_output_topic,

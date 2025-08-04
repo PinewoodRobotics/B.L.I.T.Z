@@ -14,6 +14,6 @@ class GenericFilterStrategy:
     def get_confidence(self) -> float:
         raise NotImplementedError("get_confidence not implemented")
 
-    def get_P(self) -> np.ndarray | None:
+    def get_P(self) -> np.ndarray:
         # only for kalman filters and usually for debugging purposes
-        return None
+        return np.array([])

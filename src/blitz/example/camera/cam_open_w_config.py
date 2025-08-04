@@ -16,14 +16,24 @@ print(f"Lidar 3D Setting Config Output: {response.json()}")
 
 stop_response = requests.post(
     f"http://10.47.65.7:{basic_system_config.watchdog.port}/stop/process",
-    json={"process_types": [ProcessType.LIDAR_3D.value]},
+    json={
+        "process_types": [
+            ProcessType.LIDAR_3D.value,
+            ProcessType.POS_EXTRAPOLATOR.value,
+        ]
+    },
 )
 
 print(f"Lidar 3D Stopping Process Output: {stop_response.json()}")
 
 response = requests.post(
     f"http://10.47.65.7:{basic_system_config.watchdog.port}/start/process",
-    json={"process_types": [ProcessType.LIDAR_3D.value]},
+    json={
+        "process_types": [
+            ProcessType.LIDAR_3D.value,
+            ProcessType.POS_EXTRAPOLATOR.value,
+        ]
+    },
 )
 
-print(f"Lidar 3D Starting Process Output: {response.json()}")
+print(f"Pos Extrapolator Starting Process Output: {response.json()}")
