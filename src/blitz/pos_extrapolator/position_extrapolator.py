@@ -43,3 +43,10 @@ class PositionExtrapolator:
 
     def get_confidence(self) -> float:
         return self.filter_strategy.get_confidence()
+
+    def get_position_covariance(self) -> list[float]:
+        P = self.filter_strategy.get_P()
+        if P is None:
+            return []
+
+        return P.flatten().tolist()

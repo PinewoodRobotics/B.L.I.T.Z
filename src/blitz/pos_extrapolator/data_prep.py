@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Protocol, Type, TypeVar, Optional, Callable, Union
 from abc import ABC
 
@@ -15,6 +15,7 @@ class KalmanFilterInput:
     input_list: np.ndarray
     sensor_id: str
     sensor_type: KalmanFilterSensorType
+    non_used_indices: Optional[list[int]] = None
 
 
 class ConfigProvider(Protocol[C]):

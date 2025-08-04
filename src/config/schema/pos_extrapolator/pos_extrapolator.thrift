@@ -35,4 +35,5 @@ struct PosExtrapolator {
     9: required map<string, ImuConfig> imu_config,
     10: required kalman_filter.KalmanFilterConfig kalman_filter_config,
     11: required map<string, common.Point3> camera_position_config,
+    12: optional double time_s_between_position_sends,
 }

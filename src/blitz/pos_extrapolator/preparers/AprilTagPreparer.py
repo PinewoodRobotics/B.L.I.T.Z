@@ -122,4 +122,5 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
             input_list=self.get_avg_pose(input_list),
             sensor_id=sensor_id,
             sensor_type=KalmanFilterSensorType.APRIL_TAG,
+            non_used_indices=[2, 3],
         )

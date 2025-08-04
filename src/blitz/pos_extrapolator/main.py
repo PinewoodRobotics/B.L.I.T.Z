@@ -1,3 +1,5 @@
+# TODO: need to add a better way to handle the non-used indices in sensors (config method).
+
 import argparse
 import asyncio
 import time
@@ -16,6 +18,9 @@ from blitz.generated.proto.python.sensor.imu_pb2 import ImuData
 from blitz.generated.proto.python.sensor.odometry_pb2 import OdometryData
 from blitz.generated.proto.python.util.position_pb2 import RobotPosition
 from blitz.pos_extrapolator.data_prep import DataPreparerManager
+from blitz.pos_extrapolator.filters.extended_kalman_filter import (
+    ExtendedKalmanFilterStrategy,
+)
 from blitz.pos_extrapolator.filters.kalman_filter import KalmanFilterStrategy
 from blitz.pos_extrapolator.position_extrapolator import PositionExtrapolator
 from blitz.pos_extrapolator.preparers.AprilTagPreparer import AprilTagDataPreparerConfig
@@ -47,7 +52,7 @@ async def main():
 
     position_extrapolator = PositionExtrapolator(
         config.pos_extrapolator,
-        KalmanFilterStrategy(config.pos_extrapolator.kalman_filter_config),
+        ExtendedKalmanFilterStrategy(config.pos_extrapolator.kalman_filter_config),
         DataPreparerManager(),
     )
 
@@ -76,8 +81,9 @@ async def main():
         proto_position.confidence = position_extrapolator.get_confidence()
         proto_position.position_2d.position.x = filtered_position[0]
         proto_position.position_2d.position.y = filtered_position[1]
-        proto_position.position_2d.direction.x = np.cos(filtered_position[4])
-        proto_position.position_2d.direction.y = np.sin(filtered_position[4])
+        proto_position.position_2d.direction.x = filtered_position[4]
+        proto_position.position_2d.direction.y = filtered_position[5]
+        proto_position.P.extend(position_extrapolator.get_position_covariance())
 
         await autobahn_server.publish(
             config.pos_extrapolator.message_config.post_robot_position_output_topic,
@@ -85,8 +91,10 @@ async def main():
         )
 
         await asyncio.sleep(
-            0.025
-        )  # TODO: figure out the delay that needs to be set here.
+            config.pos_extrapolator.time_s_between_position_sends
+            if config.pos_extrapolator.time_s_between_position_sends
+            else 0.025
+        )
 
 
 if __name__ == "__main__":
