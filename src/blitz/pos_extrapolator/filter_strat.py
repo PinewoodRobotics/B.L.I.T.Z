@@ -8,7 +8,7 @@ class GenericFilterStrategy:
     def insert_data(self, data: object) -> None:
         raise NotImplementedError("insert_data not implemented")
 
-    def get_state(self) -> list[float]:
+    def get_state(self) -> np.ndarray:
         raise NotImplementedError("get_state not implemented")
 
     def get_confidence(self) -> float:

@@ -35,11 +35,13 @@ class PositionExtrapolator:
         self.last_predict = time.time()
 
     def insert_sensor_data(self, data: object, sensor_id: str) -> None:
-        data_preparer = self.data_preparer_manager.prepare_data(data, sensor_id)
+        data_preparer = self.data_preparer_manager.prepare_data(
+            data, sensor_id, x=self.filter_strategy.get_state()
+        )
         self.filter_strategy.insert_data(data_preparer)
 
     def get_robot_position_estimate(self) -> list[float]:
-        return self.filter_strategy.get_state()
+        return self.filter_strategy.get_state().flatten().tolist()
 
     def get_confidence(self) -> float:
         return self.filter_strategy.get_confidence()

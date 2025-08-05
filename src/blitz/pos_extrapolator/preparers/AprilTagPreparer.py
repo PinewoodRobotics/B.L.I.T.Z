@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import math
 import numpy as np
 from blitz.common.util.math import (
@@ -7,6 +8,7 @@ from blitz.common.util.math import (
     get_np_from_vector,
     get_robot_in_world,
     get_translation_rotation_components,
+    make_transformation_matrix_p_d,
 )
 from blitz.generated.proto.python.sensor.apriltags_pb2 import AprilTagData
 from blitz.generated.proto.python.sensor.imu_pb2 import ImuData
@@ -23,15 +25,19 @@ from blitz.pos_extrapolator.data_prep import (
 from blitz.pos_extrapolator.position_extrapolator import PositionExtrapolator
 
 
-class AprilTagDataPreparerConfig(
-    ConfigProvider[tuple[dict[int, Point3], dict[str, Point3]]]
-):
-    def __init__(self, config: tuple[dict[int, Point3], dict[str, Point3]]):
-        self.tags_in_world = config[0]
-        self.cameras_in_robot = config[1]
+@dataclass
+class AprilTagConfig:
+    tags_in_world: dict[int, Point3]
+    cameras_in_robot: dict[str, Point3]
+    use_imu_rotation: bool
 
-    def get_config(self) -> tuple[dict[int, Point3], dict[str, Point3]]:
-        return self.tags_in_world, self.cameras_in_robot
+
+class AprilTagDataPreparerConfig(ConfigProvider[AprilTagConfig]):
+    def __init__(self, config: AprilTagConfig):
+        self.config = config
+
+    def get_config(self) -> AprilTagConfig:
+        return self.config
 
 
 @DataPreparerManager.register(proto_type=AprilTagData)
@@ -53,11 +59,17 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
             ]
         )
 
-    def prepare_input(self, data: AprilTagData, sensor_id: str) -> KalmanFilterInput:
+    def prepare_input(
+        self, data: AprilTagData, sensor_id: str, x: np.ndarray | None = None
+    ) -> KalmanFilterInput:
         if data.WhichOneof("data") == "raw_tags":
             raise ValueError("Tags are not in processed format")
 
-        tags_in_world, cameras_in_robot = self.config.get_config()
+        config = self.config.get_config()
+        tags_in_world = config.tags_in_world
+        cameras_in_robot = config.cameras_in_robot
+        use_imu_rotation = config.use_imu_rotation
+
         input_list = []
         for tag in data.world_tags.tags:
             tag_id = tag.id
@@ -95,11 +107,19 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
             #    T_tag_in_camera
             # )
 
+            R_robot_rotation_world = None
+            if use_imu_rotation and x is not None:
+                R_robot_rotation_world = make_transformation_matrix_p_d(
+                    position=np.array([0, 0, 0]),
+                    direction_vector=np.array([x[4], x[5], 0]),
+                )[:3, :3]
+
             render_pose, render_rotation = get_translation_rotation_components(
                 get_robot_in_world(
                     T_tag_in_camera=T_tag_in_camera,
-                    T_camera_in_robot=T_camera_in_robot,  # const
-                    T_tag_in_world=T_tag_in_world,  # const
+                    T_camera_in_robot=T_camera_in_robot,
+                    T_tag_in_world=T_tag_in_world,
+                    R_robot_rotation_world=R_robot_rotation_world,
                 )
             )
 

@@ -27,7 +27,9 @@ class DataPreparer(Protocol[T, C]):
     def __init__(self, config: Optional[C] = None):
         pass
 
-    def prepare_input(self, data: T, sensor_id: str) -> KalmanFilterInput: ...
+    def prepare_input(
+        self, data: T, sensor_id: str, x: np.ndarray | None = None
+    ) -> KalmanFilterInput: ...
 
     def get_data_type(self) -> type[T]: ...
 
@@ -50,7 +52,9 @@ class DataPreparerManager:
     def set_config(cls, proto_type: Type[T], config_instance: Any):
         cls._config_instances[proto_type.__name__] = config_instance
 
-    def prepare_data(self, data: object, sensor_id: str) -> KalmanFilterInput:
+    def prepare_data(
+        self, data: object, sensor_id: str, x: np.ndarray | None = None
+    ) -> KalmanFilterInput:
         data_type_name = type(data).__name__
 
         if data_type_name not in self._registry:
@@ -60,4 +64,4 @@ class DataPreparerManager:
         config_instance = self._config_instances.get(data_type_name)
         preparer_instance = preparer_class(config_instance)
 
-        return preparer_instance.prepare_input(data, sensor_id)
+        return preparer_instance.prepare_input(data, sensor_id, x)

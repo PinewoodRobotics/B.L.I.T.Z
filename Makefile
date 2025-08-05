@@ -85,6 +85,11 @@ send-to-target:
 test:
 	pytest
 
+test-coverage:
+	coverage run --source=src/blitz/ -m pytest
+	coverage report
+	coverage html
+
 thrift-to-py:
 	mkdir -p $(THRIFT_GEN_DIR)
 	thrift -r --gen py:enum,type_hints,package_prefix=blitz.generated.thrift. \

@@ -37,4 +37,5 @@ struct PosExtrapolator {
     11: required map<string, common.Point3> camera_position_config,
     12: optional double time_s_between_position_sends,
     13: optional string composite_publish_topic,
+    14: required bool tag_use_imu_rotation
 }

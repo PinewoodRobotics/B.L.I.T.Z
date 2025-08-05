@@ -27,7 +27,9 @@ class ImuDataPreparer(DataPreparer[ImuData, ImuDataPreparerConfig]):
     def get_data_type(self) -> type[ImuData]:
         return ImuData
 
-    def prepare_input(self, data: ImuData, sensor_id: str) -> KalmanFilterInput:
+    def prepare_input(
+        self, data: ImuData, sensor_id: str, x: np.ndarray | None = None
+    ) -> KalmanFilterInput:
         config = self.config.config[sensor_id]
         values = [
             (config.use_position, data.position.position.x),

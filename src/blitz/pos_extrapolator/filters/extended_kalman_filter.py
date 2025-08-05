@@ -13,7 +13,11 @@ from blitz.pos_extrapolator.filter_strat import GenericFilterStrategy
 
 
 class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
-    def __init__(self, config: KalmanFilterConfig):
+    def __init__(
+        self,
+        config: KalmanFilterConfig,
+        fake_dt: float | None = None,
+    ):
         super().__init__(dim_x=config.dim_x_z[0], dim_z=config.dim_x_z[1])
         self.hw = config.dim_x_z[0]
         self.x = get_np_from_vector(config.state_vector)
@@ -22,6 +26,7 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
         self.F = get_np_from_matrix(config.state_transition_matrix)
         self.config = config
         self.last_update_time = time.time()
+        self.fake_dt = fake_dt
 
     def jacobian_h(self, x: np.ndarray) -> np.ndarray:
         return np.eye(6)
@@ -30,7 +35,11 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
         return x
 
     def insert_data(self, data: KalmanFilterInput) -> None:
-        dt = time.time() - self.last_update_time
+        if self.fake_dt is not None:
+            dt = self.fake_dt
+        else:
+            dt = time.time() - self.last_update_time
+
         if dt > 5 or dt < 0:
             dt = 0.05
 
@@ -59,8 +68,8 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
 
         self.last_update_time = time.time()
 
-    def get_state(self) -> list[float]:
-        return [float(x) for x in self.x.flatten()]
+    def get_state(self) -> np.ndarray:
+        return self.x
 
     def get_position_confidence(self) -> float:
         P_position = self.P[:2, :2]

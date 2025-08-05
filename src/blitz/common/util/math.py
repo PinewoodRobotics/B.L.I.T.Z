@@ -1,3 +1,4 @@
+from typing import Optional
 import numpy as np
 
 from blitz.generated.thrift.config.common.ttypes import (
@@ -55,10 +56,46 @@ def get_robot_in_world(
     T_tag_in_camera: np.ndarray,
     T_camera_in_robot: np.ndarray,
     T_tag_in_world: np.ndarray,
+    R_robot_rotation_world: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    T_tag_in_robot = T_camera_in_robot @ T_tag_in_camera
-    T_robot_in_tag = np.linalg.inv(T_tag_in_robot)
-    return T_tag_in_world @ T_robot_in_tag
+    if R_robot_rotation_world is not None:
+        # note this is work in process and, thus, may not work as expected
+        # Extract position from tag detection
+        tag_position_camera = T_tag_in_camera[:3, 3]
+
+        # Transform tag position to robot frame
+        camera_position_robot = T_camera_in_robot[:3, 3]
+        camera_rotation_robot = T_camera_in_robot[:3, :3]
+        tag_position_robot = (
+            camera_position_robot + camera_rotation_robot @ tag_position_camera
+        )
+
+        # Transform tag position to world frame using robot's known rotation
+        tag_position_world = T_tag_in_world[:3, 3]
+        robot_position_world = (
+            tag_position_world - R_robot_rotation_world @ tag_position_robot
+        )
+
+        return create_transformation_matrix(
+            rotation_matrix=R_robot_rotation_world,
+            translation_vector=robot_position_world,
+        )
+    else:
+        T_tag_in_robot = T_camera_in_robot @ T_tag_in_camera
+        T_robot_in_tag = np.linalg.inv(T_tag_in_robot)
+        return T_tag_in_world @ T_robot_in_tag
+
+
+def swap_rotation_components(*, T_one: np.ndarray, T_two: np.ndarray, R_side_size: int):
+    # NOTE: This function swaps the rotation (top-left R_side_size x R_side_size) blocks of T_one and T_two,
+    # returning new matrices with the swapped rotation components and all other elements preserved.
+    T_one_new = T_one.copy()
+    T_two_new = T_two.copy()
+    T_one_new[:R_side_size, :R_side_size], T_two_new[:R_side_size, :R_side_size] = (
+        T_two[:R_side_size, :R_side_size].copy(),
+        T_one[:R_side_size, :R_side_size].copy(),
+    )
+    return T_one_new, T_two_new
 
 
 def from_float_list(flat_list: list, rows: int, cols: int) -> np.ndarray:

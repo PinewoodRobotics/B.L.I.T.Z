@@ -76,3 +76,5 @@ target/
 project/recognition/image-recognition/dataset/
 .pytest_cache/
 .VSCodeCounter/
+htmlcov/
+.coverage

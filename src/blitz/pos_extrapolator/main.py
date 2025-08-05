@@ -17,13 +17,17 @@ from blitz.generated.proto.python.sensor.general_sensor_data_pb2 import (
 from blitz.generated.proto.python.sensor.imu_pb2 import ImuData
 from blitz.generated.proto.python.sensor.odometry_pb2 import OdometryData
 from blitz.generated.proto.python.util.position_pb2 import RobotPosition
+from blitz.generated.thrift.config.ttypes import Config
 from blitz.pos_extrapolator.data_prep import DataPreparerManager
 from blitz.pos_extrapolator.filters.extended_kalman_filter import (
     ExtendedKalmanFilterStrategy,
 )
 from blitz.pos_extrapolator.filters.kalman_filter import KalmanFilterStrategy
 from blitz.pos_extrapolator.position_extrapolator import PositionExtrapolator
-from blitz.pos_extrapolator.preparers.AprilTagPreparer import AprilTagDataPreparerConfig
+from blitz.pos_extrapolator.preparers.AprilTagPreparer import (
+    AprilTagConfig,
+    AprilTagDataPreparerConfig,
+)
 from blitz.pos_extrapolator.preparers.ImuDataPreparer import ImuDataPreparerConfig
 from blitz.pos_extrapolator.preparers.OdomDataPreparer import OdomDataPreparerConfig
 
@@ -47,9 +51,10 @@ async def main():
         DataPreparerManager.set_config(
             AprilTagData,
             AprilTagDataPreparerConfig(
-                (
-                    config.pos_extrapolator.tag_position_config,
-                    config.pos_extrapolator.camera_position_config,
+                config=AprilTagConfig(
+                    tags_in_world=config.pos_extrapolator.tag_position_config,
+                    cameras_in_robot=config.pos_extrapolator.camera_position_config,
+                    use_imu_rotation=config.pos_extrapolator.tag_use_imu_rotation,
                 ),
             ),
         )

@@ -28,7 +28,9 @@ class OdomDataPreparer(DataPreparer[OdometryData, OdomDataPreparerConfig]):
     def get_data_type(self) -> type[OdometryData]:
         return OdometryData
 
-    def prepare_input(self, data: OdometryData, sensor_id: str) -> KalmanFilterInput:
+    def prepare_input(
+        self, data: OdometryData, sensor_id: str, x: np.ndarray | None = None
+    ) -> KalmanFilterInput:
         return KalmanFilterInput(
             input_list=np.array(
                 [

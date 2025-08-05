@@ -36,17 +36,18 @@ def test_ekf():
         "src/blitz/pos_extrapolator/__tests__/fixtures/sample_config.txt"
     )
 
-    ekf = ExtendedKalmanFilterStrategy(config.pos_extrapolator.kalman_filter_config)
+    ekf = ExtendedKalmanFilterStrategy(
+        config.pos_extrapolator.kalman_filter_config, fake_dt=1
+    )
     for input in ekf_dataset_imu_input():
         ekf.insert_data(input)
-        time.sleep(1)
 
     state = ekf.get_state()
     print(state)
 
     # Check that the state is close to expected values (accounting for noise)
     # Logic: Start at [0,0,0,0,0,0], measure vx=1,vy=1, predict 1s -> [1,1,1,1,0,0]
-    expected = [2, 2, 1, 1, 0, 0]
+    expected = [3, 3, 1, 1, 0, 0]
     assert len(state) == len(expected)
     for i, (actual, exp) in enumerate(zip(state, expected)):
         assert abs(actual - exp) < 0.1, f"State[{i}]: expected {exp}, got {actual}"
@@ -57,14 +58,15 @@ def test_ekf_timing():
         "src/blitz/pos_extrapolator/__tests__/fixtures/sample_config.txt"
     )
 
-    ekf = ExtendedKalmanFilterStrategy(config.pos_extrapolator.kalman_filter_config)
+    ekf = ExtendedKalmanFilterStrategy(
+        config.pos_extrapolator.kalman_filter_config, fake_dt=1
+    )
     avg_time = 0
     for input in ekf_dataset_imu_input():
         start_time = time.time()
         ekf.insert_data(input)
         end_time = time.time()
         avg_time += end_time - start_time
-        time.sleep(1)
 
     avg_time /= len(ekf_dataset_imu_input())
     print(f"Average time per insert: {avg_time} seconds")

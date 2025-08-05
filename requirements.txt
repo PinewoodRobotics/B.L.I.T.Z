@@ -35,3 +35,5 @@ rich
 zeroconf
 fix-protobuf-imports
 netifaces
+gtsam
+coverage
