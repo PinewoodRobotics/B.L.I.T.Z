@@ -41,9 +41,19 @@ class BasicSystemConfig(BaseModel):
     config_path: str
 
 
+class SystemStatus(Enum):
+    PRODUCTION = "production"
+    DEVELOPMENT_LOCAL = "development_local"
+    DEVELOPMENT = "development_remote"
+
+
 def get_system_name() -> str:
     with open("system_data/name.txt", "r") as f:
         return f.read().strip()
+
+
+def get_system_status() -> SystemStatus:
+    return SystemStatus.DEVELOPMENT_LOCAL
 
 
 def get_top_10_processes() -> list[psutil.Process]:
@@ -80,8 +90,8 @@ def get_local_ip(iface: str = "eth0") -> str | None:
     try:
         addrs = netifaces.ifaddresses(iface)
         ipv4 = addrs.get(netifaces.AF_INET, [])
-        if ipv4 and 'addr' in ipv4[0]:
-            return ipv4[0]['addr']
+        if ipv4 and "addr" in ipv4[0]:
+            return ipv4[0]["addr"]
     except ValueError:
         pass
     return None

@@ -25,6 +25,7 @@ class AbstractCaptureDevice:
         camera_matrix: np.ndarray = np.eye(3),
         dist_coeff: np.ndarray = np.zeros(5),
         hard_fps_limit: float | None = None,
+        exposure_time: float | None = None,
     ):
         if isinstance(camera_port, str):
             try:
@@ -40,6 +41,7 @@ class AbstractCaptureDevice:
         self.camera_matrix = camera_matrix
         self.dist_coeff = dist_coeff
         self.frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+        self.exposure_time = exposure_time
 
         self.camera: UsbCamera | None = None
         self.sink: CvSink | None = None  # CameraServer.getVideo(self.camera)
