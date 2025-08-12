@@ -10,6 +10,7 @@ import numpy as np
 from blitz.common.config import from_uncertainty_config
 from blitz.common.util.extension import subscribe_to_multiple_topics
 from blitz.common.util.parser import get_default_process_parser
+from blitz.common.util.system import load_basic_system_config
 from blitz.generated.proto.python.sensor.apriltags_pb2 import AprilTagData
 from blitz.generated.proto.python.sensor.general_sensor_data_pb2 import (
     GeneralSensorData,
@@ -33,9 +34,12 @@ from blitz.pos_extrapolator.preparers.OdomDataPreparer import OdomDataPreparerCo
 
 
 async def main():
+    system_config = load_basic_system_config()
     config = from_uncertainty_config(get_default_process_parser().parse_args().config)
 
-    autobahn_server = Autobahn(Address(config.autobahn.host, config.autobahn.port))
+    autobahn_server = Autobahn(
+        Address(system_config.autobahn.host, system_config.autobahn.port)
+    )
     await autobahn_server.begin()
 
     if config.pos_extrapolator.enable_imu:

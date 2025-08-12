@@ -1,7 +1,7 @@
 use std::time::Duration;
 
+use autobahn_client::autobahn::{Address, Autobahn};
 use clap::Parser;
-use common_core::autobahn::{Address, Autobahn};
 use common_core::config::from_uncertainty_config;
 use common_core::device_info::{get_system_name, load_system_config};
 use common_core::math::{

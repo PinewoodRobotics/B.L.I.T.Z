@@ -1,6 +1,6 @@
 {
   "autobahn": {
-    "host": "10.47.65.7",
+    "host": "localhost",
     "port": 8080
   },
   "logging": {

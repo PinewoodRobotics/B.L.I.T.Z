@@ -9,6 +9,10 @@ message PathfindRequest {
     util.Vector2 goal = 2;
 }
 
+message PathfindResult {
+    repeated util.Vector2 path = 1;
+}
+
 enum Cell {
     PASSABLE = 0;
     OBSTACLE = 1;
