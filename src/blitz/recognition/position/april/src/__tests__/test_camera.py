@@ -1,4 +1,14 @@
+import cv2
+from blitz.common.debug.replay_recorder import (
+    close,
+    get_next_key_replay,
+    init_replay_recorder,
+    record_image,
+)
 from blitz.common.util.system import SystemStatus, get_system_status
+from blitz.generated.proto.python.sensor.camera_sensor_pb2 import ImageFormat
+from blitz.recognition.position.april.src.__tests__.util import add_cur_dir
+from blitz.recognition.position.april.src.camera import ReplayCamera
 from blitz.recognition.position.april.src.camera.OV2311_camera import OV2311Camera
 from blitz.recognition.position.april.src.camera.abstract_camera import (
     AbstractCaptureDevice,
@@ -56,5 +66,39 @@ def test_camera_exposure_time():
     ).mean()
 
     assert avg_pixel_values > 200
+
+    video_capture.release()
+
+
+def test_camera_replay():
+    init_replay_recorder(add_cur_dir("fixtures/replay.db"), mode="w")
+    frames = [
+        add_cur_dir("fixtures/images/cam_1_tag_6_37cm_d.png"),
+        add_cur_dir("fixtures/images/cam_1_tag_6_74cm_d.png"),
+        add_cur_dir("fixtures/images/cam_1_tag_6_90cm_d.png"),
+    ]
+    images = []
+    for frame in frames:
+        image = cv2.imread(frame, cv2.IMREAD_COLOR_RGB)
+        images.append(image)
+        record_image(
+            "camera",
+            image,
+            format=ImageFormat.RGB,
+            do_compress=True,
+            compression_quality=20,
+        )
+
+    close()
+
+    init_replay_recorder(add_cur_dir("fixtures/replay.db"), mode="r")
+
+    video_capture = ReplayCamera.ReplayCamera(camera_topic="camera")
+    for i in range(3):
+        frame = video_capture.get_frame()
+        if not frame[0] or frame[1] is None:
+            raise Exception("Failed to get frame")
+
+    assert not video_capture.get_frame()[0]
 
     video_capture.release()

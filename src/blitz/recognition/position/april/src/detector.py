@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import pyapriltags
 
+from blitz.common.debug.replay_recorder import record_image
 from blitz.generated.proto.python.sensor.apriltags_pb2 import (
     AprilTagData,
     ProcessedTag,
@@ -86,8 +87,7 @@ class DetectionCamera:
                 )
 
             if self.record_for_replay:
-                # record_output(f"frame-{self.name}", frame)
-                pass
+                record_image(f"frame-{self.name}", frame)
 
             self._publish(frame, tags_world)
 

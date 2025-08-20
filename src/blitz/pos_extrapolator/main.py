@@ -8,6 +8,7 @@ from autobahn_client import Address, Autobahn
 import numpy as np
 
 from blitz.common.config import from_uncertainty_config
+from blitz.common.debug.pubsub_replay import autolog
 from blitz.common.util.extension import subscribe_to_multiple_topics
 from blitz.common.util.parser import get_default_process_parser
 from blitz.common.util.system import load_basic_system_config
@@ -69,18 +70,19 @@ async def main():
         DataPreparerManager(),
     )
 
+    subscribe_topics = [
+        config.pos_extrapolator.message_config.post_tag_input_topic,
+        config.pos_extrapolator.message_config.post_odometry_input_topic,
+        config.pos_extrapolator.message_config.post_imu_input_topic,
+    ]
+
+    @autolog(config.pos_extrapolator.message_config.post_tag_input_topic)
     async def process_data(message: bytes):
         data = GeneralSensorData.FromString(message)
         one_of_name = data.WhichOneof("data")
         position_extrapolator.insert_sensor_data(
             data.__getattribute__(one_of_name), data.sensor_id
         )
-
-    subscribe_topics = [
-        config.pos_extrapolator.message_config.post_tag_input_topic,
-        config.pos_extrapolator.message_config.post_odometry_input_topic,
-        config.pos_extrapolator.message_config.post_imu_input_topic,
-    ]
 
     if (
         hasattr(config.pos_extrapolator, "composite_publish_topic")

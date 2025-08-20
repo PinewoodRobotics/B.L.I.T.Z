@@ -4,7 +4,9 @@ import numpy as np
 import threading
 import time
 
-from blitz.common.debug.replay_recorder import get_next_replay
+from blitz.common.camera.image_utils import from_proto_image
+from blitz.common.debug.logger import error
+from blitz.common.debug.replay_recorder import get_next_key_replay, get_next_replay
 from blitz.recognition.position.april.src.camera.abstract_camera import (
     AbstractCaptureDevice,
     CameraType,
@@ -12,24 +14,49 @@ from blitz.recognition.position.april.src.camera.abstract_camera import (
 
 
 class ReplaySink(CvSink):
-    def __init__(self, name: str, sleep_time: float):
+    def __init__(self, name: str, camera_topic: str):
         super().__init__(name)
-        self.sleep_time = sleep_time
+        self.camera_topic = camera_topic
 
     def grabFrame(
         self, image: np.ndarray, timeout: float = 0.225
     ) -> tuple[int, np.ndarray]:
-        replay = get_next_replay()
+        replay = get_next_key_replay(self.camera_topic)
         if replay is None:
+            error(f"No replay found for camera topic: {self.camera_topic}")
             return 0, image
 
-        if replay.data_type == "ndarray":
-            image = np.frombuffer(replay.data, dtype=np.uint8).reshape((1, 1, 3))
+        image = from_proto_image(replay.data)
 
         return 1, image
 
 
 class ReplayCamera(AbstractCaptureDevice, type=CameraType.VIDEO_FILE):
+    def __init__(
+        self,
+        width: int = 1280,
+        height: int = 720,
+        camera_topic: str = "camera",
+        max_fps: float = 30,
+        camera_matrix: np.ndarray = np.eye(3),
+        dist_coeff: np.ndarray = np.zeros(5),
+    ):
+        super().__init__(
+            camera_port=camera_topic,
+            width=width,
+            height=height,
+            max_fps=max_fps,
+            camera_matrix=camera_matrix,
+            dist_coeff=dist_coeff,
+        )
+
+        self.sink = ReplaySink(camera_topic, camera_topic)
+
+    def _initialize_camera(self):
+        self._is_ready = True
+
+
+class ReplayCameraCV(AbstractCaptureDevice, type=CameraType.VIDEO_FILE):
     def __init__(
         self,
         video_file_path: str,
@@ -40,7 +67,6 @@ class ReplayCamera(AbstractCaptureDevice, type=CameraType.VIDEO_FILE):
         self.video_file_path = video_file_path
         self.cv_cap = cv2.VideoCapture(self.video_file_path)
 
-        # Get actual video dimensions if possible
         if self.cv_cap.isOpened():
             width = int(self.cv_cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or width
             height = int(self.cv_cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or height

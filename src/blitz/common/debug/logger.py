@@ -1,8 +1,10 @@
 import asyncio
 import threading
-from typing import Coroutine
+import time
+from typing import Any, Callable, Coroutine
 import colorama
 from enum import Enum
+from functools import wraps
 
 from autobahn_client.client import Autobahn
 from blitz.common.util.system import get_system_name
@@ -59,6 +61,26 @@ autobahn_instance: Autobahn | None = None
 STATS_PUBLISH_TOPIC = ""
 main_event_loop: LogEventLoop | None = None
 SYSTEM_NAME: str | None = None
+
+
+def stats_for_nerds(print_stats: bool = True):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            result = func(*args, **kwargs)
+            end_time = time.time()
+
+            if print_stats:
+                info(
+                    f"Stats for nerds: {func.__name__} took {(end_time - start_time) * 1000:.2f} ms"
+                )
+
+            return result
+
+        return wrapper
+
+    return decorator
 
 
 def init_logging(

@@ -2,13 +2,17 @@ import os
 import time
 import time as time_module
 from typing import Literal, Union
+import cv2
 import numpy as np
 
+from blitz.common.camera.image_utils import encode_image
 from blitz.common.debug.logger import error, success, warning
 from blitz.generated.proto.python.replay.replay_pb2 import Replay
 from google.protobuf.message import Message
 from peewee import BlobField, FloatField, Model, AutoField, CharField, SqliteDatabase
 from typing import TypeVar, Generic
+
+from blitz.generated.proto.python.sensor.camera_sensor_pb2 import ImageFormat
 
 # This is a simple replay recorder that records and plays back data. It is designed to use the sqlite database
 # to store the data. It is not designed to be used in a multi-process environment.
@@ -235,6 +239,16 @@ def record_output(key: str, data: T):
         raise RuntimeError("Replay recorder not initialized or in write mode")
 
     GLOBAL_INSTANCE.record_output(key, data)
+
+
+def record_image(
+    key: str,
+    image: np.ndarray,
+    format: ImageFormat = ImageFormat.RGB,
+    do_compress: bool = True,
+    compression_quality: int = 90,
+):
+    record_output(key, encode_image(image, format, do_compress, compression_quality))
 
 
 def close():
