@@ -1,4 +1,4 @@
-from cscore import UsbCamera, CvSink, VideoMode
+from cscore import UsbCamera, CvSink, VideoCamera, VideoMode
 
 from blitz.recognition.position.april.src.camera.abstract_camera import (
     AbstractCaptureDevice,

@@ -71,6 +71,7 @@ async def main():
         LogLevel(basic_system_config.logging.global_logging_level),
         system_pub_topic=basic_system_config.logging.global_log_pub_topic,
         autobahn=autobahn_server,
+        system_name=get_system_name(),
     )
 
     loop = asyncio.get_running_loop()

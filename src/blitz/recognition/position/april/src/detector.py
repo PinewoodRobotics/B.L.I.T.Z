@@ -37,12 +37,14 @@ class DetectionCamera:
         detector: pyapriltags.Detector,
         publication_lambda: Callable[[bytes], None],
         publication_image_lambda: Callable[[bytes], None] | None = None,
+        record_for_replay: bool = False,
     ):
         self.detector = detector
         self.tag_size = tag_size
         self.publication_lambda = publication_lambda
         self.publication_image_lambda = publication_image_lambda
         self.video_capture = video_capture
+        self.record_for_replay = record_for_replay
 
         self.name = name
 
@@ -82,6 +84,10 @@ class DetectionCamera:
                         pose_t=to_float_list(t),
                     )
                 )
+
+            if self.record_for_replay:
+                # record_output(f"frame-{self.name}", frame)
+                pass
 
             self._publish(frame, tags_world)
 

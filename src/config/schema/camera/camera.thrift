@@ -4,6 +4,8 @@ namespace py config.camera
 
 enum CameraType {
     OV2311,
+    VIDEO_FILE,
+    MOST_RECENT_RECORDING
 }
 
 struct CameraParameters {
@@ -18,4 +20,5 @@ struct CameraParameters {
     9: required i32 exposure_time,
     10: required string name,
     11: required CameraType camera_type,
+    12: optional string video_file_path,
 }

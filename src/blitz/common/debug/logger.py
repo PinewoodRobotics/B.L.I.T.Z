@@ -7,6 +7,10 @@ from enum import Enum
 from autobahn_client.client import Autobahn
 from blitz.common.util.system import get_system_name
 from blitz.generated.proto.python.status.PiStatus_pb2 import LogMessage, StatusType
+from blitz.generated.proto.python.status.StateLogging_pb2 import DataType, StateLogging
+
+
+SUFFIX_STATS = "/stats"
 
 
 class LogLevel(Enum):
@@ -54,6 +58,7 @@ LOG_LEVEL = LogLevel.DEBUG
 autobahn_instance: Autobahn | None = None
 STATS_PUBLISH_TOPIC = ""
 main_event_loop: LogEventLoop | None = None
+SYSTEM_NAME: str | None = None
 
 
 def init_logging(
@@ -62,6 +67,7 @@ def init_logging(
     main_event_loop_=LogEventLoop(),
     system_pub_topic: str | None = None,
     autobahn: Autobahn | None = None,
+    system_name: str | None = None,
 ):
     """
     Initialize the logging system with a prefix and log level.
@@ -75,12 +81,14 @@ def init_logging(
     global STATS_PUBLISH_TOPIC
     global autobahn_instance
     global main_event_loop
+    global SYSTEM_NAME
 
     autobahn_instance = autobahn
     colorama.init()
     PREFIX = prefix
     LOG_LEVEL = log_level
     main_event_loop = main_event_loop_
+    SYSTEM_NAME = system_name
 
     if autobahn_instance:
         if system_pub_topic:
@@ -124,12 +132,42 @@ def success(message: str):
         log(PREFIX, message, colorama.Fore.GREEN)
 
 
-async def stats(message: bytes):
+async def publish_message_if_autobahn(
+    topic: str, message: bytes, print_error: bool = True
+):
     if autobahn_instance:
-        await autobahn_instance.publish(
-            STATS_PUBLISH_TOPIC,
-            message,
-        )
+        await autobahn_instance.publish(topic, message)
+    elif print_error:
+        error("Error: Autobahn instance not initialized publish_message_if_autobahn")
+
+
+async def stats(message: bytes):
+    await publish_message_if_autobahn(STATS_PUBLISH_TOPIC + SUFFIX_STATS, message)
+
+
+async def log_to_akit(
+    message: list[bool] | list[int] | list[float] | list[str],
+):
+    instance = StateLogging()
+    instance.name = SYSTEM_NAME or "unknown-pi"
+    instance.entries.add(type=from_pytype_to_proto(message), values=message)
+
+    await publish_message_if_autobahn(STATS_PUBLISH_TOPIC, instance.SerializeToString())
+
+
+def from_pytype_to_proto(
+    message: list[bool] | list[int] | list[float] | list[str],
+) -> DataType:
+    if isinstance(message, list) and all(isinstance(item, bool) for item in message):
+        return DataType.BOOL
+    elif isinstance(message, list) and all(isinstance(item, int) for item in message):
+        return DataType.INT
+    elif isinstance(message, list) and all(isinstance(item, float) for item in message):
+        return DataType.FLOAT
+    elif isinstance(message, list) and all(isinstance(item, str) for item in message):
+        return DataType.STRING
+    else:
+        raise ValueError(f"Unsupported type: {type(message)}")
 
 
 def log(prefix: str, message: str, color: str):

@@ -4,7 +4,7 @@
     "port": 8080
   },
   "logging": {
-    "global_log_pub_topic": "<system_name>/logs",
+    "global_log_pub_topic": "pi-technical-log",
     "global_logging_publishing_enabled": true,
     "global_logging_level": "DEBUG"
   },

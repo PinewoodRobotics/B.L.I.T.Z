@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package proto.status;
+
+// A generic, extensible logging message that can support new types in the future.
+message StateLogging {
+    string name = 1;
+    repeated DataEntry entries = 2;
+}
+
+// A single entry in the log, with a type and repeated values for scalability.
+message DataEntry {
+    DataType type = 1;
+    repeated bool bool_values = 2;
+    repeated int32 int_values = 3;
+    repeated float float_values = 4;
+    repeated string string_values = 5;
+    // For future extensibility, add more repeated fields as needed (e.g., double, bytes, etc.)
+}
+
+// Enum to specify the type of data in the entry.
+enum DataType {
+    UNKNOWN = 0;
+    BOOL = 1;
+    INT = 2;
+    FLOAT = 3;
+    STRING = 4;
+    // Add more types as needed for scalability.
+}

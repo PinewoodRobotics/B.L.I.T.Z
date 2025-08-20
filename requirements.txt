@@ -37,3 +37,4 @@ fix-protobuf-imports
 netifaces
 gtsam
 coverage
+peewee

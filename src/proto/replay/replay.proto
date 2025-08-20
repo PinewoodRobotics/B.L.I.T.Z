@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package proto.replay;
+
+message TopicMap {
+    repeated string topics = 1;
+    repeated int32 line_numbers = 2;
+}
+
+message Replay {
+    string key = 1;
+    string data_type = 2;
+    float time = 3;
+    bytes data = 4;
+}

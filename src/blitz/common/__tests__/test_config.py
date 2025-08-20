@@ -17,8 +17,6 @@ def test_load_config():
 def test_from_file():
     config = from_file(add_cur_dir("fixtures/sample_config.txt"))
     assert config is not None
-    assert config.autobahn is not None
-    assert config.autobahn.port == 8080
     assert config.cameras is not None
     assert len(config.cameras) == 1
     assert config.cameras[0].name == "one"

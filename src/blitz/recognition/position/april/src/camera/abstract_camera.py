@@ -2,7 +2,7 @@ import time
 from typing import Dict, Type
 
 import numpy as np
-from cscore import CvSink, UsbCamera, VideoSource
+from cscore import CvSink, UsbCamera, VideoSource, CvSource
 
 from blitz.common.debug.logger import error, success
 from blitz.generated.thrift.config.camera.ttypes import CameraType
@@ -43,7 +43,7 @@ class AbstractCaptureDevice:
         self.frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
         self.exposure_time = exposure_time
 
-        self.camera: UsbCamera | None = None
+        self.camera: VideoSource | None = None
         self.sink: CvSink | None = None  # CameraServer.getVideo(self.camera)
 
         self._is_ready = False
@@ -99,6 +99,7 @@ class AbstractCaptureDevice:
                 time.sleep(interval - took)
 
         self._last_ts = time.time()
+
         return True, self.frame
 
     def release(self):
