@@ -8,14 +8,12 @@ from blitz.common.debug.logger import error, success, warning
 from blitz.generated.proto.python.replay.replay_pb2 import Replay
 from google.protobuf.message import Message
 from peewee import BlobField, FloatField, Model, AutoField, CharField, SqliteDatabase
+from typing import TypeVar, Generic
 
 # This is a simple replay recorder that records and plays back data. It is designed to use the sqlite database
 # to store the data. It is not designed to be used in a multi-process environment.
 
-
-from typing import TypeVar, Generic
-
-T = TypeVar("T", bound=Union[np.ndarray, Message, float, int, str])
+T = TypeVar("T", bound=Union[np.ndarray, Message, float, int, str, bytes])
 Mode = Literal["r", "w"]
 
 GLOBAL_INSTANCE: "iPod | None" = None
@@ -50,7 +48,7 @@ def close_database():
         ReplayDB._meta.database.close()  # type: ignore
 
 
-class iPod(Generic[T]):
+class iPod:
     def __init__(self, path: str, mode: Mode = "w"):
         self.path = path
         self.mode = mode
@@ -103,6 +101,8 @@ class Recorder(iPod):
             self._record_string(key, data)
         elif isinstance(data, Message):
             self._record_protobuf(key, data)
+        elif isinstance(data, bytes):
+            self._record_bytes(key, data)
         else:
             error(f"Unsupported data type: {type(data)}")
 
@@ -120,6 +120,9 @@ class Recorder(iPod):
 
     def _record_string(self, key: str, data: str):
         self.write(key, "str", data.encode("utf-8"))
+
+    def _record_bytes(self, key: str, data: bytes):
+        self.write(key, "bytes", data)
 
     def write(
         self, key: str, data_type: str, data: bytes, time: float = time_module.time()
@@ -201,10 +204,6 @@ def init_replay_recorder(
         GLOBAL_INSTANCE = Recorder(replay_path)
     else:
         GLOBAL_INSTANCE = Player(replay_path)
-
-    if not os.path.exists(os.path.dirname(replay_path)):
-        warning(f"Replay directory {os.path.dirname(replay_path)} does not exist")
-        os.makedirs(os.path.dirname(replay_path), exist_ok=True)
 
     success(f"Initialized replay recorder at {os.path.abspath(replay_path)}")
 

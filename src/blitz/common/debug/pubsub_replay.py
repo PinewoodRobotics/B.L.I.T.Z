@@ -6,8 +6,38 @@ from blitz.common.debug.replay_recorder import (
     init_replay_recorder,
     get_next_replay,
     Replay,
+    record_output,
 )
 import threading
+
+from functools import wraps
+from typing import Callable, Awaitable, Any, TypeVar, overload, Union, cast
+
+
+def autolog(*topics: str):
+    """
+    Decorator to modify a function for autolog subscription.
+    Usage:
+        @autolog("topic")
+        async def func(data: bytes): ...
+    or:
+        @autolog(["topic1", "topic2"])
+        async def func(data: bytes): ...
+    """
+
+    def decorator(
+        func: Callable[[bytes], Awaitable[Any]]
+    ) -> Callable[[bytes], Awaitable[Any]]:
+        @wraps(func)
+        async def wrapper(data: bytes):
+            result = await func(data)
+            for topic in topics:
+                record_output(topic, data)
+            return result
+
+        return wrapper
+
+    return decorator
 
 
 class ReplayAutobahn(Autobahn):
