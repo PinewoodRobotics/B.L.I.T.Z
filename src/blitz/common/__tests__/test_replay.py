@@ -119,3 +119,16 @@ def test_replay_api(tmp_path):
 
     # Clean up
     close()
+
+
+def test_replay_latest():
+    init_replay_recorder(mode="w")
+    record_output("test", "test")
+    close()
+
+    init_replay_recorder("latest", mode="r")
+    current_replay = get_next_replay()
+    assert current_replay is not None
+    assert current_replay.key == "test"
+    assert current_replay.data == b"test"
+    close()

@@ -8,10 +8,16 @@ from autobahn_client import Address, Autobahn
 import numpy as np
 
 from blitz.common.config import from_uncertainty_config
-from blitz.common.debug.pubsub_replay import autolog
+from blitz.common.debug.logger import LogLevel, init_logging
+from blitz.common.debug.pubsub_replay import ReplayAutobahn, autolog
+from blitz.common.debug.replay_recorder import init_replay_recorder
 from blitz.common.util.extension import subscribe_to_multiple_topics
 from blitz.common.util.parser import get_default_process_parser
-from blitz.common.util.system import load_basic_system_config
+from blitz.common.util.system import (
+    SystemStatus,
+    get_system_status,
+    load_basic_system_config,
+)
 from blitz.generated.proto.python.sensor.apriltags_pb2 import AprilTagData
 from blitz.generated.proto.python.sensor.general_sensor_data_pb2 import (
     GeneralSensorData,
@@ -37,16 +43,28 @@ from blitz.pos_extrapolator.preparers.OdomDataPreparer import OdomDataPreparerCo
 async def main():
     system_config = load_basic_system_config()
     config = from_uncertainty_config(get_default_process_parser().parse_args().config)
+    init_logging("POSE_EXTRAPOLATOR", LogLevel.DEBUG)
 
-    autobahn_server = Autobahn(
-        Address(system_config.autobahn.host, system_config.autobahn.port)
-    )
+    address = Address(system_config.autobahn.host, system_config.autobahn.port)
+    autobahn_server = Autobahn(address)
+
+    if get_system_status() == SystemStatus.SIMULATION:
+        autobahn_server = ReplayAutobahn(
+            replay_path="latest",
+            publish_on_real_autobahn=True,
+            address=address,
+        )
+        init_replay_recorder(replay_path="latest", mode="r")
+    elif config.record_replay:
+        init_replay_recorder(folder_path=config.replay_folder_path)
+
     await autobahn_server.begin()
 
     if config.pos_extrapolator.enable_imu:
         DataPreparerManager.set_config(
             ImuData, ImuDataPreparerConfig(config.pos_extrapolator.imu_config)
         )
+
     if config.pos_extrapolator.enable_odom:
         DataPreparerManager.set_config(
             OdometryData, OdomDataPreparerConfig(config.pos_extrapolator.odom_config)
@@ -78,6 +96,7 @@ async def main():
 
     @autolog(config.pos_extrapolator.message_config.post_tag_input_topic)
     async def process_data(message: bytes):
+        print("!!!!!")
         data = GeneralSensorData.FromString(message)
         one_of_name = data.WhichOneof("data")
         position_extrapolator.insert_sensor_data(

@@ -199,10 +199,13 @@ def init_replay_recorder(
     + time.strftime("%Y-%m-%d_%H-%M-%S")
     + ".db",
     mode: Mode = "w",
+    folder_path: str = "replays",
 ):
     global GLOBAL_INSTANCE
-    if replay_path == "latest":
-        replay_path = find_latest_replay(os.path.dirname(replay_path))
+    if replay_path == "latest" and mode == "r":
+        replay_path = find_latest_replay(os.getcwd())
+    else:
+        replay_path = os.path.join(folder_path, replay_path)
 
     if mode == "w":
         GLOBAL_INSTANCE = Recorder(replay_path)

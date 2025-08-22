@@ -1,6 +1,7 @@
 import asyncio
 import time
 from typing import Callable, Awaitable, Any, Dict, Literal, Optional, Union
+from autobahn_client import Address
 from autobahn_client.client import Autobahn
 from blitz.common.debug.replay_recorder import (
     init_replay_recorder,
@@ -45,14 +46,23 @@ class ReplayAutobahn(Autobahn):
     The usual Autobahn class but that is used ONLY TO REPLAY THE REPLAYS.
     """
 
-    def __init__(self, replay_path: str | Literal["latest"] = "latest"):
+    def __init__(
+        self,
+        replay_path: str | Literal["latest"] = "latest",
+        publish_on_real_autobahn: bool = False,
+        address: Address | None = None,
+    ):
         self.replay_path = replay_path
         self._callbacks: Dict[str, Callable[[bytes], Awaitable[None]]] = {}
         self._replay_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._replay_started = False
-        init_replay_recorder(replay_path, mode="r")
+        self._publish_on_real_autobahn = publish_on_real_autobahn
+        self._address = address
+
+        if address is not None:
+            super().__init__(address)
 
     async def subscribe(
         self, topic: str, callback: Callable[[bytes], Awaitable[None]]
@@ -71,14 +81,16 @@ class ReplayAutobahn(Autobahn):
             del self._callbacks[topic]
 
     async def publish(self, topic: str, payload: bytes) -> None:
-        pass
+        if self._publish_on_real_autobahn:
+            await super().publish(topic, payload)
 
     async def begin(self) -> None:
-        pass
+        if self._publish_on_real_autobahn:
+            await super().begin()
 
     def _replay_loop(self):
-        first_timestamp = 0
-        last_timestamp = 0
+        first_timestamp = None
+        last_timestamp = None
         while not self._stop_event.is_set():
             try:
                 replay = get_next_replay()
@@ -89,13 +101,20 @@ class ReplayAutobahn(Autobahn):
 
             topic = replay.key
             payload = replay.data
+
             if first_timestamp is None:
                 first_timestamp = replay.time
                 last_timestamp = replay.time
             else:
+                assert last_timestamp is not None
+
                 sleep_time = replay.time - last_timestamp
-                if sleep_time > 0:
+
+                if 0 < sleep_time < 10:
                     time.sleep(sleep_time)
+                else:
+                    time.sleep(0.025)
+
                 last_timestamp = replay.time
 
             if topic in self._callbacks and self._loop is not None:

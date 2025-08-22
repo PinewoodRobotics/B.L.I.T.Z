@@ -108,3 +108,7 @@ thrift-to-ts:
 thrift: thrift-to-py thrift-to-ts
 
 generate: prepare thrift generate-proto-python
+
+download-replays:
+	@echo "Downloading replay file from remote server..."
+	scp ubuntu@10.47.65.7:~/Documents/B.L.I.T.Z/replay-2025-08-20_21-13-00.db ./replay-2025-08-20_21-13-00.db

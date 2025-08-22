@@ -45,6 +45,7 @@ class SystemStatus(Enum):
     PRODUCTION = "production"
     DEVELOPMENT_LOCAL = "development_local"
     DEVELOPMENT = "development_remote"
+    SIMULATION = "simulation"
 
 
 def get_system_name() -> str:
@@ -53,7 +54,7 @@ def get_system_name() -> str:
 
 
 def get_system_status() -> SystemStatus:
-    return SystemStatus.DEVELOPMENT_LOCAL
+    return SystemStatus.PRODUCTION
 
 
 def get_top_10_processes() -> list[psutil.Process]:

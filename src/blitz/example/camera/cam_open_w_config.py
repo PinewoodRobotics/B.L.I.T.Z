@@ -18,7 +18,6 @@ stop_response = requests.post(
     f"http://10.47.65.7:{basic_system_config.watchdog.port}/stop/process",
     json={
         "process_types": [
-            ProcessType.LIDAR_3D.value,
             ProcessType.POS_EXTRAPOLATOR.value,
         ]
     },
@@ -30,7 +29,6 @@ response = requests.post(
     f"http://10.47.65.7:{basic_system_config.watchdog.port}/start/process",
     json={
         "process_types": [
-            ProcessType.LIDAR_3D.value,
             ProcessType.POS_EXTRAPOLATOR.value,
         ]
     },

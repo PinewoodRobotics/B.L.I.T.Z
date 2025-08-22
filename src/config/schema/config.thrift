@@ -12,4 +12,6 @@ struct Config {
     3: required map<string, lidar.LidarConfig> lidar_configs,
     4: required apriltag.AprilDetectionConfig april_detection,
     5: required pathfinding.PathfindingConfig pathfinding,
+    6: required bool record_replay,
+    7: required string replay_folder_path,
 }
