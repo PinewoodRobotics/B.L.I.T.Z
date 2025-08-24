@@ -15,7 +15,7 @@ from functools import wraps
 from typing import Callable, Awaitable, Any, TypeVar, overload, Union, cast
 
 
-def autolog(*topics: str):
+def autolog(*topics: str, do_record: bool = True):
     """
     Decorator to modify a function for autolog subscription.
     Usage:
@@ -32,8 +32,10 @@ def autolog(*topics: str):
         @wraps(func)
         async def wrapper(data: bytes):
             result = await func(data)
-            for topic in topics:
-                record_output(topic, data)
+            if do_record:
+                for topic in topics:
+                    record_output(topic, data)
+
             return result
 
         return wrapper

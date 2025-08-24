@@ -132,8 +132,6 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
                 [
                     render_pose[0],
                     render_pose[1],
-                    0,
-                    0,
                     render_direction_vector[1],
                     render_direction_vector[0],
                 ],

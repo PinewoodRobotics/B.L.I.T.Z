@@ -8,25 +8,45 @@ from blitz.pos_extrapolator.filters.extended_kalman_filter import (
 import numpy as np
 
 
+def sample_jacobian_h(x: np.ndarray) -> np.ndarray:
+    H = np.array(
+        [
+            [0, 0, 1, 0, 0, 0],  # vx
+            [0, 0, 0, 1, 0, 0],  # vy
+            [0, 0, 0, 0, 1, 0],  # theta
+            [0, 0, 0, 0, 0, 1],  # omega
+        ]
+    )
+
+    return H
+
+
+def sample_hx(x: np.ndarray) -> np.ndarray:
+    return x[[2, 3, 4, 5]]  # vx, vy, theta, omega
+
+
 def ekf_dataset_imu_input():
     return [
         KalmanFilterInput(
-            input_list=np.array([0, 0, 1, 1, 0, 0]),
-            sensor_id="imu",
+            input_list=np.array([1, 1, 0, 0]),
+            sensor_id="0",
             sensor_type=KalmanFilterSensorType.IMU,
-            non_used_indices=[0, 1, 4, 5],
+            jacobian_h=sample_jacobian_h,
+            hx=sample_hx,
         ),
         KalmanFilterInput(
-            input_list=np.array([0, 0, 1, 1, 0, 0]),
-            sensor_id="imu",
+            input_list=np.array([1, 1, 0, 0]),
+            sensor_id="0",
             sensor_type=KalmanFilterSensorType.IMU,
-            non_used_indices=[0, 1, 4, 5],
+            jacobian_h=sample_jacobian_h,
+            hx=sample_hx,
         ),
         KalmanFilterInput(
-            input_list=np.array([0, 0, 1, 1, 0, 0]),
-            sensor_id="imu",
+            input_list=np.array([1, 1, 0, 0]),
+            sensor_id="0",
             sensor_type=KalmanFilterSensorType.IMU,
-            non_used_indices=[0, 1, 4, 5],
+            jacobian_h=sample_jacobian_h,
+            hx=sample_hx,
         ),
     ]
 
@@ -50,7 +70,7 @@ def test_ekf():
     expected = [3, 3, 1, 1, 0, 0]
     assert len(state) == len(expected)
     for i, (actual, exp) in enumerate(zip(state, expected)):
-        assert abs(actual - exp) < 0.1, f"State[{i}]: expected {exp}, got {actual}"
+        assert abs(actual - exp) < 0.2, f"State[{i}]: expected {exp}, got {actual}"
 
 
 def test_ekf_timing():

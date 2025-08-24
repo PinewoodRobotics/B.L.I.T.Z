@@ -7,6 +7,7 @@ import warnings
 from blitz.common.util.math import get_np_from_matrix, get_np_from_vector
 from blitz.generated.thrift.config.kalman_filter.ttypes import (
     KalmanFilterConfig,
+    KalmanFilterSensorType,
 )
 from blitz.pos_extrapolator.data_prep import KalmanFilterInput
 from blitz.pos_extrapolator.filter_strat import GenericFilterStrategy
@@ -25,8 +26,28 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
         self.Q = get_np_from_matrix(config.process_noise_matrix)
         self.F = get_np_from_matrix(config.state_transition_matrix)
         self.config = config
+        self.R_sensors = self.get_R_sensors(config)
         self.last_update_time = time.time()
         self.fake_dt = fake_dt
+
+    def get_R_sensors(
+        self, config: KalmanFilterConfig
+    ) -> dict[KalmanFilterSensorType, dict[str, np.ndarray]]:
+        output = {}
+        for sensor_type in config.sensors:
+            for sensor_id in config.sensors[sensor_type]:
+                numpy_arr = get_np_from_matrix(
+                    config.sensors[sensor_type][sensor_id].measurement_noise_matrix
+                )
+
+                # select rows and cols with > 0 sum
+                numpy_arr = numpy_arr[abs(np.sum(numpy_arr, axis=1)) > 0, :]
+                numpy_arr = numpy_arr[:, abs(np.sum(numpy_arr, axis=0)) > 0]
+
+                output[sensor_type] = output.get(sensor_type, {})
+                output[sensor_type][sensor_id] = numpy_arr
+
+        return output
 
     def jacobian_h(self, x: np.ndarray) -> np.ndarray:
         return np.eye(6)
@@ -47,20 +68,10 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
 
         self.predict()
 
-        R = get_np_from_matrix(
-            self.config.sensors[data.sensor_type][
-                data.sensor_id
-            ].measurement_noise_matrix
-        )
-
-        measurement = data.input_list
-
-        if data.non_used_indices is not None:
-            for i in data.non_used_indices:
-                R[i, i] = 1e6
+        R = self.R_sensors[data.sensor_type][data.sensor_id]
 
         self.update(
-            measurement,
+            data.input_list,
             data.jacobian_h if data.jacobian_h is not None else self.jacobian_h,
             data.hx if data.hx is not None else self.hx,
             R=R,
@@ -120,9 +131,3 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
             self.F[1][vel_idx_y] = new_delta_t
         except IndexError as e:
             warnings.warn(f"Error updating F matrix: {e}")
-
-
-"""
-    def get_P(self) -> np.ndarray | None:
-        return self.P
-"""

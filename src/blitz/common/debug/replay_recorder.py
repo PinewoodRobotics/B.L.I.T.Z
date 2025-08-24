@@ -203,7 +203,7 @@ def init_replay_recorder(
 ):
     global GLOBAL_INSTANCE
     if replay_path == "latest" and mode == "r":
-        replay_path = find_latest_replay(os.getcwd())
+        replay_path = find_latest_replay(os.path.join(os.getcwd(), folder_path))
     else:
         replay_path = os.path.join(folder_path, replay_path)
 

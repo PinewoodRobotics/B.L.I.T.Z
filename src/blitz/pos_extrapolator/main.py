@@ -14,6 +14,7 @@ from blitz.common.debug.replay_recorder import init_replay_recorder
 from blitz.common.util.extension import subscribe_to_multiple_topics
 from blitz.common.util.parser import get_default_process_parser
 from blitz.common.util.system import (
+    BasicSystemConfig,
     SystemStatus,
     get_system_status,
     load_basic_system_config,
@@ -40,11 +41,16 @@ from blitz.pos_extrapolator.preparers.ImuDataPreparer import ImuDataPreparerConf
 from blitz.pos_extrapolator.preparers.OdomDataPreparer import OdomDataPreparerConfig
 
 
-async def main():
-    system_config = load_basic_system_config()
-    config = from_uncertainty_config(get_default_process_parser().parse_args().config)
+def init_utilities(config: Config):
     init_logging("POSE_EXTRAPOLATOR", LogLevel.DEBUG)
 
+    if get_system_status() == SystemStatus.SIMULATION:
+        init_replay_recorder(replay_path="latest", mode="r")
+    elif config.record_replay:
+        init_replay_recorder(folder_path=config.replay_folder_path)
+
+
+def get_autobahn_server(config: Config, system_config: BasicSystemConfig):
     address = Address(system_config.autobahn.host, system_config.autobahn.port)
     autobahn_server = Autobahn(address)
 
@@ -54,12 +60,11 @@ async def main():
             publish_on_real_autobahn=True,
             address=address,
         )
-        init_replay_recorder(replay_path="latest", mode="r")
-    elif config.record_replay:
-        init_replay_recorder(folder_path=config.replay_folder_path)
 
-    await autobahn_server.begin()
+    return autobahn_server
 
+
+def init_data_preparer_manager(config: Config):
     if config.pos_extrapolator.enable_imu:
         DataPreparerManager.set_config(
             ImuData, ImuDataPreparerConfig(config.pos_extrapolator.imu_config)
@@ -82,21 +87,38 @@ async def main():
             ),
         )
 
+
+def get_subscribe_topics(config: Config):
+    return [
+        config.pos_extrapolator.message_config.post_tag_input_topic,
+        config.pos_extrapolator.message_config.post_odometry_input_topic,
+        config.pos_extrapolator.message_config.post_imu_input_topic,
+    ]
+
+
+async def main():
+    system_config = load_basic_system_config()
+    config = from_uncertainty_config(get_default_process_parser().parse_args().config)
+
+    init_utilities(config)
+    autobahn_server = get_autobahn_server(config, system_config)
+    await autobahn_server.begin()
+
+    init_data_preparer_manager(config)
+
+    subscribe_topics = get_subscribe_topics(config)
+
     position_extrapolator = PositionExtrapolator(
         config.pos_extrapolator,
         ExtendedKalmanFilterStrategy(config.pos_extrapolator.kalman_filter_config),
         DataPreparerManager(),
     )
 
-    subscribe_topics = [
+    @autolog(
         config.pos_extrapolator.message_config.post_tag_input_topic,
-        config.pos_extrapolator.message_config.post_odometry_input_topic,
-        config.pos_extrapolator.message_config.post_imu_input_topic,
-    ]
-
-    @autolog(config.pos_extrapolator.message_config.post_tag_input_topic)
+        do_record=config.record_replay,
+    )
     async def process_data(message: bytes):
-        print("!!!!!")
         data = GeneralSensorData.FromString(message)
         one_of_name = data.WhichOneof("data")
         position_extrapolator.insert_sensor_data(
@@ -116,16 +138,7 @@ async def main():
     )
 
     while True:
-        filtered_position = position_extrapolator.get_robot_position_estimate()
-
-        proto_position = RobotPosition()
-        proto_position.timestamp = time.time() * 1000
-        proto_position.confidence = position_extrapolator.get_confidence()
-        proto_position.position_2d.position.x = filtered_position[0]
-        proto_position.position_2d.position.y = filtered_position[1]
-        proto_position.position_2d.direction.x = filtered_position[4]
-        proto_position.position_2d.direction.y = filtered_position[5]
-        # proto_position.P.extend(position_extrapolator.get_position_covariance())
+        proto_position = position_extrapolator.get_robot_position()
 
         await autobahn_server.publish(
             config.pos_extrapolator.message_config.post_robot_position_output_topic,

@@ -143,3 +143,18 @@ def get_np_from_matrix(
         raise ValueError(f"Unsupported matrix type: {type(matrix)}")
 
     return np.array(rows)
+
+
+def transform_matrix_to_size(
+    used_diagonals: list[bool],
+    matrix: np.ndarray = np.eye(6),
+) -> np.ndarray:
+    indices = [i for i, used in enumerate(used_diagonals) if used]
+    return matrix[indices, :]
+
+
+def transform_vector_to_size(
+    vector: np.ndarray,
+    used_indices: list[bool],
+) -> np.ndarray:
+    return np.array([v for v, i in zip(vector, used_indices) if i])

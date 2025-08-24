@@ -1,5 +1,9 @@
 import numpy as np
-from blitz.common.util.math import get_robot_in_world
+from blitz.common.util.math import (
+    get_robot_in_world,
+    transform_matrix_to_size,
+    transform_vector_to_size,
+)
 
 
 def test_get_robot_in_world():
@@ -41,3 +45,26 @@ def test_get_robot_in_world():
         T_tag_in_world=T_tag_in_world,
     )
     assert not np.allclose(T_robot_in_world_error[:3, :3], R_robot_rotation_world)
+
+
+def test_transform_matrix_to_size_square():
+    matrix = np.eye(6)
+    used_diagonals = [True, True, True, True, True, True]
+    transformed_matrix = transform_matrix_to_size(used_diagonals, matrix)
+    assert np.allclose(transformed_matrix, matrix)
+
+
+def test_transform_matrix_to_size_nonsq():
+    matrix = np.eye(6)
+    used_diagonals = [True, True, False, False, False, False]
+    transformed_matrix = transform_matrix_to_size(used_diagonals, matrix)
+    assert np.allclose(transformed_matrix[0, 0], 1)
+    assert np.allclose(transformed_matrix[1, 1], 1)
+    assert transformed_matrix.shape[0] == 2
+
+
+def test_transform_vector_to_size():
+    vector = np.array([1, 2, 3, 4, 5, 6])
+    used_indices = [True, True, False, False, False, False]
+    transformed_vector = transform_vector_to_size(vector, used_indices)
+    assert np.allclose(transformed_vector, np.array([1, 2]))
