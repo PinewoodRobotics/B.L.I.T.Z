@@ -1,7 +1,7 @@
 [submodule "src/proto"]
-    path = src/proto
-    url = https://github.com/PinewoodRobotics/proto.git
+	path = src/proto
+	url = https://github.com/PinewoodRobotics/proto.git
 
 [submodule "ThriftTsConfig"]
-    path = ThriftTsConfig
-    url = https://github.com/PinewoodRobotics/ThriftTsConfig.git
+	path = ThriftTsConfig
+	url = https://github.com/PinewoodRobotics/ThriftTsConfig.git
