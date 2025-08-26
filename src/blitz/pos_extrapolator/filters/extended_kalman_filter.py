@@ -131,3 +131,6 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
             self.F[1][vel_idx_y] = new_delta_t
         except IndexError as e:
             warnings.warn(f"Error updating F matrix: {e}")
+
+    def _debug_set_state(self, x: np.ndarray) -> None:
+        self.x = x

@@ -117,7 +117,7 @@ def get_np_from_vector(vector: Vector3D | Vector4D | Vector5D | Vector6D) -> np.
                     )
                 return np.array([vector.k1, vector.k2, vector.k3, vector.k4, vector.k5])  # type: ignore
             return np.array([vector.k1, vector.k2, vector.k3, vector.k4])  # type: ignore
-        return np.array([[vector.k1], [vector.k2], [vector.k3]])  # type: ignore
+        return np.array([vector.k1, vector.k2, vector.k3])  # type: ignore
     else:
         raise ValueError(f"Unsupported vector type: {type(vector)}")
 
@@ -158,3 +158,19 @@ def transform_vector_to_size(
     used_indices: list[bool],
 ) -> np.ndarray:
     return np.array([v for v, i in zip(vector, used_indices) if i])
+
+
+def from_theat_to_3x3_mat(theta: float):
+    """
+    Convert a rotation angle in degrees to a 3x3 rotation matrix.
+    Theta is the rotation angle around the z-axis in degrees [0, 360].
+    """
+
+    theta_rad = np.deg2rad(theta)
+    return np.array(
+        [
+            [np.cos(theta_rad), -np.sin(theta_rad), 0],
+            [np.sin(theta_rad), np.cos(theta_rad), 0],
+            [0, 0, 1],
+        ]
+    )

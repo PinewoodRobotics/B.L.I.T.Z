@@ -14,7 +14,6 @@ class KalmanFilterInput:
     input_list: np.ndarray
     sensor_id: str
     sensor_type: KalmanFilterSensorType
-    non_used_indices: Optional[list[int]] = None
     jacobian_h: Optional[Callable[[np.ndarray], np.ndarray]] = None
     hx: Optional[Callable[[np.ndarray], np.ndarray]] = None
 

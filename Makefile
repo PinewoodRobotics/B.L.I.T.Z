@@ -83,7 +83,7 @@ send-to-target:
 	rsync -av --progress --exclude-from=.gitignore --delete ./ ubuntu@10.47.65.7:~/Documents/B.L.I.T.Z/
 
 test:
-	pytest
+	$(VENV_PYTHON) -m pytest
 
 test-coverage:
 	coverage run --source=src/blitz/ -m pytest

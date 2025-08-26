@@ -44,8 +44,8 @@ def test_generate_config():
 def test_get_np_from_vector():
     vector = Vector3D(k1=1, k2=2, k3=3)
     assert get_np_from_vector(vector) is not None
-    assert get_np_from_vector(vector).shape == (3, 1)
-    assert get_np_from_vector(vector).tolist() == [[1], [2], [3]]
+    assert get_np_from_vector(vector).shape == (3,)
+    assert get_np_from_vector(vector).tolist() == [1, 2, 3]
 
 
 def test_get_np_from_matrix():

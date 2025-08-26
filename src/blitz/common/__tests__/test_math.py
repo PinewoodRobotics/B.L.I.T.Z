@@ -1,5 +1,6 @@
 import numpy as np
 from blitz.common.util.math import (
+    from_theat_to_3x3_mat,
     get_robot_in_world,
     transform_matrix_to_size,
     transform_vector_to_size,
@@ -68,3 +69,27 @@ def test_transform_vector_to_size():
     used_indices = [True, True, False, False, False, False]
     transformed_vector = transform_vector_to_size(vector, used_indices)
     assert np.allclose(transformed_vector, np.array([1, 2]))
+
+
+def test_from_theat_to_3x3_mat_90():
+    theta = 90
+    mat = from_theat_to_3x3_mat(theta)
+    assert np.allclose(mat, np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]]))
+
+
+def test_from_theat_to_3x3_mat_180():
+    theta = 180
+    mat = from_theat_to_3x3_mat(theta)
+    assert np.allclose(mat, np.array([[-1, 0, 0], [0, -1, 0], [0, 0, 1]]))
+
+
+def test_from_theat_to_3x3_mat_270():
+    theta = 270
+    mat = from_theat_to_3x3_mat(theta)
+    assert np.allclose(mat, np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]]))
+
+
+def test_from_theat_to_3x3_mat_360():
+    theta = 360
+    mat = from_theat_to_3x3_mat(theta)
+    assert np.allclose(mat, np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))

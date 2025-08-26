@@ -17,3 +17,6 @@ class GenericFilterStrategy:
     def get_P(self) -> np.ndarray:
         # only for kalman filters and usually for debugging purposes
         return np.array([])
+
+    def _debug_set_state(self, x: np.ndarray) -> None:
+        pass
