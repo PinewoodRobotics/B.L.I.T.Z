@@ -3,7 +3,7 @@ ARGS ?=
 
 VENV_PYTHON := .venv/bin/python
 
-THRIFT_DIR = src/config/schema
+THRIFT_DIR = ThriftTsConfig/schema
 THRIFT_ROOT_FILE = $(THRIFT_DIR)/config.thrift
 PROTO_DIR = src/proto
 

@@ -1,6 +1,5 @@
 {
-  "python.languageServer": "None",
-  "cursorpyright.analysis.typeCheckingMode": "basic",
+  "cursorpyright.analysis.typeCheckingMode": "recommended",
   "makefile.configureOnOpen": false,
   "[jupyter]": {
     "editor.formatOnSave": true

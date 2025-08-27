@@ -1,10 +1,8 @@
 import argparse
 import asyncio
 import random
-import signal
 import time
 
-import cv2
 import pyapriltags
 
 from blitz.common.debug.logger import LogLevel, init_logging, success
@@ -56,7 +54,7 @@ async def main():
     args = parser.parse_args()
     config = from_uncertainty_config(args.config)
 
-    camera_detector_list = []
+    camera_detector_list: list[DetectionCamera] = []
 
     autobahn_server = Autobahn(
         Address(
@@ -90,14 +88,24 @@ async def main():
             video_capture=get_camera_capture_device(camera),
             tag_size=config.april_detection.tag_size,
             detector=build_detector(config.april_detection),
-            publication_lambda=lambda tags: publish_nowait(
-                config.april_detection.message.post_tag_output_topic,
-                tags,
+            publication_lambda=lambda tags: (
+                publish_nowait(
+                    config.april_detection.message.post_tag_output_topic,
+                    tags,
+                )
+                if config.april_detection.message.post_tag_output_topic
+                else None
             ),
-            publication_image_lambda=lambda message: publish_nowait(
-                config.april_detection.message.post_camera_output_topic,
-                message,
+            publication_image_lambda=lambda message: (
+                publish_nowait(
+                    config.april_detection.message.post_camera_output_topic,
+                    message,
+                )
+                if config.april_detection.message.post_camera_output_topic
+                else None
             ),
+            do_compression=camera.do_compression or False,
+            compression_quality=camera.compression_quality or 90,
         )
 
         camera_detector_list.append(detector_cam)

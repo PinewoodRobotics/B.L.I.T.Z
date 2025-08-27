@@ -13,6 +13,7 @@ from blitz.generated.proto.python.status.StateLogging_pb2 import DataType, State
 
 
 SUFFIX_STATS = "/stats"
+SUFFIX_AKIT = "/akit"
 
 
 class LogLevel(Enum):
@@ -46,7 +47,7 @@ class LogEventLoop(threading.Thread):
     def run(self):
         pass
 
-    def run_coroutine(self, coroutine: Coroutine):
+    def run_coroutine(self, coroutine: Coroutine[Any, Any, Any]):
         asyncio.run_coroutine_threadsafe(coroutine, self.loop)
 
     def stop(self):
@@ -83,6 +84,28 @@ def stats_for_nerds(print_stats: bool = True):
     return decorator
 
 
+def stats_for_nerds_akit(send_stats: bool = True, print_stats: bool = True):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            result = func(*args, **kwargs)
+            end_time = time.time()
+            if send_stats:
+                log_to_akit(func.__name__, [(end_time - start_time) * 1000])
+
+            if print_stats:
+                info(
+                    f"Function {func.__name__} took {(end_time - start_time) * 1000}ms to run."
+                )
+
+            return result
+
+        return wrapper
+
+    return decorator
+
+
 def init_logging(
     prefix: str,
     log_level: LogLevel,
@@ -107,21 +130,23 @@ def init_logging(
 
     autobahn_instance = autobahn
     colorama.init()
-    PREFIX = prefix
-    LOG_LEVEL = log_level
+    PREFIX = prefix  # pyright: ignore[reportConstantRedefinition]
+    LOG_LEVEL = log_level  # pyright: ignore[reportConstantRedefinition]
     main_event_loop = main_event_loop_
-    SYSTEM_NAME = system_name
+    SYSTEM_NAME = system_name  # pyright: ignore[reportConstantRedefinition]
 
     if autobahn_instance:
         if system_pub_topic:
-            STATS_PUBLISH_TOPIC = system_pub_topic
+            STATS_PUBLISH_TOPIC = (  # pyright: ignore[reportConstantRedefinition]
+                system_pub_topic
+            )
         else:
             raise ValueError("System pub topic is required if autobahn is provided")
 
 
 def set_log_level(log_level: LogLevel):
     global LOG_LEVEL
-    LOG_LEVEL = log_level
+    LOG_LEVEL = log_level  # pyright: ignore[reportConstantRedefinition]
 
 
 def message(message: str):
@@ -164,17 +189,21 @@ async def publish_message_if_autobahn(
 
 
 async def stats(message: bytes):
-    await publish_message_if_autobahn(STATS_PUBLISH_TOPIC + SUFFIX_STATS, message)
+    await publish_message_if_autobahn(STATS_PUBLISH_TOPIC + SUFFIX_AKIT, message)
 
 
 async def log_to_akit(
+    topic: str,
     message: list[bool] | list[int] | list[float] | list[str],
 ):
     instance = StateLogging()
     instance.name = SYSTEM_NAME or "unknown-pi"
+    instance.topic = topic
     instance.entries.add(type=from_pytype_to_proto(message), values=message)
 
-    await publish_message_if_autobahn(STATS_PUBLISH_TOPIC, instance.SerializeToString())
+    await publish_message_if_autobahn(
+        STATS_PUBLISH_TOPIC + SUFFIX_AKIT, instance.SerializeToString()
+    )
 
 
 def from_pytype_to_proto(
