@@ -80,7 +80,7 @@ run-config-ts:
 	npm run config
 
 send-to-target:
-	rsync -av --progress --exclude-from=.gitignore --delete ./ ubuntu@10.47.65.7:~/Documents/B.L.I.T.Z/
+	rsync -av --progress --exclude-from=.gitignore --delete ./ ubuntu@10.47.65.12:~/Documents/B.L.I.T.Z/
 
 test:
 	$(VENV_PYTHON) -m pytest

@@ -189,7 +189,7 @@ async def publish_message_if_autobahn(
 
 
 async def stats(message: bytes):
-    await publish_message_if_autobahn(STATS_PUBLISH_TOPIC + SUFFIX_AKIT, message)
+    await publish_message_if_autobahn(STATS_PUBLISH_TOPIC + SUFFIX_STATS, message)
 
 
 async def log_to_akit(
@@ -228,6 +228,7 @@ def log(prefix: str, message: str, color: str):
             prefix=prefix,
             message=message,
             color=color,
+            pi_name=SYSTEM_NAME,
         ).SerializeToString()
 
         try:
