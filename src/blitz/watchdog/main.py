@@ -5,6 +5,7 @@ import os
 import socket
 import subprocess
 import sys
+import time
 from typing import Dict, List
 
 from flask import Flask, request, jsonify
@@ -24,14 +25,16 @@ from blitz.common.util.system import (
 )
 from blitz.watchdog.helper import process_watcher
 from blitz.watchdog.monitor import ProcessMonitor
+from blitz.generated.proto.python.status.PiStatus_pb2 import Ping, Pong
 
 app = Flask(__name__)
 
-CONFIG_PATH = "system_data/snapshot_config.txt"
+config_path = "system_data/snapshot_config.txt"
 
 config: Config | None = None
 process_monitor: ProcessMonitor | None = None
 zeroconf = None
+system_name = ""
 
 
 @app.route("/set/config", methods=["POST"])
@@ -41,19 +44,19 @@ def set_config():
     if "config" not in data:
         return jsonify({"status": "error", "message": "Missing config"}), 400
 
-    config_dir = os.path.dirname(CONFIG_PATH)
+    config_dir = os.path.dirname(config_path)
     if config_dir and not os.path.exists(config_dir):
         os.makedirs(config_dir, exist_ok=True)
 
     config_data = data["config"].replace("\\n", "").replace("\n", "")
 
-    with open(CONFIG_PATH, "w") as f:
+    with open(config_path, "w") as f:
         f.write(config_data)
 
-    config = from_file(CONFIG_PATH)
+    config = from_file(config_path)
 
     if process_monitor is not None:
-        process_monitor.set_config_path(CONFIG_PATH)
+        process_monitor.set_config_path(config_path)
 
     return jsonify({"status": "success"})
 
@@ -142,7 +145,7 @@ def get_system_info():
     return jsonify(
         {
             "status": "success",
-            "system_info": get_system_name(),
+            "system_info": system_name,
             "active_processes": list(active_processes),
             "config_set": config is not None,
         }
@@ -179,11 +182,26 @@ def enable_discovery():
     success(f"Registered service {hostname} on {local_ip}")
 
 
+async def setup_ping_pong(autobahn_server: Autobahn):
+    async def ping_server(data: bytes):
+        ping = Ping.FromString(data)
+        pong = Pong(
+            pi_name=system_name,
+            timestamp_ms_received=int(time.time() * 1000),
+            timestamp_ms_original=int(ping.timestamp),
+        )
+
+        await autobahn_server.publish("pi-pong", pong.SerializeToString())
+
+    await autobahn_server.subscribe("pi-ping", ping_server)
+
+
 async def main():
-    global CONFIG_PATH, process_monitor
+    global config_path, process_monitor, system_name
 
     basic_system_config = load_basic_system_config()
-    CONFIG_PATH = basic_system_config.config_path
+    config_path = basic_system_config.config_path
+    system_name = get_system_name()
 
     # Get the current event loop and pass it to ProcessMonitor
     event_loop = asyncio.get_running_loop()
@@ -196,6 +214,7 @@ async def main():
         )
     )
     await autobahn_server.begin()
+    await setup_ping_pong(autobahn_server)
 
     init_logging(
         "WATCHDOG",
