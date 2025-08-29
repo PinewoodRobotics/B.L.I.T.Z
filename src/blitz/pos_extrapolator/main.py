@@ -114,10 +114,6 @@ async def main():
         DataPreparerManager(),
     )
 
-    @autolog(
-        config.pos_extrapolator.message_config.post_tag_input_topic,
-        do_record=config.record_replay,
-    )
     async def process_data(message: bytes):
         data = GeneralSensorData.FromString(message)
         one_of_name = data.WhichOneof("data")

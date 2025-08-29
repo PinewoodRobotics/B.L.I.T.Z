@@ -13,7 +13,9 @@ from blitz.pos_extrapolator.data_prep import KalmanFilterInput
 from blitz.pos_extrapolator.filter_strat import GenericFilterStrategy
 
 
-class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
+class ExtendedKalmanFilterStrategy(  # pyright: ignore[reportUnsafeMultipleInheritance]
+    ExtendedKalmanFilter, GenericFilterStrategy
+):  # pyright: ignore[reportUnsafeMultipleInheritance]
     def __init__(
         self,
         config: KalmanFilterConfig,
@@ -67,6 +69,18 @@ class ExtendedKalmanFilterStrategy(ExtendedKalmanFilter, GenericFilterStrategy):
         self._update_transformation_delta_t_with_size(dt)
 
         self.predict()
+
+        if data.sensor_type not in self.R_sensors:
+            warnings.warn(
+                f"Sensor type {data.sensor_type} not found in R_sensors, skipping update"
+            )
+            return
+
+        if data.sensor_id not in self.R_sensors[data.sensor_type]:
+            warnings.warn(
+                f"Sensor id {data.sensor_id} not found in R_sensors, skipping update"
+            )
+            return
 
         R = self.R_sensors[data.sensor_type][data.sensor_id]
 

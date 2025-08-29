@@ -92,20 +92,19 @@ test-coverage:
 
 thrift-to-py:
 	mkdir -p $(THRIFT_GEN_DIR)
-	thrift -r --gen py:enum,type_hints,package_prefix=blitz.generated.thrift. \
-	  	-I $(THRIFT_DIR) \
-	  	-out $(THRIFT_GEN_DIR) \
-	  	$(THRIFT_ROOT_FILE)
-
-thrift-to-ts:
 	@if [ "$$(uname)" = "Linux" ]; then \
-		echo "Skipping thrift-to-ts on Linux"; \
+		thrift -r --gen py:enum,package_prefix=blitz.generated.thrift. \
+			-I $(THRIFT_DIR) \
+			-out $(THRIFT_GEN_DIR) \
+			$(THRIFT_ROOT_FILE); \
 	else \
-		mkdir -p $(THRIFT_TS_SCHEMA_GEN_DIR); \
-		npm run generate-thrift; \
+		thrift -r --gen py:type_hints,enum,package_prefix=blitz.generated.thrift. \
+			-I $(THRIFT_DIR) \
+			-out $(THRIFT_GEN_DIR) \
+			$(THRIFT_ROOT_FILE); \
 	fi
 
-thrift: thrift-to-py thrift-to-ts
+thrift: thrift-to-py
 
 generate: prepare thrift generate-proto-python
 

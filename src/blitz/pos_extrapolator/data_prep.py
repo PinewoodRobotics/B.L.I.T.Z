@@ -14,8 +14,8 @@ class KalmanFilterInput:
     input_list: np.ndarray
     sensor_id: str
     sensor_type: KalmanFilterSensorType
-    jacobian_h: Optional[Callable[[np.ndarray], np.ndarray]] = None
-    hx: Optional[Callable[[np.ndarray], np.ndarray]] = None
+    jacobian_h: Callable[[np.ndarray], np.ndarray] | None = None
+    hx: Callable[[np.ndarray], np.ndarray] | None = None
 
 
 class ConfigProvider(Protocol[C]):
@@ -23,7 +23,7 @@ class ConfigProvider(Protocol[C]):
 
 
 class DataPreparer(Protocol[T, C]):
-    def __init__(self, config: Optional[C] = None):
+    def __init__(self, config: C | None = None):
         pass
 
     def prepare_input(
@@ -34,8 +34,8 @@ class DataPreparer(Protocol[T, C]):
 
 
 class DataPreparerManager:
-    _registry: Dict[str, Type[DataPreparer[Any, Any]]] = {}
-    _config_instances: Dict[str, Any] = {}
+    _registry: dict[str, type[DataPreparer[Any, Any]]] = {}
+    _config_instances: dict[str, Any] = {}
 
     @classmethod
     def register(cls, proto_type: Type[T], config_instance: Any = None):
@@ -48,7 +48,7 @@ class DataPreparerManager:
         return decorator
 
     @classmethod
-    def set_config(cls, proto_type: Type[T], config_instance: Any):
+    def set_config(cls, proto_type: type[T], config_instance: Any):
         cls._config_instances[proto_type.__name__] = config_instance
 
     def prepare_data(

@@ -44,6 +44,7 @@ def get_camera_capture_device(camera: CameraParameters) -> AbstractCaptureDevice
             camera.max_fps,
             get_np_from_matrix(camera.camera_matrix),
             get_np_from_vector(camera.dist_coeff),
+            exposure_time=camera.exposure_time,
         )
 
     raise ValueError(f"Unsupported camera type: {camera.camera_type}")

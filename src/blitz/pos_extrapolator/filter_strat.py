@@ -1,11 +1,13 @@
 import numpy as np
 
+from blitz.pos_extrapolator.data_prep import KalmanFilterInput
+
 
 class GenericFilterStrategy:
     def __init__(self):
         pass
 
-    def insert_data(self, data: object) -> None:
+    def insert_data(self, data: KalmanFilterInput) -> None:
         raise NotImplementedError("insert_data not implemented")
 
     def get_state(self) -> np.ndarray:
