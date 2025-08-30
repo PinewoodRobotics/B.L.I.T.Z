@@ -79,8 +79,18 @@ check-project:
 run-config-ts:
 	npm run config
 
+
+UBUNTU_TARGET = 10.47.65.12
+UBUNTU_TARGET_NAME = "agatha_king"
+SSH_PASS = ubuntu
+
 send-to-target:
-	rsync -av --progress --exclude-from=.gitignore --delete ./ ubuntu@10.47.65.12:~/Documents/B.L.I.T.Z/
+	sshpass -p $(SSH_PASS) rsync -av --progress --exclude-from=.gitignore --delete ./ ubuntu@$(UBUNTU_TARGET):~/Documents/B.L.I.T.Z/
+
+hard-reset:
+	sshpass -p $(SSH_PASS) ssh ubuntu@$(UBUNTU_TARGET) 'sudo rm -rf /home/ubuntu/Documents/B.L.I.T.Z/ && mkdir -p /home/ubuntu/Documents/B.L.I.T.Z/'
+	$(MAKE) send-to-target
+	sshpass -p $(SSH_PASS) ssh ubuntu@$(UBUNTU_TARGET) 'cd ~/Documents/B.L.I.T.Z/ && bash scripts/install.sh --name $(UBUNTU_TARGET_NAME)'
 
 test:
 	$(VENV_PYTHON) -m pytest
