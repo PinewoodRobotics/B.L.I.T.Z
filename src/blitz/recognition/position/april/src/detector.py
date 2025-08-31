@@ -118,11 +118,10 @@ class DetectionCamera:
         do_compression: bool = True,
         compression_quality: int = 90,
     ):
-        data = GeneralSensorData()
-        data.sensor_id = self.name
-        data.timestamp = int(time.time() * 1000)
-
-        if self.publication_lambda is not None:
+        if self.publication_lambda is not None and len(found_tags) > 0:
+            data = GeneralSensorData()
+            data.sensor_id = self.name
+            data.timestamp = int(time.time() * 1000)
             data.sensor_name = SensorName.APRIL_TAGS
             data.apriltags.world_tags.tags.extend(found_tags)
 
@@ -131,8 +130,13 @@ class DetectionCamera:
             )
 
         if self.publication_image_lambda is not None:
-            data.image = encode_image(
-                frame, ImageFormat.GRAY, do_compression, compression_quality
+            data = GeneralSensorData()
+            data.sensor_id = self.name
+            data.timestamp = int(time.time() * 1000)
+            data.image.CopyFrom(
+                encode_image(
+                    frame, ImageFormat.GRAY, do_compression, compression_quality
+                )
             )
 
             self.publication_image_lambda(data.SerializeToString())

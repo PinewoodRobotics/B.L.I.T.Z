@@ -20,7 +20,7 @@ from blitz.recognition.position.april.src.camera.OV2311_camera import (
 from blitz.recognition.position.april.src.detector import DetectionCamera
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--config", type=str, default=None)
+_ = parser.add_argument("--config", type=str, default=None)
 
 
 def build_detector(config: AprilDetectionConfig):
@@ -36,7 +36,7 @@ def build_detector(config: AprilDetectionConfig):
 
 
 def get_camera_capture_device(camera: CameraParameters) -> AbstractCaptureDevice:
-    if camera.camera_type == CameraType.OV2311.value:
+    if camera.camera_type == "OV2311":
         return OV2311Camera(
             camera.camera_path,
             camera.width,
@@ -76,11 +76,11 @@ async def main():
     loop = asyncio.get_running_loop()
 
     def publish_nowait(topic: str, data: bytes):
-        asyncio.run_coroutine_threadsafe(autobahn_server.publish(topic, data), loop)
+        _ = asyncio.run_coroutine_threadsafe(autobahn_server.publish(topic, data), loop)
 
     success("Starting APRIL server")
     for camera in config.cameras:
-        if camera is not None and camera.pi_to_run_on != get_system_name():
+        if camera.pi_to_run_on != get_system_name():
             continue
 
         success(f"Starting camera: {camera.name}")
@@ -97,7 +97,13 @@ async def main():
                 if config.april_detection.message.post_tag_output_topic
                 else None
             ),
-            publication_image_lambda=lambda message: (
+            publication_image_lambda=None,
+            do_compression=camera.do_compression or False,
+            compression_quality=camera.compression_quality or 90,
+        )
+
+        """
+        lambda message: (
                 publish_nowait(
                     config.april_detection.message.post_camera_output_topic,
                     message,
@@ -105,15 +111,13 @@ async def main():
                 if config.april_detection.message.post_camera_output_topic
                 else None
             ),
-            do_compression=camera.do_compression or False,
-            compression_quality=camera.compression_quality or 90,
-        )
+        """
 
         camera_detector_list.append(detector_cam)
 
         detector_cam.start()
 
-    await asyncio.Event().wait()
+    _ = await asyncio.Event().wait()
 
 
 def cli_main():

@@ -22,11 +22,11 @@ class TagSolvingStrategyTagCorners(Enum):
     CORNERS = "corners"
 
 
-def to_float_list(arr: np.ndarray) -> list:
+def to_float_list(arr: np.ndarray) -> list[float]:
     return list(arr.flatten()) if arr is not None else []
 
 
-def to_float(val) -> float:
+def to_float(val: np.ndarray | float | int | None) -> float:
     if isinstance(val, np.ndarray):
         return float(val.item())
     return float(val) if val is not None else 0.0
@@ -48,7 +48,7 @@ def get_tag_corners_undistorted(
     camera_matrix: np.ndarray,
     dist_coeff: np.ndarray,
 ) -> list[Vector2]:
-    corners = []
+    corners: list[Vector2] = []
     for corner in detection.corners:
         corner = np.array([[corner[0], corner[1]]], dtype=np.float32)
 
@@ -77,7 +77,7 @@ def post_process_detection(
 def from_detection_to_corners_raw(
     detection: pyapriltags.Detection,
 ) -> list[Vector2]:
-    corners = []
+    corners: list[Vector2] = []
     for corner in detection.corners:
         corners.append(Vector2(x=corner[0], y=corner[1]))
 
