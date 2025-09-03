@@ -61,7 +61,7 @@ plotly==6.3.0
 pluggy==1.6.0
 polars==1.33.0
 pooch==1.8.2
-protobuf==6.32.0
+protobuf<6
 protoletariat==3.3.10
 psutil==7.0.0
 py-cpuinfo==9.0.0
