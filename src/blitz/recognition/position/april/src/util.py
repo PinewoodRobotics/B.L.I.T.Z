@@ -8,13 +8,22 @@ import subprocess
 import time
 import cv2
 import numpy as np
+from numpy.typing import NDArray
+from typing import cast
 import pyapriltags
 
+from blitz.common.util.math import get_np_from_matrix, get_np_from_vector
 from blitz.generated.proto.python.sensor.apriltags_pb2 import (
     ProcessedTag,
     UnprocessedTag,
 )
 from blitz.generated.proto.python.util.vector_pb2 import Vector2
+from blitz.generated.thrift.config.apriltag.ttypes import AprilDetectionConfig
+from blitz.generated.thrift.config.camera.ttypes import CameraParameters, CameraType
+from blitz.recognition.position.april.src.camera.OV2311_camera import OV2311Camera
+from blitz.recognition.position.april.src.camera.abstract_camera import (
+    AbstractCaptureDevice,
+)
 
 
 class TagSolvingStrategyTagCorners(Enum):
@@ -22,11 +31,11 @@ class TagSolvingStrategyTagCorners(Enum):
     CORNERS = "corners"
 
 
-def to_float_list(arr: np.ndarray) -> list[float]:
-    return list(arr.flatten()) if arr is not None else []
+def to_float_list(arr: NDArray[np.float64]) -> list[float]:
+    return list(arr.flatten())
 
 
-def to_float(val: np.ndarray | float | int | None) -> float:
+def to_float(val: NDArray[np.float64] | float | int | None) -> float:
     if isinstance(val, np.ndarray):
         return float(val.item())
     return float(val) if val is not None else 0.0
@@ -45,8 +54,8 @@ def from_detection_to_proto_tag(detection: pyapriltags.Detection) -> ProcessedTa
 
 def get_tag_corners_undistorted(
     detection: pyapriltags.Detection,
-    camera_matrix: np.ndarray,
-    dist_coeff: np.ndarray,
+    camera_matrix: NDArray[np.float64],
+    dist_coeff: NDArray[np.float64],
 ) -> list[Vector2]:
     corners: list[Vector2] = []
     for corner in detection.corners:
@@ -62,8 +71,8 @@ def get_tag_corners_undistorted(
 
 def post_process_detection(
     detection: list[pyapriltags.Detection],
-    camera_matrix: np.ndarray,
-    dist_coeff: np.ndarray,
+    camera_matrix: NDArray[np.float64],
+    dist_coeff: NDArray[np.float64],
 ) -> list[UnprocessedTag]:
     return [
         UnprocessedTag(
@@ -85,7 +94,7 @@ def from_detection_to_corners_raw(
 
 
 def process_image(
-    image: np.ndarray,
+    image: NDArray[np.uint8],
     detector: pyapriltags.Detector,
 ) -> list[pyapriltags.Detection]:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -94,17 +103,17 @@ def process_image(
 
 
 def get_undistored_frame(
-    frame: np.ndarray, map1: np.ndarray, map2: np.ndarray
-) -> np.ndarray:
-    return cv2.remap(frame, map1, map2, cv2.INTER_LINEAR)
+    frame: NDArray[np.uint8], map1: NDArray[np.int16], map2: NDArray[np.uint16]
+) -> NDArray[np.uint8]:
+    return cast(NDArray[np.uint8], cv2.remap(frame, map1, map2, cv2.INTER_LINEAR))
 
 
 def get_map1_and_map2(
-    camera_matrix: np.ndarray,
-    dist_coeff: np.ndarray,
+    camera_matrix: NDArray[np.float64],
+    dist_coeff: NDArray[np.float64],
     width: int,
     height: int,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[NDArray[np.int16], NDArray[np.uint16], NDArray[np.float64]]:
     new_camera_matrix, _ = cv2.getOptimalNewCameraMatrix(
         camera_matrix,
         dist_coeff,
@@ -121,15 +130,19 @@ def get_map1_and_map2(
         m1type=cv2.CV_16SC2,
     )
 
-    return map1, map2, new_camera_matrix
+    return (
+        cast(NDArray[np.int16], map1),
+        cast(NDArray[np.uint16], map2),
+        cast(NDArray[np.float64], new_camera_matrix),
+    )
 
 
 def solve_pnp_tag_corners(
     tag_corners: UnprocessedTag,
     tag_size: float,
-    camera_matrix: np.ndarray,
-    dist_coeff: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
+    camera_matrix: NDArray[np.float64],
+    dist_coeff: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
     Solves the PnP problem for a tag corner.
     Returns:
@@ -165,15 +178,15 @@ def solve_pnp_tag_corners(
         raise RuntimeError("solvePnP failed")
 
     R, _ = cv2.Rodrigues(rvec)
-    return R, tvec
+    return cast(NDArray[np.float64], R), cast(NDArray[np.float64], tvec)
 
 
 def solve_pnp_tags_iterative(
     tags: list[UnprocessedTag],
     tag_size: float,
-    camera_matrix: np.ndarray,
-    dist_coeff: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
+    camera_matrix: NDArray[np.float64],
+    dist_coeff: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     image_points = []
     object_points = []
 
@@ -203,4 +216,37 @@ def solve_pnp_tags_iterative(
         flags=cv2.SOLVEPNP_ITERATIVE,
     )
 
-    return cv2.Rodrigues(rvec)[0], tvec
+    return cast(NDArray[np.float64], cv2.Rodrigues(rvec)[0]), cast(
+        NDArray[np.float64], tvec
+    )
+
+
+def get_camera_capture_device(camera: CameraParameters) -> AbstractCaptureDevice:
+    if (
+        camera.camera_type == "OV2311"
+        or camera.camera_type == CameraType.OV2311
+        or camera.camera_type.value == CameraType.OV2311.value
+    ):
+        return OV2311Camera(
+            camera.camera_path,
+            camera.width,
+            camera.height,
+            camera.max_fps,
+            get_np_from_matrix(camera.camera_matrix),
+            get_np_from_vector(camera.dist_coeff),
+            exposure_time=camera.exposure_time,
+        )
+
+    raise ValueError(f"Unsupported camera type: {camera.camera_type}")
+
+
+def build_detector(config: AprilDetectionConfig) -> pyapriltags.Detector:
+    return pyapriltags.Detector(
+        families=str(config.family),
+        nthreads=config.nthreads,
+        quad_decimate=config.quad_decimate,
+        quad_sigma=config.quad_sigma,
+        refine_edges=config.refine_edges,
+        decode_sharpening=config.decode_sharpening,
+        debug=0,
+    )

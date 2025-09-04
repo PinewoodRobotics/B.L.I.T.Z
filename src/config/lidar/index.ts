@@ -1,4 +1,4 @@
-import { LidarConfig } from "../../blitz/generated/thrift/gen-nodejs/lidar_types";
+import { LidarConfig } from "generated/thrift/gen-nodejs/lidar_types";
 import { MatrixUtil, VectorUtil } from "../util/math";
 
 const lidar_configs: {

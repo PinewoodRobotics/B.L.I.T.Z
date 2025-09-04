@@ -1,8 +1,11 @@
+from typing import SupportsFloat, override
 from cscore import CvSource, CvSink, VideoMode
 import cv2
 import numpy as np
 import threading
 import time
+
+from numpy.typing import NDArray
 
 from blitz.common.camera.image_utils import from_proto_image
 from blitz.common.debug.logger import error
@@ -18,9 +21,10 @@ class ReplaySink(CvSink):
         super().__init__(name)
         self.camera_topic = camera_topic
 
+    @override
     def grabFrame(
-        self, image: np.ndarray, timeout: float = 0.225
-    ) -> tuple[int, np.ndarray]:
+        self, image: NDArray[np.uint8], timeout: SupportsFloat = 0.225
+    ) -> tuple[int, NDArray[np.uint8]]:
         replay = get_next_key_replay(self.camera_topic)
         if replay is None:
             error(f"No replay found for camera topic: {self.camera_topic}")
@@ -38,8 +42,8 @@ class ReplayCamera(AbstractCaptureDevice, type=CameraType.VIDEO_FILE):
         height: int = 720,
         camera_topic: str = "camera",
         max_fps: float = 30,
-        camera_matrix: np.ndarray = np.eye(3),
-        dist_coeff: np.ndarray = np.zeros(5),
+        camera_matrix: NDArray[np.float64] = np.eye(3),
+        dist_coeff: NDArray[np.float64] = np.zeros(5),
     ):
         super().__init__(
             camera_port=camera_topic,

@@ -1,4 +1,4 @@
-import { type CameraParameters } from "../../blitz/generated/thrift/gen-nodejs/camera_types";
+import { type CameraParameters } from "generated/thrift/gen-nodejs/camera_types";
 import { MatrixUtil, VectorUtil } from "../util/math";
 import { CameraTypeE, CameraTypeUtil } from "../util/struct";
 

@@ -1,4 +1,4 @@
-import { PathfindingConfig } from "../../blitz/generated/thrift/gen-nodejs/pathfinding_types";
+import { PathfindingConfig } from "generated/thrift/gen-nodejs/pathfinding_types";
 import { fromImageToMap } from "../util/map";
 
 const pathfinding_config: PathfindingConfig = {

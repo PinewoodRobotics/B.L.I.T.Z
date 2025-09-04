@@ -3,6 +3,7 @@ from typing import Dict, Type
 
 import numpy as np
 from cscore import CvSink, UsbCamera, VideoSource, CvSource
+from numpy.typing import NDArray
 
 from blitz.common.debug.logger import error, success
 from blitz.generated.thrift.config.camera.ttypes import CameraType
@@ -22,8 +23,8 @@ class AbstractCaptureDevice:
         width: int,
         height: int,
         max_fps: float,
-        camera_matrix: np.ndarray = np.eye(3),
-        dist_coeff: np.ndarray = np.zeros(5),
+        camera_matrix: NDArray[np.float64] = np.eye(3),
+        dist_coeff: NDArray[np.float64] = np.zeros(5),
         hard_fps_limit: float | None = None,
         exposure_time: float | None = None,
     ):
@@ -75,7 +76,7 @@ class AbstractCaptureDevice:
 
             error(f"WARNING: Failed to initialize camera after {max_attempts} attempts")
 
-    def get_frame(self) -> tuple[bool, np.ndarray | None]:
+    def get_frame(self) -> tuple[bool, NDArray[np.uint8] | None]:
         start = time.time()
 
         if self.sink is None or not self._is_ready:
@@ -107,10 +108,10 @@ class AbstractCaptureDevice:
         self.sink = None
         self.camera = None
 
-    def get_matrix(self) -> np.ndarray:
+    def get_matrix(self) -> NDArray[np.float64]:
         return self.camera_matrix
 
-    def get_dist_coeff(self) -> np.ndarray:
+    def get_dist_coeff(self) -> NDArray[np.float64]:
         return self.dist_coeff
 
     def _configure_camera(self):

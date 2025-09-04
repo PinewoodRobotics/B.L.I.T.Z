@@ -1,4 +1,4 @@
-import type { KalmanFilterConfig } from "../../../blitz/generated/thrift/gen-nodejs/kalman_filter_types";
+import type { KalmanFilterConfig } from "generated/thrift/gen-nodejs/kalman_filter_types";
 import { MatrixUtil, VectorUtil } from "../../util/math";
 import { KalmanFilterSensorTypeUtil, SensorType } from "../../util/struct";
 

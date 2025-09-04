@@ -5,6 +5,7 @@ from typing import Callable
 
 import cv2
 import numpy as np
+from numpy.typing import NDArray
 import pyapriltags
 from pyapriltags.apriltags import Detector
 
@@ -58,15 +59,15 @@ class DetectionCamera:
 
         self.name: str = name
 
-        self.thread: threading.Thread = threading.Thread(target=self._update)
+        self.thread: threading.Thread = threading.Thread(target=self._run_loop)
         self.running: bool = True
 
     def start(self):
         self.thread.daemon = True
         self.thread.start()
 
-    @stats_for_nerds_akit(print_stats=False)
-    def _process_tags(self, frame: np.ndarray) -> list[ProcessedTag]:
+    # @stats_for_nerds_akit(print_stats=False)
+    def _process_tags(self, frame: NDArray[np.uint8]) -> list[ProcessedTag]:
         tags_world: list[ProcessedTag] = []
         tag_id_corners_found = post_process_detection(
             process_image(frame, self.detector),
@@ -92,7 +93,7 @@ class DetectionCamera:
 
         return tags_world
 
-    def _update(self):
+    def _run_loop(self):
         while self.thread.daemon and self.running:
             ret, frame = self.video_capture.get_frame()
 
@@ -113,7 +114,7 @@ class DetectionCamera:
 
     def _publish(
         self,
-        frame: np.ndarray,
+        frame: NDArray[np.uint8],
         found_tags: list[ProcessedTag],
         do_compression: bool = True,
         compression_quality: int = 90,

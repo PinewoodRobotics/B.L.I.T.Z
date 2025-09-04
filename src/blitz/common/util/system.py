@@ -1,3 +1,4 @@
+import argparse
 from enum import Enum
 import subprocess
 import psutil
@@ -5,6 +6,9 @@ import json
 import re
 from pydantic import BaseModel
 import netifaces
+
+from blitz.common.config import from_uncertainty_config
+from blitz.generated.thrift.config.ttypes import Config
 
 
 class ProcessType(Enum):
@@ -96,3 +100,19 @@ def get_local_ip(iface: str = "eth0") -> str | None:
     except ValueError:
         pass
     return None
+
+
+def get_config_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    _ = parser.add_argument("--config", type=str, default=None)
+    return parser
+
+
+def load_configs() -> tuple[BasicSystemConfig, Config]:
+    basic_system_config = load_basic_system_config()
+    args = get_config_parser().parse_args()
+    config = from_uncertainty_config(args.config)
+    if config is None or basic_system_config is None:
+        raise ValueError("Failed to load configs")
+
+    return basic_system_config, config

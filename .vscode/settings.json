@@ -26,7 +26,7 @@
     "utility": "cpp"
   },
   "cmake.sourceDirectory": "/Users/godbrigero/Documents/BLITZ/project/hybrid-frustum-pointnet/lidar",
-  "cSpell.words": ["pyapriltags", "Threshholding"],
+  "cSpell.words": ["ndarray", "pyapriltags", "Threshholding"],
   "editor.codeActionsOnSave": {
     "source.organizeImports": "always"
   },

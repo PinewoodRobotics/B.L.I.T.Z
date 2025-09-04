@@ -1,4 +1,4 @@
-import { AprilDetectionConfig } from "../../blitz/generated/thrift/gen-nodejs/apriltag_types";
+import { AprilDetectionConfig } from "generated/thrift/gen-nodejs/apriltag_types";
 
 export const april_tag_detection_config: AprilDetectionConfig = {
   tag_size: 0.17,

@@ -12,51 +12,27 @@ from autobahn_client.client import Autobahn
 from autobahn_client.util import Address
 from blitz.common.config import from_uncertainty_config
 from blitz.common.util.math import get_np_from_matrix, get_np_from_vector
-from blitz.common.util.system import get_system_name, load_basic_system_config
+from blitz.common.util.system import (
+    get_config_parser,
+    get_system_name,
+    load_basic_system_config,
+    load_configs,
+)
 from blitz.recognition.position.april.src.camera.OV2311_camera import (
     AbstractCaptureDevice,
     OV2311Camera,
 )
 from blitz.recognition.position.april.src.detector import DetectionCamera
-
-parser = argparse.ArgumentParser()
-_ = parser.add_argument("--config", type=str, default=None)
-
-
-def build_detector(config: AprilDetectionConfig):
-    return pyapriltags.Detector(
-        families=str(config.family),
-        nthreads=config.nthreads,
-        quad_decimate=config.quad_decimate,
-        quad_sigma=config.quad_sigma,
-        refine_edges=config.refine_edges,
-        decode_sharpening=config.decode_sharpening,
-        debug=0,
-    )
-
-
-def get_camera_capture_device(camera: CameraParameters) -> AbstractCaptureDevice:
-    if camera.camera_type == "OV2311":
-        return OV2311Camera(
-            camera.camera_path,
-            camera.width,
-            camera.height,
-            camera.max_fps,
-            get_np_from_matrix(camera.camera_matrix),
-            get_np_from_vector(camera.dist_coeff),
-            exposure_time=camera.exposure_time,
-        )
-
-    raise ValueError(f"Unsupported camera type: {camera.camera_type}")
+from blitz.recognition.position.april.src.util import (
+    build_detector,
+    get_camera_capture_device,
+)
 
 
 async def main():
-    basic_system_config = load_basic_system_config()
-    args = parser.parse_args()
-    config = from_uncertainty_config(args.config)
+    basic_system_config, config = load_configs()
 
     camera_detector_list: list[DetectionCamera] = []
-
     autobahn_server = Autobahn(
         Address(
             basic_system_config.autobahn.host,
@@ -97,13 +73,7 @@ async def main():
                 if config.april_detection.message.post_tag_output_topic
                 else None
             ),
-            publication_image_lambda=None,
-            do_compression=camera.do_compression or False,
-            compression_quality=camera.compression_quality or 90,
-        )
-
-        """
-        lambda message: (
+            publication_image_lambda=lambda message: (
                 publish_nowait(
                     config.april_detection.message.post_camera_output_topic,
                     message,
@@ -111,7 +81,9 @@ async def main():
                 if config.april_detection.message.post_camera_output_topic
                 else None
             ),
-        """
+            do_compression=camera.do_compression or False,
+            compression_quality=camera.compression_quality or 90,
+        )
 
         camera_detector_list.append(detector_cam)
 
