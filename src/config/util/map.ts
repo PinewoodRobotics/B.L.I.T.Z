@@ -1,6 +1,6 @@
 import { createCanvas } from "canvas";
 import fs from "fs";
-import type { MapData as MapDataThrift } from "../../blitz/generated/thrift/gen-nodejs/common_types";
+import type { MapData as MapDataThrift } from "generated/thrift/gen-nodejs/common_types";
 
 export type MapData = MapDataThrift;
 

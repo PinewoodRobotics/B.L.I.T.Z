@@ -10,8 +10,8 @@ export const pose_extrapolator: PosExtrapolator = {
   message_config: message_config,
   camera_position_config: {
     one: {
-      position: VectorUtil.fromArray<3>([0, 0, 0]),
-      rotation: MatrixUtil.buildMatrix<3, 3>([
+      position: VectorUtil.fromArray([0, 0, 0]),
+      rotation: MatrixUtil.buildMatrix([
         [1, 0, 0],
         [0, 1, 0],
         [0, 0, 1],

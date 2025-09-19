@@ -1,6 +1,5 @@
-import { CameraType } from "../../blitz/generated/thrift/gen-nodejs/camera_types";
-import { KalmanFilterSensorType } from "../../blitz/generated/thrift/gen-nodejs/kalman_filter_types";
-import type { Level } from "../../blitz/generated/thrift/gen-nodejs/logger_types";
+import { CameraType } from "generated/thrift/gen-nodejs/camera_types";
+import { KalmanFilterSensorType } from "generated/thrift/gen-nodejs/kalman_filter_types";
 
 export const MapUtil = {
   fromRecord<K extends string | number | symbol, V>(
@@ -16,23 +15,6 @@ export enum LogLevel {
   WARN = 2,
   ERROR = 3,
 }
-
-export const LogLevelUtil = {
-  fromEnum(level: LogLevel): Level {
-    switch (level) {
-      case LogLevel.DEBUG:
-        return 0 as Level;
-      case LogLevel.INFO:
-        return 1 as Level;
-      case LogLevel.WARN:
-        return 2 as Level;
-      case LogLevel.ERROR:
-        return 3 as Level;
-      default:
-        throw new Error(`Invalid log level: ${level}`);
-    }
-  },
-};
 
 export enum SensorType {
   APRIL_TAG = 0,

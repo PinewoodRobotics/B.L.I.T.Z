@@ -6,8 +6,8 @@ export const nav_x_config = {
     use_rotation: false,
     use_velocity: true,
     imu_robot_position: {
-      position: VectorUtil.fromArray<3>([0.0, 0.0, 0.0]),
-      rotation: MatrixUtil.buildMatrix<3, 3>([
+      position: VectorUtil.fromArray([0.0, 0.0, 0.0]),
+      rotation: MatrixUtil.buildMatrix([
         [1, 0, 0],
         [0, 1, 0],
         [0, 0, 1],
