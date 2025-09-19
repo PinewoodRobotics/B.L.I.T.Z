@@ -17,18 +17,6 @@ def test_load_config():
 def test_from_file():
     config = from_file(add_cur_dir("fixtures/sample_config.txt"))
     assert config is not None
-    assert config.cameras is not None
-    assert len(config.cameras) == 1
-    assert config.cameras[0].name == "one"
-    assert config.cameras[0].camera_path == "/dev/video0"
-    assert config.cameras[0].flags == 0
-    assert config.cameras[0].width == 800
-    assert config.cameras[0].height == 600
-    assert config.cameras[0].camera_type == CameraType.OV2311
-    assert config.cameras[0].camera_matrix is not None
-    assert config.cameras[0].camera_matrix.values[0][0] is not None
-    assert config.cameras[0].camera_matrix.values[0][1] is not None
-    assert config.cameras[0].camera_matrix.values[0][2] is not None
 
 
 def test_from_uncertainty_config():

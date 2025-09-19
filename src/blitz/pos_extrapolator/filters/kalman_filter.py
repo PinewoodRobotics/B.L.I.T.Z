@@ -1,5 +1,6 @@
 from filterpy.kalman import KalmanFilter
 import numpy as np
+from numpy.typing import NDArray
 
 from blitz.common.util.math import get_np_from_matrix
 from blitz.generated.thrift.config.kalman_filter.ttypes import (
@@ -9,7 +10,7 @@ from blitz.pos_extrapolator.data_prep import KalmanFilterInput
 from blitz.pos_extrapolator.filter_strat import GenericFilterStrategy
 
 
-class KalmanFilterStrategy(KalmanFilter, GenericFilterStrategy):
+class KalmanFilterStrategy(KalmanFilter, GenericFilterStrategy):  # pyright: ignore[reportUnsafeMultipleInheritance]
     def __init__(self, config: KalmanFilterConfig, do_wrap_theta: bool = True):
         super().__init__(dim_x=config.dim_x_z[0], dim_z=config.dim_x_z[1])
         self.x = np.array(config.state_vector)
@@ -20,19 +21,19 @@ class KalmanFilterStrategy(KalmanFilter, GenericFilterStrategy):
         self.config = config
 
     def insert_data(self, data: KalmanFilterInput) -> None:
-        self.predict()
+        self.predict()  # pyright: ignore[reportUnknownMemberType]
         # self.x[4] = np.arctan2(np.sin(self.x[4]), np.cos(self.x[4]))
 
         z = np.array(data.input_list)
 
         # Ensure theta difference (index 4) is wrapped to [-π, π]
         if len(z) > 4 and self.do_wrap_theta:  # Only apply if theta is present
-            theta_residual = z[4] - self.x[4]
+            theta_residual: float = z[4] - self.x[4]
             z[4] = self.x[4] + np.arctan2(
                 np.sin(theta_residual), np.cos(theta_residual)
             )
 
-        self.update(
+        self.update(  # pyright: ignore[reportUnknownMemberType]
             z,
             get_np_from_matrix(
                 self.config.sensors[data.sensor_type][
@@ -46,13 +47,13 @@ class KalmanFilterStrategy(KalmanFilter, GenericFilterStrategy):
             ),
         )
 
-    def get_state(self) -> list[float]:
-        return [float(x) for x in self.x.flatten()]
+    def get_state(self) -> NDArray[np.float64]:
+        return np.array([float(x) for x in self.x.flatten()])
 
     def get_position_confidence(self) -> float:
         P_position = self.P[:2, :2]
 
-        determinant = np.linalg.det(P_position)
+        determinant: float = np.linalg.det(P_position)
 
         # Optionally, you could also compute trace or ellipse radius
         # trace = np.trace(P_position)

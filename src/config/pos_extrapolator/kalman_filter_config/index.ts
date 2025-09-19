@@ -29,10 +29,10 @@ export const kalman_filter: KalmanFilterConfig = {
     [KalmanFilterSensorTypeUtil.fromEnum(SensorType.IMU)]: {
       0: {
         measurement_conversion_matrix: MatrixUtil.buildMatrixFromDiagonal([
-          1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1,
         ]),
         measurement_noise_matrix: MatrixUtil.buildMatrixFromDiagonal([
-          5, 5, 0.1, 0.1, 0.01, 0.01,
+          0.1, 0.1, 0.01, 0.01,
         ]),
       },
     },

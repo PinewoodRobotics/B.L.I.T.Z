@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Type, TypeVar, Optional, Callable, Protocol
 
 import numpy as np
+from numpy.typing import NDArray
 
 from blitz.generated.thrift.config.kalman_filter.ttypes import KalmanFilterSensorType
 
@@ -11,11 +12,11 @@ C = TypeVar("C", covariant=True)
 
 @dataclass
 class KalmanFilterInput:
-    input_list: np.ndarray
+    input_list: NDArray[np.float64]
     sensor_id: str
     sensor_type: KalmanFilterSensorType
-    jacobian_h: Callable[[np.ndarray], np.ndarray] | None = None
-    hx: Callable[[np.ndarray], np.ndarray] | None = None
+    jacobian_h: Callable[[NDArray[np.float64]], NDArray[np.float64]] | None = None
+    hx: Callable[[NDArray[np.float64]], NDArray[np.float64]] | None = None
 
 
 class ConfigProvider(Protocol[C]):
@@ -27,7 +28,7 @@ class DataPreparer(Protocol[T, C]):
         pass
 
     def prepare_input(
-        self, data: T, sensor_id: str, x: np.ndarray | None = None
+        self, data: T, sensor_id: str, x: NDArray[np.float64] | None = None
     ) -> KalmanFilterInput: ...
 
     def get_data_type(self) -> type[T]: ...
@@ -52,7 +53,7 @@ class DataPreparerManager:
         cls._config_instances[proto_type.__name__] = config_instance
 
     def prepare_data(
-        self, data: object, sensor_id: str, x: np.ndarray | None = None
+        self, data: object, sensor_id: str, x: NDArray[np.float64] | None = None
     ) -> KalmanFilterInput:
         data_type_name = type(data).__name__
 

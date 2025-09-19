@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from blitz.common.util.math import from_theat_to_3x3_mat
+from blitz.common.util.math import from_theta_to_3x3_mat
 from blitz.generated.proto.python.sensor.apriltags_pb2 import (
     AprilTagData,
     ProcessedTag,
@@ -60,32 +60,32 @@ def construct_tag_world(use_imu_rotation: bool = False) -> AprilTagConfig:
 
     tags_in_world[0] = from_np_to_point3(
         pose=np.array([0, 0, 0]),
-        rotation=from_theat_to_3x3_mat(0),
+        rotation=from_theta_to_3x3_mat(0),
     )
 
     tags_in_world[1] = from_np_to_point3(
         pose=np.array([1, 0, 0]),
-        rotation=from_theat_to_3x3_mat(90),
+        rotation=from_theta_to_3x3_mat(90),
     )
 
     tags_in_world[2] = from_np_to_point3(
         pose=np.array([0, 1, 0]),
-        rotation=from_theat_to_3x3_mat(180),
+        rotation=from_theta_to_3x3_mat(180),
     )
 
     tags_in_world[3] = from_np_to_point3(
         pose=np.array([1, 1, 0]),
-        rotation=from_theat_to_3x3_mat(270),
+        rotation=from_theta_to_3x3_mat(270),
     )
 
     tags_in_world[4] = from_np_to_point3(
         pose=np.array([0, 1, 0]),
-        rotation=from_theat_to_3x3_mat(360),
+        rotation=from_theta_to_3x3_mat(360),
     )
 
     cameras_in_robot["camera_1"] = from_np_to_point3(
         pose=np.array([0, 0, 0]),
-        rotation=from_theat_to_3x3_mat(0),
+        rotation=from_theta_to_3x3_mat(0),
     )
 
     return AprilTagConfig(
@@ -111,7 +111,7 @@ def test_april_tag_prep_one():
 
     preparer = make_april_tag_preparer()
 
-    tag_one_R = from_robot_rotation_to_camera_rotation(from_theat_to_3x3_mat(0))
+    tag_one_R = from_robot_rotation_to_camera_rotation(from_theta_to_3x3_mat(0))
     tag_one_t = from_robot_coords_to_camera_coords(np.array([1, 0, 0]))
 
     tag_vision_one = AprilTagData(
@@ -137,7 +137,7 @@ def test_april_tag_prep_two():
     preparer = make_april_tag_preparer(use_imu_rotation=True)
 
     tag_one_R = from_robot_rotation_to_camera_rotation(
-        from_theat_to_3x3_mat(10)
+        from_theta_to_3x3_mat(10)
     )  # noisy
     tag_one_t = from_robot_coords_to_camera_coords(np.array([1, 0, 0]))
 

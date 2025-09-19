@@ -7,8 +7,8 @@ from blitz.generated.thrift.config.common.ttypes import (
 
 
 def get_translation_rotation_components(
-    transformation_matrix: NDArray[np.float32],
-):
+    transformation_matrix: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     translation = transformation_matrix[0:3, 3]
     rotation = transformation_matrix[0:3, 0:3]
     return translation, rotation
@@ -122,7 +122,7 @@ def transform_vector_to_size(
     return np.array([v for v, i in zip(vector, used_indices) if i])
 
 
-def from_theat_to_3x3_mat(theta: float):
+def from_theta_to_3x3_mat(theta: float):
     """
     Convert a rotation angle in degrees to a 3x3 rotation matrix.
     Theta is the rotation angle around the z-axis in degrees [0, 360].

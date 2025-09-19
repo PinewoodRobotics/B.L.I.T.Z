@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import math
 import numpy as np
+from numpy.typing import NDArray
 from blitz.common.util.math import (
     create_transformation_matrix,
     from_float_list,
@@ -46,25 +47,25 @@ class AprilTagDataPreparerConfig(ConfigProvider[AprilTagConfig]):
 class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig]):
     def __init__(self, config: AprilTagDataPreparerConfig):
         super().__init__(config)
-        self.config = config
+        self.config: AprilTagDataPreparerConfig = config
 
         conf = self.config.get_config()
-        self.tags_in_world = conf.tags_in_world
-        self.cameras_in_robot = conf.cameras_in_robot
-        self.use_imu_rotation = conf.use_imu_rotation
+        self.tags_in_world: dict[int, Point3] = conf.tags_in_world
+        self.cameras_in_robot: dict[str, Point3] = conf.cameras_in_robot
+        self.use_imu_rotation: bool = conf.use_imu_rotation
 
     def get_data_type(self) -> type[AprilTagData]:
         return AprilTagData
 
-    def get_avg_pose(self, input_list: list[list[float]]) -> np.ndarray:
-        output = []
+    def get_avg_pose(self, input_list: list[list[float]]) -> NDArray[np.float64]:
+        output: list[float] = []
         for i in range(len(input_list[0])):
-            output.append(np.mean([input[i] for input in input_list]))
+            output.append(np.mean([input[i] for input in input_list]))  # pyright: ignore[reportArgumentType]
 
         return np.array(output)
 
     def get_used_indices(self) -> list[bool]:
-        used_indices = []
+        used_indices: list[bool] = []
 
         used_indices.extend([True] * 2)
         used_indices.extend([False] * 2)
@@ -72,19 +73,19 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
 
         return used_indices
 
-    def jacobian_h(self, x: np.ndarray) -> np.ndarray:
+    def jacobian_h(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         return transform_matrix_to_size(self.get_used_indices(), np.eye(6))
 
-    def hx(self, x: np.ndarray) -> np.ndarray:
+    def hx(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         return transform_vector_to_size(x, self.get_used_indices())
 
     def prepare_input(
-        self, data: AprilTagData, sensor_id: str, x: np.ndarray | None = None
+        self, data: AprilTagData, sensor_id: str, x: NDArray[np.float64] | None = None
     ) -> KalmanFilterInput:
         if data.WhichOneof("data") == "raw_tags":
             raise ValueError("Tags are not in processed format")
 
-        input_list = []
+        input_list: list[list[float]] = []
         for tag in data.world_tags.tags:
             tag_id = tag.id
             if tag_id not in self.tags_in_world:
@@ -121,7 +122,7 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
                 translation_vector=tag_in_camera_pose,
             )
 
-            R_robot_rotation_world = None
+            R_robot_rotation_world: NDArray[np.float64] | None = None
             if self.use_imu_rotation and x is not None:
                 R_robot_rotation_world = make_transformation_matrix_p_d(
                     position=np.array([0, 0, 0]),

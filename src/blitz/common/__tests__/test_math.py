@@ -1,10 +1,13 @@
 import numpy as np
 from blitz.common.util.math import (
-    from_theat_to_3x3_mat,
+    from_theta_to_3x3_mat,
+    get_np_from_matrix,
+    get_np_from_vector,
     get_robot_in_world,
     transform_matrix_to_size,
     transform_vector_to_size,
 )
+from blitz.generated.thrift.config.common.ttypes import GenericMatrix, GenericVector
 
 
 def test_get_robot_in_world():
@@ -71,25 +74,42 @@ def test_transform_vector_to_size():
     assert np.allclose(transformed_vector, np.array([1, 2]))
 
 
-def test_from_theat_to_3x3_mat_90():
+def test_from_theta_to_3x3_mat_90():
     theta = 90
-    mat = from_theat_to_3x3_mat(theta)
+    mat = from_theta_to_3x3_mat(theta)
     assert np.allclose(mat, np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]]))
 
 
-def test_from_theat_to_3x3_mat_180():
+def test_from_theta_to_3x3_mat_180():
     theta = 180
-    mat = from_theat_to_3x3_mat(theta)
+    mat = from_theta_to_3x3_mat(theta)
     assert np.allclose(mat, np.array([[-1, 0, 0], [0, -1, 0], [0, 0, 1]]))
 
 
-def test_from_theat_to_3x3_mat_270():
+def test_from_theta_to_3x3_mat_270():
     theta = 270
-    mat = from_theat_to_3x3_mat(theta)
+    mat = from_theta_to_3x3_mat(theta)
     assert np.allclose(mat, np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]]))
 
 
-def test_from_theat_to_3x3_mat_360():
+def test_from_theta_to_3x3_mat_360():
     theta = 360
-    mat = from_theat_to_3x3_mat(theta)
+    mat = from_theta_to_3x3_mat(theta)
     assert np.allclose(mat, np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
+
+def test_from_thrift_mat_to_np():
+    thrift_mat = GenericMatrix(
+        values=[[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+        rows=3,
+        cols=3,
+    )
+    np_mat = get_np_from_matrix(thrift_mat)
+    assert np.allclose(np_mat, np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+
+def test_from_thrift_vec_to_np():
+    thrift_vec = GenericVector(
+        values=[1, 2, 3],
+        size=3,
+    )
+    np_vec = get_np_from_vector(thrift_vec)
+    assert np.allclose(np_vec, np.array([1, 2, 3]))

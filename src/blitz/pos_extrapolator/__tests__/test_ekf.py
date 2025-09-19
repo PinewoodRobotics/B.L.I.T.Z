@@ -1,4 +1,6 @@
 import time
+
+from numpy.typing import NDArray
 from blitz.common.config import from_file
 from blitz.generated.thrift.config.kalman_filter.ttypes import KalmanFilterSensorType
 from blitz.pos_extrapolator.data_prep import KalmanFilterInput
@@ -8,7 +10,7 @@ from blitz.pos_extrapolator.filters.extended_kalman_filter import (
 import numpy as np
 
 
-def sample_jacobian_h(x: np.ndarray) -> np.ndarray:
+def sample_jacobian_h(x: NDArray[np.float64]) -> NDArray[np.float64]:
     H = np.array(
         [
             [0, 0, 1, 0, 0, 0],  # vx
@@ -21,7 +23,7 @@ def sample_jacobian_h(x: np.ndarray) -> np.ndarray:
     return H
 
 
-def sample_hx(x: np.ndarray) -> np.ndarray:
+def sample_hx(x: NDArray[np.float64]) -> NDArray[np.float64]:
     return x[[2, 3, 4, 5]]  # vx, vy, theta, omega
 
 

@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from numpy.typing import NDArray
 from blitz.common.util.math import transform_matrix_to_size, transform_vector_to_size
 from blitz.generated.proto.python.sensor.imu_pb2 import ImuData
 from blitz.generated.proto.python.sensor.odometry_pb2 import OdometryData
@@ -31,22 +32,22 @@ class OdomDataPreparer(DataPreparer[OdometryData, OdomDataPreparerConfig]):
         return OdometryData
 
     def get_used_indices(self) -> list[bool]:
-        used_indices = []
+        used_indices: list[bool] = []
         used_indices.extend([self.config.use_position] * 2)
         used_indices.extend([True, True])
         used_indices.extend([self.config.use_rotation] * 2)
         return used_indices
 
-    def jacobian_h(self, x: np.ndarray) -> np.ndarray:
+    def jacobian_h(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         return transform_matrix_to_size(self.get_used_indices(), np.eye(6))
 
-    def hx(self, x: np.ndarray) -> np.ndarray:
+    def hx(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         return transform_vector_to_size(x, self.get_used_indices())
 
     def prepare_input(
-        self, data: OdometryData, sensor_id: str, x: np.ndarray | None = None
+        self, data: OdometryData, sensor_id: str, x: NDArray[np.float64] | None = None
     ) -> KalmanFilterInput:
-        values = []
+        values: list[float] = []
         if self.config.use_position:
             values.append(data.position.position.x)
             values.append(data.position.position.y)

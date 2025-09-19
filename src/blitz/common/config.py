@@ -4,7 +4,6 @@ import json
 from typing import Dict, Any
 
 from blitz.generated.thrift.config.ttypes import Config
-from blitz.common.util.thrift_loader import dict_to_thrift
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 import base64
@@ -61,7 +60,3 @@ def from_base64(base64_str: str) -> Config:
     config.read(protocol)
 
     return config
-
-
-def load_config_from_dict(config_dict: Dict[str, Any]) -> Config:
-    return dict_to_thrift(Config, config_dict)

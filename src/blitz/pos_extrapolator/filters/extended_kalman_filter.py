@@ -4,6 +4,8 @@ from filterpy.kalman import ExtendedKalmanFilter
 import numpy as np
 import warnings
 
+from numpy.typing import NDArray
+
 from blitz.common.util.math import get_np_from_matrix, get_np_from_vector
 from blitz.generated.thrift.config.kalman_filter.ttypes import (
     KalmanFilterConfig,
@@ -34,27 +36,23 @@ class ExtendedKalmanFilterStrategy(  # pyright: ignore[reportUnsafeMultipleInher
 
     def get_R_sensors(
         self, config: KalmanFilterConfig
-    ) -> dict[KalmanFilterSensorType, dict[str, np.ndarray]]:
-        output = {}
+    ) -> dict[KalmanFilterSensorType, dict[str, NDArray[np.float64]]]:
+        output: dict[KalmanFilterSensorType, dict[str, NDArray[np.float64]]] = {}
         for sensor_type in config.sensors:
             for sensor_id in config.sensors[sensor_type]:
-                numpy_arr = get_np_from_matrix(
+                numpy_arr: NDArray[np.float64] = get_np_from_matrix(
                     config.sensors[sensor_type][sensor_id].measurement_noise_matrix
                 )
-
-                # select rows and cols with > 0 sum
-                numpy_arr = numpy_arr[abs(np.sum(numpy_arr, axis=1)) > 0, :]
-                numpy_arr = numpy_arr[:, abs(np.sum(numpy_arr, axis=0)) > 0]
 
                 output[sensor_type] = output.get(sensor_type, {})
                 output[sensor_type][sensor_id] = numpy_arr
 
         return output
 
-    def jacobian_h(self, x: np.ndarray) -> np.ndarray:
+    def jacobian_h(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         return np.eye(6)
 
-    def hx(self, x: np.ndarray) -> np.ndarray:
+    def hx(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         return x
 
     def insert_data(self, data: KalmanFilterInput) -> None:
@@ -93,7 +91,7 @@ class ExtendedKalmanFilterStrategy(  # pyright: ignore[reportUnsafeMultipleInher
 
         self.last_update_time = time.time()
 
-    def get_state(self) -> np.ndarray:
+    def get_state(self) -> NDArray[np.float64]:
         return self.x
 
     def get_position_confidence(self) -> float:
@@ -101,7 +99,7 @@ class ExtendedKalmanFilterStrategy(  # pyright: ignore[reportUnsafeMultipleInher
         if np.any(np.isnan(P_position)) or np.any(np.isinf(P_position)):
             return 0.0
         try:
-            eigenvalues = np.linalg.eigvals(P_position)
+            eigenvalues: NDArray[np.float64] = np.real(np.linalg.eigvals(P_position))
             max_eigen = np.max(eigenvalues)
             if np.isnan(max_eigen) or np.isinf(max_eigen) or max_eigen < 0:
                 return 0.0
@@ -146,5 +144,5 @@ class ExtendedKalmanFilterStrategy(  # pyright: ignore[reportUnsafeMultipleInher
         except IndexError as e:
             warnings.warn(f"Error updating F matrix: {e}")
 
-    def _debug_set_state(self, x: np.ndarray) -> None:
+    def _debug_set_state(self, x: NDArray[np.float64]) -> None:
         self.x = x
