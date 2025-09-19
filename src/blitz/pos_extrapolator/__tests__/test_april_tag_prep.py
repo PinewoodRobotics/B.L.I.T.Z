@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.typing import NDArray
 
 from blitz.common.util.math import from_theat_to_3x3_mat
 from blitz.generated.proto.python.sensor.apriltags_pb2 import (
@@ -6,7 +7,7 @@ from blitz.generated.proto.python.sensor.apriltags_pb2 import (
     ProcessedTag,
     WorldTags,
 )
-from blitz.generated.thrift.config.common.ttypes import Matrix3x3, Point3, Vector3D
+from blitz.generated.thrift.config.common.ttypes import GenericMatrix, GenericVector, Point3
 from blitz.pos_extrapolator.data_prep import DataPreparer
 from blitz.pos_extrapolator.position_extrapolator import PositionExtrapolator
 from blitz.pos_extrapolator.preparers import AprilTagPreparer
@@ -17,11 +18,11 @@ from blitz.pos_extrapolator.preparers.AprilTagPreparer import (
 )
 
 
-def from_theta_to_rotation_state(theta: float) -> np.ndarray:
+def from_theta_to_rotation_state(theta: float) -> NDArray[np.float64]:
     return np.array([0, 0, 0, 0, np.cos(np.radians(theta)), np.sin(np.radians(theta))])
 
 
-def from_np_to_point3(pose: np.ndarray, rotation: np.ndarray) -> Point3:
+def from_np_to_point3(pose: NDArray[np.float64], rotation: NDArray[np.float64]) -> Point3:
     """
     Convert a pose and rotation from robot coordinates to camera coordinates.
     The pose is a 3D vector in robot coordinates.
@@ -32,20 +33,20 @@ def from_np_to_point3(pose: np.ndarray, rotation: np.ndarray) -> Point3:
     # rotation = from_robot_rotation_to_camera_rotation(rotation)
 
     return Point3(
-        position=Vector3D(k1=pose[0], k2=pose[1], k3=pose[2]),
-        rotation=Matrix3x3(
-            r1=Vector3D(k1=rotation[0, 0], k2=rotation[0, 1], k3=rotation[0, 2]),
-            r2=Vector3D(k1=rotation[1, 0], k2=rotation[1, 1], k3=rotation[1, 2]),
-            r3=Vector3D(k1=rotation[2, 0], k2=rotation[2, 1], k3=rotation[2, 2]),
+        position=GenericVector(values=[pose[0], pose[1], pose[2]], size=3),
+        rotation=GenericMatrix(
+            values=[[rotation[0, 0], rotation[0, 1], rotation[0, 2]], [rotation[1, 0], rotation[1, 1], rotation[1, 2]], [rotation[2, 0], rotation[2, 1], rotation[2, 2]]],
+            rows=3,
+            cols=3,
         ),
     )
 
 
-def from_robot_coords_to_camera_coords(vector: np.ndarray) -> np.ndarray:
+def from_robot_coords_to_camera_coords(vector: NDArray[np.float64]) -> NDArray[np.float64]:
     return PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION.T @ vector
 
 
-def from_robot_rotation_to_camera_rotation(rotation: np.ndarray) -> np.ndarray:
+def from_robot_rotation_to_camera_rotation(rotation: NDArray[np.float64]) -> NDArray[np.float64]:
     return (
         PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION.T
         @ rotation
@@ -97,7 +98,7 @@ def construct_tag_world(use_imu_rotation: bool = False) -> AprilTagConfig:
 def make_april_tag_preparer(
     use_imu_rotation: bool = False,
 ) -> DataPreparer[AprilTagData, AprilTagDataPreparerConfig]:
-    return AprilTagDataPreparer(
+    return AprilTagDataPreparer( # pyright: ignore[reportReturnType]
         AprilTagDataPreparerConfig(construct_tag_world(use_imu_rotation))
     )  # type: ignore
 

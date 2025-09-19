@@ -19,6 +19,8 @@ fn main() {
         .unwrap()
         .join("proto");
 
+    println!("proto_dir: {}", proto_dir.display());
+
     let proto_files: Vec<String> = WalkDir::new(&proto_dir)
         .follow_links(true)
         .into_iter()
@@ -50,8 +52,12 @@ fn generate_thrift_bindings() {
         .unwrap()
         .parent()
         .unwrap()
-        .join("config")
+        .parent()
+        .unwrap()
+        .join("ThriftTsConfig")
         .join("schema");
+
+    println!("schema_dir: {}", schema_dir.display());
 
     let out_dir = env::var("OUT_DIR").unwrap();
     let thrift_out_dir = PathBuf::from(&out_dir).join("thrift");
