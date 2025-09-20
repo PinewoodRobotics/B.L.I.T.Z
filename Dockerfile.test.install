@@ -1,0 +1,12 @@
+FROM ubuntu:24.04
+
+RUN apt-get update
+RUN apt-get install -y python3.12 python3.12-dev python3.12-venv
+RUN apt-get install -y curl build-essential
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN apt-get install -y protobuf-compiler
+RUN apt-get install -y thrift-compiler
+RUN apt-get install -y git
+
+WORKDIR /app

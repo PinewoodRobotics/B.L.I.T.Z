@@ -124,3 +124,7 @@ deploy:
 download-replays:
 	@echo "Downloading replay file from remote server..."
 	scp ubuntu@10.47.65.7:~/Documents/B.L.I.T.Z/replay-2025-08-20_21-13-00.db ./replay-2025-08-20_21-13-00.db
+
+run-docker-test-container:
+	docker build -f Dockerfile.test.install -t blitz-test .
+	docker run -it --name blitz-test-container -v $(pwd):/app blitz-test
