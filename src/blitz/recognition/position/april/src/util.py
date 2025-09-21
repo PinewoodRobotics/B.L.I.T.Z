@@ -17,7 +17,8 @@ from blitz.generated.proto.python.sensor.apriltags_pb2 import (
     ProcessedTag,
     UnprocessedTag,
 )
-from blitz.generated.proto.python.util.vector_pb2 import Vector2
+from blitz.generated.proto.python.util.position_pb2 import Rotation3d
+from blitz.generated.proto.python.util.vector_pb2 import Vector2, Vector3
 from blitz.generated.thrift.config.apriltag.ttypes import AprilDetectionConfig
 from blitz.generated.thrift.config.camera.ttypes import CameraParameters, CameraType
 from blitz.recognition.position.april.src.camera.OV2311_camera import OV2311Camera
@@ -136,6 +137,32 @@ def get_map1_and_map2(
         cast(NDArray[np.float64], new_camera_matrix),
     )
 
+def convert_to_wpi_position(t: NDArray[np.float64]) -> Vector3:
+    return Vector3(
+        x=float(t[2][0]),
+        y=float(-t[0][0]),
+        z=float(t[1][0]),
+    )
+
+def convert_to_wpi_rotation(R: NDArray[np.float64]) -> Rotation3d:
+    return Rotation3d(
+        directionX=Vector3(
+            x=R[2, 0],
+            y=-R[0, 0],
+            z=R[1, 0],
+        ),
+        directionY=Vector3(
+            x=R[2, 1],
+            y=-R[0, 1],
+            z=R[1, 1],
+        ),
+        directionZ=Vector3(
+            x=R[2, 2],
+            y=-R[0, 2],
+            z=R[1, 2],
+        ),
+        yaw=float(np.atan2(R[2, 0], R[2, 2])),
+    )
 
 def solve_pnp_tag_corners(
     tag_corners: UnprocessedTag,

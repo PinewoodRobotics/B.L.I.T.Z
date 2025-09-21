@@ -80,8 +80,8 @@ run-config-ts:
 	npm run config
 
 
-UBUNTU_TARGET = 10.47.65.12
-UBUNTU_TARGET_NAME = "agatha_king"
+UBUNTU_TARGET = raspberrypi.local
+UBUNTU_TARGET_NAME = "agathaking"
 SSH_PASS = ubuntu
 
 send-to-target:

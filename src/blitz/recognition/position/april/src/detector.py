@@ -22,10 +22,14 @@ from blitz.generated.proto.python.sensor.general_sensor_data_pb2 import (
     GeneralSensorData,
     SensorName,
 )
+from blitz.generated.proto.python.util.position_pb2 import Rotation3d
+from blitz.generated.proto.python.util.vector_pb2 import Vector3
 from blitz.recognition.position.april.src.camera.OV2311_camera import (
     AbstractCaptureDevice,
 )
 from blitz.recognition.position.april.src.util import (
+    convert_to_wpi_position,
+    convert_to_wpi_rotation,
     post_process_detection,
     process_image,
     solve_pnp_tag_corners,
@@ -88,6 +92,8 @@ class DetectionCamera:
                     id=tag.id,
                     pose_R=to_float_list(R),
                     pose_t=to_float_list(t),
+                    positionWPILib=convert_to_wpi_position(t),
+                    rotationWPILib=convert_to_wpi_rotation(R),
                 )
             )
 
@@ -96,6 +102,7 @@ class DetectionCamera:
     def _run_loop(self):
         while self.thread.daemon and self.running:
             ret, frame = self.video_capture.get_frame()
+            start_time = time.time()
 
             if not ret or frame is None:
                 print("No frame found!")
@@ -108,14 +115,16 @@ class DetectionCamera:
             if self.record_for_replay:
                 record_image(f"frame-{self.name}", frame)
 
+            processing_time = time.time() - start_time
             self._publish(
-                frame, tags_world, self.do_compression, self.compression_quality
+                frame, tags_world, processing_time, self.do_compression, self.compression_quality
             )
 
     def _publish(
         self,
         frame: NDArray[np.uint8],
         found_tags: list[ProcessedTag],
+        processing_time: float,
         do_compression: bool = True,
         compression_quality: int = 90,
     ):
@@ -125,15 +134,17 @@ class DetectionCamera:
             data.timestamp = int(time.time() * 1000)
             data.sensor_name = SensorName.APRIL_TAGS
             data.apriltags.world_tags.tags.extend(found_tags)
-
+            data.processing_time_ms = int(processing_time * 1000)
             self.publication_lambda(
                 data.SerializeToString(),
             )
 
         if self.publication_image_lambda is not None:
             data = GeneralSensorData()
+            data.sensor_name = SensorName.CAMERA
             data.sensor_id = self.name
             data.timestamp = int(time.time() * 1000)
+            data.processing_time_ms = int(processing_time * 1000)
             data.image.CopyFrom(
                 encode_image(
                     frame, ImageFormat.GRAY, do_compression, compression_quality
