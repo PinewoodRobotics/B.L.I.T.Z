@@ -76,8 +76,6 @@ pyinstrument==5.1.1
 PyNaCl==1.5.0
 pynetconsole==2.0.4
 pyntcore==2025.3.2.2
-pyobjc-core==11.1
-pyobjc-framework-Cocoa==11.1
 pyparsing==3.2.3
 pyperclip==1.9.0
 pyserial==3.5
