@@ -11,7 +11,7 @@ const config: Config = {
   april_detection: april_tag_detection_config,
   lidar_configs: lidar_configs,
   pathfinding: pathfinding_config,
-  record_replay: true,
+  record_replay: false,
   replay_folder_path: "replays",
 };
 

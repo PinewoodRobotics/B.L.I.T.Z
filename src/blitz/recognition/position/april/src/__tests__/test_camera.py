@@ -1,4 +1,5 @@
 import cv2
+from numpy.typing import NDArray
 from blitz.common.debug.replay_recorder import (
     close,
     get_next_key_replay,
@@ -38,7 +39,7 @@ def test_camera_open():
     video_capture.release()
 
 
-def calculate_avg_pixel_value(frame: np.ndarray) -> float:
+def calculate_avg_pixel_value(frame: NDArray[np.uint8]) -> float:
     return float(np.mean(frame))
 
 
@@ -83,7 +84,7 @@ def test_camera_replay():
         images.append(image)
         record_image(
             "camera",
-            image,
+            image,  # pyright: ignore[reportArgumentType]
             format=ImageFormat.RGB,
             do_compress=True,
             compression_quality=20,
