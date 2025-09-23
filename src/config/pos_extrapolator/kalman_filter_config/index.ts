@@ -17,12 +17,12 @@ export const kalman_filter: KalmanFilterConfig = {
   dim_x_z: [6, 6],
   sensors: {
     [KalmanFilterSensorTypeUtil.fromEnum(SensorType.APRIL_TAG)]: {
-      april_tag: {
+      prod_1: {
         measurement_conversion_matrix: MatrixUtil.buildMatrixFromDiagonal([
-          1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1,
         ]),
         measurement_noise_matrix: MatrixUtil.buildMatrixFromDiagonal([
-          5, 5, 1, 1, 1, 1,
+          5, 5, 1, 1,
         ]),
       },
     },

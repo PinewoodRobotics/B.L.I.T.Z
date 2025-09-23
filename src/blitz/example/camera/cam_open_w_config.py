@@ -20,6 +20,7 @@ stop_response = requests.post(
     json={
         "process_types": [
             ProcessType.CAMERA_PROCESSING.value,
+            ProcessType.POS_EXTRAPOLATOR.value,
         ]
     },
 )
@@ -31,6 +32,7 @@ response = requests.post(
     json={
         "process_types": [
             ProcessType.CAMERA_PROCESSING.value,
+            ProcessType.POS_EXTRAPOLATOR.value,
         ]
     },
 )

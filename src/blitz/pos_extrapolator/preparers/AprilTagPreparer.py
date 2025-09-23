@@ -69,12 +69,12 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
 
         used_indices.extend([True] * 2)
         used_indices.extend([False] * 2)
-        used_indices.extend([False] * 2)
+        used_indices.extend([True] * 2)
 
         return used_indices
 
     def jacobian_h(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
-        return transform_matrix_to_size(self.get_used_indices(), np.eye(6))
+        return transform_matrix_to_size(self.get_used_indices())
 
     def hx(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         return transform_vector_to_size(x, self.get_used_indices())
@@ -143,14 +143,14 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
             #    render_direction_vector[1], render_direction_vector[0]
             # )
 
-            input_list.append(
-                [
-                    render_pose[0],
-                    render_pose[1],
-                    render_direction_vector[1],
-                    render_direction_vector[0],
-                ],
-            )
+            datapoint = [
+                render_pose[0],
+                render_pose[1],
+                render_direction_vector[1],
+                render_direction_vector[0],
+            ]
+            
+            input_list.append(datapoint)
 
         return KalmanFilterInput(
             input_list=self.get_avg_pose(input_list),

@@ -4,12 +4,12 @@ import { CameraTypeE, CameraTypeUtil } from "../util/struct";
 
 const prod1: CameraParameters = {
   pi_to_run_on: "agathaking",
-  name: "one",
+  name: "prod_1",
   camera_path: "/dev/usb_top_left_cam",
   flags: 0,
   width: 1280,
   height: 720,
-  max_fps: 60,
+  max_fps: 30,
   camera_matrix: MatrixUtil.buildMatrix([
     [1049.942799553104, 0.0, 561.9225142372616],
     [0.0, 1052.4526742839457, 360.83362717632707],
