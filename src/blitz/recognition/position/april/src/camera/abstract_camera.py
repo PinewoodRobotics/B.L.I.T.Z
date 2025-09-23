@@ -80,6 +80,8 @@ class AbstractCaptureDevice:
         start = time.time()
 
         if self.sink is None or not self._is_ready:
+            self._is_ready = False
+            self._initialize_camera()
             return False, self.frame
 
         ts, self.frame = self.sink.grabFrame(self.frame)
