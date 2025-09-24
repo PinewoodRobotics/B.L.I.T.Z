@@ -109,6 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             lidar_id: lidar_name.clone(),
                         })),
                     })),
+                    processing_time_ms: 0,
                 };
 
                 let _ = autobahn
@@ -167,6 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     z: imu_new_pos.z,
                                 }),
                             })),
+                            processing_time_ms: 0,
                         }
                         .encode_to_vec(),
                     )

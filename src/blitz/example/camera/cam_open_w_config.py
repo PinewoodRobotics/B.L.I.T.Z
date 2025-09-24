@@ -21,6 +21,7 @@ stop_response = requests.post(
         "process_types": [
             ProcessType.CAMERA_PROCESSING.value,
             ProcessType.POS_EXTRAPOLATOR.value,
+            ProcessType.LIDAR_3D.value,
         ]
     },
 )
@@ -33,6 +34,7 @@ response = requests.post(
         "process_types": [
             ProcessType.CAMERA_PROCESSING.value,
             ProcessType.POS_EXTRAPOLATOR.value,
+            ProcessType.LIDAR_3D.value,
         ]
     },
 )

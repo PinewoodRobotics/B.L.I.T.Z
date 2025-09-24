@@ -22,7 +22,7 @@ export const pose_extrapolator: PosExtrapolator = {
   tag_confidence_threshold: 50,
   april_tag_discard_distance: 5,
   tag_use_imu_rotation: false,
-  enable_imu: false,
+  enable_imu: true,
   enable_odom: false,
   enable_tags: true,
   odom_config: swerve_odom_config,

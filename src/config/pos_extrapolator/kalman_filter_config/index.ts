@@ -32,7 +32,7 @@ export const kalman_filter: KalmanFilterConfig = {
           1, 1, 1, 1,
         ]),
         measurement_noise_matrix: MatrixUtil.buildMatrixFromDiagonal([
-          0.1, 0.1, 0.01, 0.01,
+          100, 100, 0.01, 0.01,
         ]),
       },
     },

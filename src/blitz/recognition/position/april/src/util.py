@@ -161,7 +161,7 @@ def convert_to_wpi_rotation(R: NDArray[np.float64]) -> Rotation3d:
             y=-R[0, 2],
             z=R[1, 2],
         ),
-        yaw=float(np.atan2(R[2, 0], R[2, 2])),
+        yaw=float(-np.atan2(R[2, 0], R[2, 2])),
     )
 
 def solve_pnp_tag_corners(
