@@ -5,6 +5,7 @@ from blitz.common.util.math import (
     get_np_from_vector,
     get_robot_in_world,
     transform_matrix_to_size,
+    transform_matrix_to_size_square,
     transform_vector_to_size,
 )
 from blitz.generated.thrift.config.common.ttypes import GenericMatrix, GenericVector
@@ -113,3 +114,21 @@ def test_from_thrift_vec_to_np():
     )
     np_vec = get_np_from_vector(thrift_vec)
     assert np.allclose(np_vec, np.array([1, 2, 3]))
+
+def test_transform_matrix_to_size_square_1():
+    matrix_original = np.array([[1, 0, 0, 0, 0, 0], 
+                       [0, 2, 0, 0, 0, 0], 
+                       [0, 0, 3, 0, 0, 0], 
+                       [0, 0, 0, 4, 0, 0], 
+                       [0, 0, 0, 0, 5, 0], 
+                       [0, 0, 0, 0, 0, 6]])
+
+    matrix = np.array([[1, 0, 0, 0], 
+                       [0, 2, 0, 0], 
+                       [0, 0, 3, 0], 
+                       [0, 0, 0, 4]])
+    used_diagonals = [True, True, True, True, False, False]
+    transformed_matrix = transform_matrix_to_size_square(used_diagonals, matrix_original)
+    print(transformed_matrix)
+    print(matrix)
+    assert np.allclose(transformed_matrix, matrix)

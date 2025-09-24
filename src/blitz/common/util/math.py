@@ -121,6 +121,13 @@ def transform_matrix_to_size(
     indices = [i for i, used in enumerate(used_diagonals) if used]
     return matrix[indices, :]
 
+def transform_matrix_to_size_square(
+        used_diagonals: list[bool],
+    matrix: NDArray[np.float64] = np.eye(6),
+) -> NDArray[np.float64]:
+    indices = [i for i, used in enumerate(used_diagonals) if used]
+    return matrix[np.ix_(indices, indices)]
+
 
 def transform_vector_to_size(
     vector: NDArray[np.float64],

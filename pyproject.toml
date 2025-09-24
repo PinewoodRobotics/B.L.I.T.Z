@@ -9,44 +9,6 @@ description = "Battle-Linked Intelligent Tactical Pi Swarm"
 readme = "README.md"
 authors = [{ name = "Pinewood Robotics" }]
 requires-python = ">=3.8"
-dependencies = [
-    "colorama",
-    "numpy",
-    "opencv-python",
-    "torch",
-    "torchvision",
-    "ultralytics",
-    "pyapriltags",
-    "requests",
-    "dataclasses",
-    "Flask",
-    "nats-py",
-    "asyncio",
-    "nest_asyncio",
-    "flask-socketio",
-    "websockets",
-    "pydantic",
-    "flask-cors",
-    "pyvista",
-    "pygame",
-    "pyserial",
-    "filterpy",
-    "protobuf",
-    "rplidar-roboticia",
-    "pyinstrument",
-    "protoletariat",
-    "psutil",
-    "plotly",
-    "dash",
-    "pyvistaqt",
-    "thrift==0.22.0",
-    "ursina",
-    "robotpy",
-    "robotpy-cscore",
-    "autobahn_client",
-    "rich",
-    "zeroconf",
-]
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest", "protol"]
