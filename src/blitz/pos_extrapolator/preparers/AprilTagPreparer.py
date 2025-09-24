@@ -28,7 +28,7 @@ from blitz.pos_extrapolator.data_prep import (
     ConfigProvider,
     DataPreparer,
     DataPreparerManager,
-    FilterContext,
+    ExtrapolationContext,
     KalmanFilterInput,
 )
 from blitz.pos_extrapolator.position_extrapolator import PositionExtrapolator
@@ -89,23 +89,23 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
     def hx(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         return transform_vector_to_size(x, self.get_used_indices())
 
-    def should_use_imu_rotation(self, context: FilterContext | None) -> bool:
+    def should_use_imu_rotation(self, context: ExtrapolationContext | None) -> bool:
         if context is None:
             return False
 
-        if (
-            context.has_gotten_rotation
-            and self.use_imu_rotation == TagUseImuRotation.UNTIL_FIRST_NON_TAG_ROTATION
-        ):
-            return False
-
         if self.use_imu_rotation == TagUseImuRotation.ALWAYS:
-            return False
+            return True
 
-        return True
+        if self.use_imu_rotation == TagUseImuRotation.UNTIL_FIRST_NON_TAG_ROTATION:
+            return not context.has_gotten_rotation
+
+        return False
 
     def prepare_input(
-        self, data: AprilTagData, sensor_id: str, context: FilterContext | None = None
+        self,
+        data: AprilTagData,
+        sensor_id: str,
+        context: ExtrapolationContext | None = None,
     ) -> KalmanFilterInput | None:
         if data.WhichOneof("data") == "raw_tags":
             raise ValueError("Tags are not in processed format")

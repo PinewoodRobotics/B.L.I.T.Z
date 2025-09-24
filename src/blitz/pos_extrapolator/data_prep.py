@@ -20,7 +20,7 @@ class KalmanFilterInput:
 
 
 @dataclass
-class FilterContext:
+class ExtrapolationContext:
     x: NDArray[np.float64]
     has_gotten_rotation: bool
 
@@ -34,7 +34,7 @@ class DataPreparer(Protocol[T, C]):
         pass
 
     def prepare_input(
-        self, data: T, sensor_id: str, context: FilterContext | None = None
+        self, data: T, sensor_id: str, context: ExtrapolationContext | None = None
     ) -> KalmanFilterInput | None: ...
 
     def get_data_type(self) -> type[T]: ...
@@ -59,7 +59,7 @@ class DataPreparerManager:
         cls._config_instances[proto_type.__name__] = config_instance
 
     def prepare_data(
-        self, data: object, sensor_id: str, context: FilterContext | None = None
+        self, data: object, sensor_id: str, context: ExtrapolationContext | None = None
     ) -> KalmanFilterInput | None:
         data_type_name = type(data).__name__
 

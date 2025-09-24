@@ -5,12 +5,14 @@ from blitz.generated.proto.python.util.position_pb2 import RobotPosition
 from blitz.generated.proto.python.util.vector_pb2 import Vector2, Vector3
 from blitz.generated.thrift.config.camera.ttypes import CameraParameters
 from blitz.generated.thrift.config.common.ttypes import Point3
+from blitz.generated.thrift.config.kalman_filter.ttypes import KalmanFilterSensorType
 from blitz.generated.thrift.config.pos_extrapolator.ttypes import (
     ImuConfig,
     OdomConfig,
     PosExtrapolator,
+    TagUseImuRotation,
 )
-from blitz.pos_extrapolator.data_prep import DataPreparerManager
+from blitz.pos_extrapolator.data_prep import DataPreparerManager, ExtrapolationContext
 from blitz.pos_extrapolator.filter_strat import GenericFilterStrategy
 
 
@@ -28,31 +30,46 @@ class PositionExtrapolator:
         config: PosExtrapolator,
         filter_strategy: GenericFilterStrategy,
         data_preparer_manager: DataPreparerManager,
-        world_data_sensor_ids: list[str] | None = None,
     ):
         self.config = config
         self.filter_strategy = filter_strategy
         self.data_preparer_manager = data_preparer_manager
         self.last_predict = time.time()
-        self.gotten_world_data = False
-        self.world_data_sensor_ids = world_data_sensor_ids
+        self.has_gotten_rotation = False
 
     def insert_sensor_data(self, data: object, sensor_id: str) -> None:
-        prepared_data = self.data_preparer_manager.prepare_data(
-            data, sensor_id, context=self.filter_strategy.context()
+        context = ExtrapolationContext(
+            x=self.filter_strategy.get_state(),
+            has_gotten_rotation=self.has_gotten_rotation,
         )
 
-        if (
-            self.world_data_sensor_ids is not None
-            and sensor_id in self.world_data_sensor_ids
-        ):
-            self.gotten_world_data = True
+        prepared_data = self.data_preparer_manager.prepare_data(
+            data, sensor_id, context=context
+        )
 
         if prepared_data is None:
             return
 
-        if self.gotten_world_data or self.world_data_sensor_ids is None:
-            self.filter_strategy.insert_data(prepared_data)
+        if not self.has_gotten_rotation and self.is_rotation_gotten(
+            prepared_data.sensor_type, sensor_id
+        ):
+            self.has_gotten_rotation = True
+
+        self.filter_strategy.insert_data(prepared_data)
+
+    def is_rotation_gotten(
+        self, sensor_type: KalmanFilterSensorType, sensor_id: str
+    ) -> bool:
+        if sensor_type == KalmanFilterSensorType.APRIL_TAG:
+            return self.config.tag_use_imu_rotation == TagUseImuRotation.NEVER
+
+        if sensor_type == KalmanFilterSensorType.ODOMETRY:
+            return self.config.odom_config.use_rotation
+
+        if sensor_type == KalmanFilterSensorType.IMU:
+            return self.config.imu_config[sensor_id].use_rotation
+
+        return True
 
     def get_robot_position_estimate(self) -> list[float]:
         return self.filter_strategy.get_state().flatten().tolist()

@@ -9,6 +9,7 @@ from blitz.pos_extrapolator.data_prep import (
     ConfigProvider,
     DataPreparer,
     DataPreparerManager,
+    ExtrapolationContext,
     KalmanFilterInput,
 )
 
@@ -44,7 +45,7 @@ class ImuDataPreparer(DataPreparer[ImuData, ImuDataPreparerConfig]):
         return transform_vector_to_size(x, self.get_used_indices(sensor_id))
 
     def prepare_input(
-        self, data: ImuData, sensor_id: str, x: NDArray[np.float64] | None = None
+        self, data: ImuData, sensor_id: str, context: ExtrapolationContext | None = None
     ) -> KalmanFilterInput | None:
         config = self.config.config[sensor_id]
         values: list[float] = []

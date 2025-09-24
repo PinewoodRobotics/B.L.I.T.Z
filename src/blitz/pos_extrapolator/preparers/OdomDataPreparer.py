@@ -10,6 +10,7 @@ from blitz.pos_extrapolator.data_prep import (
     ConfigProvider,
     DataPreparer,
     DataPreparerManager,
+    ExtrapolationContext,
     KalmanFilterInput,
 )
 
@@ -48,11 +49,14 @@ class OdomDataPreparer(DataPreparer[OdometryData, OdomDataPreparerConfig]):
         return transform_vector_to_size(x, self.get_used_indices())
 
     def prepare_input(
-        self, data: OdometryData, sensor_id: str, x: NDArray[np.float64] | None = None
+        self,
+        data: OdometryData,
+        sensor_id: str,
+        context: ExtrapolationContext | None = None,
     ) -> KalmanFilterInput | None:
-        assert x is not None
-        cos = x[4]
-        sin = x[5]
+        assert context is not None
+        cos = context.x[4]
+        sin = context.x[5]
         rotation_matrix = np.array([[cos, -sin], [sin, cos]])
 
         vel = np.array([data.velocity.x, data.velocity.y])
