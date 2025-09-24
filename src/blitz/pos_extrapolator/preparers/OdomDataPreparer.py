@@ -22,6 +22,9 @@ class OdomDataPreparerConfig(ConfigProvider[OdomConfig]):
         return self.config
 
 
+SHOULD_USE_ROTATION_MATRIX = False
+
+
 @DataPreparerManager.register(proto_type=OdometryData)
 class OdomDataPreparer(DataPreparer[OdometryData, OdomDataPreparerConfig]):
     def __init__(self, config: OdomDataPreparerConfig):
@@ -47,13 +50,22 @@ class OdomDataPreparer(DataPreparer[OdometryData, OdomDataPreparerConfig]):
     def prepare_input(
         self, data: OdometryData, sensor_id: str, x: NDArray[np.float64] | None = None
     ) -> KalmanFilterInput | None:
+        assert x is not None
+        cos = x[4]
+        sin = x[5]
+        rotation_matrix = np.array([[cos, -sin], [sin, cos]])
+
+        vel = np.array([data.velocity.x, data.velocity.y])
+        if SHOULD_USE_ROTATION_MATRIX:
+            vel = rotation_matrix @ vel
+
         values: list[float] = []
         if self.config.use_position:
             values.append(data.position.position.x)
             values.append(data.position.position.y)
 
-        values.append(data.velocity.x)
-        values.append(data.velocity.y)
+        values.append(vel[0])
+        values.append(vel[1])
 
         if self.config.use_rotation:
             values.append(data.position.direction.x)

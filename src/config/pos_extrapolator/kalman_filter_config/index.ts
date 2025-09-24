@@ -3,7 +3,7 @@ import { MatrixUtil, VectorUtil } from "../../util/math";
 import { KalmanFilterSensorTypeUtil, SensorType } from "../../util/struct";
 
 export const kalman_filter: KalmanFilterConfig = {
-  state_vector: VectorUtil.fromArray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), // [x, y, vx, vy, theta]
+  state_vector: VectorUtil.fromArray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), // [x, y, vx, vy, cos(theta), sin(theta)]
   time_step_initial: 0.1,
   state_transition_matrix: MatrixUtil.buildMatrixFromDiagonal([
     1, 1, 1, 1, 1, 1,
