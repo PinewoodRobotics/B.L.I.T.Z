@@ -46,7 +46,7 @@ class OdomDataPreparer(DataPreparer[OdometryData, OdomDataPreparerConfig]):
 
     def prepare_input(
         self, data: OdometryData, sensor_id: str, x: NDArray[np.float64] | None = None
-    ) -> KalmanFilterInput:
+    ) -> KalmanFilterInput | None:
         values: list[float] = []
         if self.config.use_position:
             values.append(data.position.position.x)

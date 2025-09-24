@@ -45,7 +45,7 @@ class ImuDataPreparer(DataPreparer[ImuData, ImuDataPreparerConfig]):
 
     def prepare_input(
         self, data: ImuData, sensor_id: str, x: NDArray[np.float64] | None = None
-    ) -> KalmanFilterInput:
+    ) -> KalmanFilterInput | None:
         config = self.config.config[sensor_id]
         values: list[float] = []
 

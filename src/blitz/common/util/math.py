@@ -96,6 +96,13 @@ def from_float_list(flat_list: list[float], rows: int, cols: int) -> NDArray[np.
         raise ValueError("The provided list does not match the specified dimensions.")
     return np.array(flat_list).reshape(rows, cols)
 
+def make_3d_rotation_from_yaw(yaw: float) -> NDArray[np.float64]:
+    return np.array([
+        [np.cos(yaw), -np.sin(yaw), 0],
+        [np.sin(yaw), np.cos(yaw), 0],
+        [0, 0, 1],
+    ])
+
 
 def get_np_from_vector(vector: GenericVector) -> NDArray[np.float64]:
     return np.array(vector.values)

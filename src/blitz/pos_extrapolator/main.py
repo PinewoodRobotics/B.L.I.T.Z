@@ -89,11 +89,15 @@ def init_data_preparer_manager(config: Config):
 
 
 def get_subscribe_topics(config: Config):
-    return [
-        config.pos_extrapolator.message_config.post_tag_input_topic,
-        config.pos_extrapolator.message_config.post_odometry_input_topic,
-        config.pos_extrapolator.message_config.post_imu_input_topic,
-    ]
+    subscribe_topics: list[str] = []
+    if config.pos_extrapolator.enable_imu:
+        subscribe_topics.append(config.pos_extrapolator.message_config.post_imu_input_topic)
+    if config.pos_extrapolator.enable_odom:
+        subscribe_topics.append(config.pos_extrapolator.message_config.post_odometry_input_topic)
+    if config.pos_extrapolator.enable_tags:
+        subscribe_topics.append(config.pos_extrapolator.message_config.post_tag_input_topic)
+
+    return subscribe_topics
 
 
 async def main():

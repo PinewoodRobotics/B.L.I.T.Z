@@ -29,7 +29,7 @@ class DataPreparer(Protocol[T, C]):
 
     def prepare_input(
         self, data: T, sensor_id: str, x: NDArray[np.float64] | None = None
-    ) -> KalmanFilterInput: ...
+    ) -> KalmanFilterInput | None: ...
 
     def get_data_type(self) -> type[T]: ...
 
@@ -54,11 +54,11 @@ class DataPreparerManager:
 
     def prepare_data(
         self, data: object, sensor_id: str, x: NDArray[np.float64] | None = None
-    ) -> KalmanFilterInput:
+    ) -> KalmanFilterInput | None:
         data_type_name = type(data).__name__
 
         if data_type_name not in self._registry:
-            raise ValueError(f"No preparer registered for data type: {data_type_name}")
+            return None
 
         preparer_class = self._registry[data_type_name]
         config_instance = self._config_instances.get(data_type_name)

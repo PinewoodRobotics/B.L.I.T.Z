@@ -38,7 +38,7 @@ class PositionExtrapolator:
         self.world_data_sensor_ids = world_data_sensor_ids
 
     def insert_sensor_data(self, data: object, sensor_id: str) -> None:
-        data_preparer = self.data_preparer_manager.prepare_data(
+        prepared_data = self.data_preparer_manager.prepare_data(
             data, sensor_id, x=self.filter_strategy.get_state()
         )
 
@@ -48,8 +48,11 @@ class PositionExtrapolator:
         ):
             self.gotten_world_data = True
 
+        if prepared_data is None:
+            return
+
         if self.gotten_world_data or self.world_data_sensor_ids is None:
-            self.filter_strategy.insert_data(data_preparer)
+            self.filter_strategy.insert_data(prepared_data)
 
     def get_robot_position_estimate(self) -> list[float]:
         return self.filter_strategy.get_state().flatten().tolist()

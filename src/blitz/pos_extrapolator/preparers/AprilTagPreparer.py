@@ -9,6 +9,7 @@ from blitz.common.util.math import (
     get_np_from_vector,
     get_robot_in_world,
     get_translation_rotation_components,
+    make_3d_rotation_from_yaw,
     make_transformation_matrix_p_d,
     transform_matrix_to_size,
     transform_vector_to_size,
@@ -81,7 +82,7 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
 
     def prepare_input(
         self, data: AprilTagData, sensor_id: str, x: NDArray[np.float64] | None = None
-    ) -> KalmanFilterInput:
+    ) -> KalmanFilterInput | None:
         if data.WhichOneof("data") == "raw_tags":
             raise ValueError("Tags are not in processed format")
 
@@ -106,16 +107,24 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
                 ),
             )
 
+            tag_in_camera_rotation = make_3d_rotation_from_yaw(tag.rotationWPILib.yaw)
+
+            '''
             tag_in_camera_rotation = (
                 PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION
                 @ from_float_list(list(tag.pose_R), 3, 3)
                 @ PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION.T
             )
+            '''
 
+            tag_in_camera_pose = np.array([tag.positionWPILib.x, tag.positionWPILib.y, tag.positionWPILib.z])
+
+            '''
             tag_in_camera_pose = (
                 PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION
                 @ np.array(tag.pose_t)
             )
+            '''
 
             T_tag_in_camera = create_transformation_matrix(
                 rotation_matrix=tag_in_camera_rotation,
@@ -146,7 +155,7 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
             datapoint = [
                 render_pose[0],
                 render_pose[1],
-                render_direction_vector[1],
+                render_direction_vector[1], # TODO: fix this bit if wrong.
                 render_direction_vector[0],
             ]
             
