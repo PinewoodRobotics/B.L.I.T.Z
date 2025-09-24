@@ -19,11 +19,16 @@ from blitz.generated.proto.python.sensor.imu_pb2 import ImuData
 from blitz.generated.proto.python.sensor.odometry_pb2 import OdometryData
 from blitz.generated.thrift.config.common.ttypes import Point3
 from blitz.generated.thrift.config.kalman_filter.ttypes import KalmanFilterSensorType
-from blitz.generated.thrift.config.pos_extrapolator.ttypes import ImuConfig, OdomConfig
+from blitz.generated.thrift.config.pos_extrapolator.ttypes import (
+    ImuConfig,
+    OdomConfig,
+    TagUseImuRotation,
+)
 from blitz.pos_extrapolator.data_prep import (
     ConfigProvider,
     DataPreparer,
     DataPreparerManager,
+    FilterContext,
     KalmanFilterInput,
 )
 from blitz.pos_extrapolator.position_extrapolator import PositionExtrapolator
@@ -33,7 +38,7 @@ from blitz.pos_extrapolator.position_extrapolator import PositionExtrapolator
 class AprilTagConfig:
     tags_in_world: dict[int, Point3]
     cameras_in_robot: dict[str, Point3]
-    use_imu_rotation: bool
+    use_imu_rotation: TagUseImuRotation
 
 
 class AprilTagDataPreparerConfig(ConfigProvider[AprilTagConfig]):
@@ -53,7 +58,7 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
         conf = self.config.get_config()
         self.tags_in_world: dict[int, Point3] = conf.tags_in_world
         self.cameras_in_robot: dict[str, Point3] = conf.cameras_in_robot
-        self.use_imu_rotation: bool = conf.use_imu_rotation
+        self.use_imu_rotation: TagUseImuRotation = conf.use_imu_rotation
 
     def get_data_type(self) -> type[AprilTagData]:
         return AprilTagData
@@ -61,7 +66,11 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
     def get_avg_pose(self, input_list: list[list[float]]) -> NDArray[np.float64]:
         output: list[float] = []
         for i in range(len(input_list[0])):
-            output.append(np.mean([input[i] for input in input_list]))  # pyright: ignore[reportArgumentType]
+            output.append(
+                np.mean(
+                    [input[i] for input in input_list]
+                )  # pyright: ignore[reportArgumentType]
+            )  # pyright: ignore[reportArgumentType]
 
         return np.array(output)
 
@@ -80,8 +89,23 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
     def hx(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         return transform_vector_to_size(x, self.get_used_indices())
 
+    def should_use_imu_rotation(self, context: FilterContext | None) -> bool:
+        if context is None:
+            return False
+
+        if (
+            context.has_gotten_rotation
+            and self.use_imu_rotation == TagUseImuRotation.UNTIL_FIRST_NON_TAG_ROTATION
+        ):
+            return False
+
+        if self.use_imu_rotation == TagUseImuRotation.ALWAYS:
+            return False
+
+        return True
+
     def prepare_input(
-        self, data: AprilTagData, sensor_id: str, x: NDArray[np.float64] | None = None
+        self, data: AprilTagData, sensor_id: str, context: FilterContext | None = None
     ) -> KalmanFilterInput | None:
         if data.WhichOneof("data") == "raw_tags":
             raise ValueError("Tags are not in processed format")
@@ -109,22 +133,24 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
 
             tag_in_camera_rotation = make_3d_rotation_from_yaw(tag.rotationWPILib.yaw)
 
-            '''
+            """
             tag_in_camera_rotation = (
                 PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION
                 @ from_float_list(list(tag.pose_R), 3, 3)
                 @ PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION.T
             )
-            '''
+            """
 
-            tag_in_camera_pose = np.array([tag.positionWPILib.x, tag.positionWPILib.y, tag.positionWPILib.z])
+            tag_in_camera_pose = np.array(
+                [tag.positionWPILib.x, tag.positionWPILib.y, tag.positionWPILib.z]
+            )
 
-            '''
+            """
             tag_in_camera_pose = (
                 PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION
                 @ np.array(tag.pose_t)
             )
-            '''
+            """
 
             T_tag_in_camera = create_transformation_matrix(
                 rotation_matrix=tag_in_camera_rotation,
@@ -132,10 +158,11 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
             )
 
             R_robot_rotation_world: NDArray[np.float64] | None = None
-            if self.use_imu_rotation and x is not None:
+            if self.should_use_imu_rotation(context):
+                assert context is not None
                 R_robot_rotation_world = make_transformation_matrix_p_d(
                     position=np.array([0, 0, 0]),
-                    direction_vector=np.array([x[4], x[5], 0]),
+                    direction_vector=np.array([context.x[4], context.x[5], 0]),
                 )[:3, :3]
 
             render_pose, render_rotation = get_translation_rotation_components(
@@ -155,10 +182,10 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
             datapoint = [
                 render_pose[0],
                 render_pose[1],
-                render_direction_vector[1], # TODO: fix this bit if wrong.
-                render_direction_vector[0],
+                render_direction_vector[0],  # TODO: fix this bit if wrong.
+                render_direction_vector[1],
             ]
-            
+
             input_list.append(datapoint)
 
         return KalmanFilterInput(

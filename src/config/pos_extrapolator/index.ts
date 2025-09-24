@@ -1,4 +1,7 @@
-import { PosExtrapolator } from "generated/thrift/gen-nodejs/pos_extrapolator_types";
+import {
+  PosExtrapolator,
+  TagUseImuRotation,
+} from "generated/thrift/gen-nodejs/pos_extrapolator_types";
 import { MatrixUtil, VectorUtil } from "../util/math";
 import { nav_x_config } from "./imu_config/navx";
 import { kalman_filter } from "./kalman_filter_config";
@@ -21,7 +24,7 @@ export const pose_extrapolator: PosExtrapolator = {
   tag_position_config: reefscape_field,
   tag_confidence_threshold: 50,
   april_tag_discard_distance: 5,
-  tag_use_imu_rotation: false,
+  tag_use_imu_rotation: TagUseImuRotation.UNTIL_FIRST_NON_TAG_ROTATION,
   enable_imu: true,
   enable_odom: false,
   enable_tags: true,

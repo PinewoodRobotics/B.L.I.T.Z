@@ -39,7 +39,7 @@ class PositionExtrapolator:
 
     def insert_sensor_data(self, data: object, sensor_id: str) -> None:
         prepared_data = self.data_preparer_manager.prepare_data(
-            data, sensor_id, x=self.filter_strategy.get_state()
+            data, sensor_id, context=self.filter_strategy.context()
         )
 
         if (

@@ -19,6 +19,12 @@ class KalmanFilterInput:
     hx: Callable[[NDArray[np.float64]], NDArray[np.float64]] | None = None
 
 
+@dataclass
+class FilterContext:
+    x: NDArray[np.float64]
+    has_gotten_rotation: bool
+
+
 class ConfigProvider(Protocol[C]):
     def get_config(self) -> C: ...
 
@@ -28,7 +34,7 @@ class DataPreparer(Protocol[T, C]):
         pass
 
     def prepare_input(
-        self, data: T, sensor_id: str, x: NDArray[np.float64] | None = None
+        self, data: T, sensor_id: str, context: FilterContext | None = None
     ) -> KalmanFilterInput | None: ...
 
     def get_data_type(self) -> type[T]: ...
@@ -53,7 +59,7 @@ class DataPreparerManager:
         cls._config_instances[proto_type.__name__] = config_instance
 
     def prepare_data(
-        self, data: object, sensor_id: str, x: NDArray[np.float64] | None = None
+        self, data: object, sensor_id: str, context: FilterContext | None = None
     ) -> KalmanFilterInput | None:
         data_type_name = type(data).__name__
 
@@ -64,4 +70,4 @@ class DataPreparerManager:
         config_instance = self._config_instances.get(data_type_name)
         preparer_instance = preparer_class(config_instance)
 
-        return preparer_instance.prepare_input(data, sensor_id, x)
+        return preparer_instance.prepare_input(data, sensor_id, context)

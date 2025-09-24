@@ -13,7 +13,7 @@ from blitz.generated.thrift.config.kalman_filter.ttypes import (
     KalmanFilterConfig,
     KalmanFilterSensorType,
 )
-from blitz.pos_extrapolator.data_prep import KalmanFilterInput
+from blitz.pos_extrapolator.data_prep import FilterContext, KalmanFilterInput
 from blitz.pos_extrapolator.filter_strat import GenericFilterStrategy
 
 
@@ -36,6 +36,11 @@ class ExtendedKalmanFilterStrategy(  # pyright: ignore[reportUnsafeMultipleInher
         self.last_update_time = time.time()
         self.fake_dt = fake_dt
 
+        self.ctx = FilterContext(x=self.x, has_gotten_rotation=False)
+
+    def context(self) -> FilterContext:
+        return self.ctx
+
     def get_R_sensors(
         self, config: KalmanFilterConfig
     ) -> dict[KalmanFilterSensorType, dict[str, NDArray[np.float64]]]:
@@ -56,7 +61,7 @@ class ExtendedKalmanFilterStrategy(  # pyright: ignore[reportUnsafeMultipleInher
 
     def hx(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
         return x
-    
+
     def insert_data(self, data: KalmanFilterInput) -> None:
         if self.fake_dt is not None:
             dt = self.fake_dt
@@ -71,6 +76,9 @@ class ExtendedKalmanFilterStrategy(  # pyright: ignore[reportUnsafeMultipleInher
         self.predict()
 
         if data.sensor_type not in self.R_sensors:
+            if data.sensor_type != KalmanFilterSensorType.APRIL_TAG:
+                self.ctx.has_gotten_rotation = True
+
             warnings.warn(
                 f"Sensor type {data.sensor_type} not found in R_sensors, skipping update"
             )
@@ -90,8 +98,12 @@ class ExtendedKalmanFilterStrategy(  # pyright: ignore[reportUnsafeMultipleInher
             data.hx if data.hx is not None else self.hx,
             R=R,
         )
+        self._update_context()
 
         self.last_update_time = time.time()
+
+    def _update_context(self) -> None:
+        self.ctx.x = self.x
 
     def get_state(self) -> NDArray[np.float64]:
         return self.x

@@ -1,7 +1,8 @@
+from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from blitz.pos_extrapolator.data_prep import KalmanFilterInput
+from blitz.pos_extrapolator.data_prep import FilterContext, KalmanFilterInput
 
 
 class GenericFilterStrategy:
@@ -20,3 +21,6 @@ class GenericFilterStrategy:
 
     def _debug_set_state(self, x: NDArray[np.float64]) -> None:
         pass
+
+    def context(self) -> FilterContext:
+        raise NotImplementedError("context not implemented")
