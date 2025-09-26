@@ -35,7 +35,9 @@ class PositionExtrapolator:
         self.filter_strategy = filter_strategy
         self.data_preparer_manager = data_preparer_manager
         self.last_predict = time.time()
-        self.has_gotten_rotation = False
+        self.has_gotten_rotation = (
+            self.config.tag_use_imu_rotation == TagUseImuRotation.NEVER
+        )
 
     def insert_sensor_data(self, data: object, sensor_id: str) -> None:
         context = ExtrapolationContext(
@@ -50,9 +52,7 @@ class PositionExtrapolator:
         if prepared_data is None:
             return
 
-        if not self.has_gotten_rotation and self.is_rotation_gotten(
-            prepared_data.sensor_type, sensor_id
-        ):
+        if self.is_rotation_gotten(prepared_data.sensor_type, sensor_id):
             self.has_gotten_rotation = True
 
         self.filter_strategy.insert_data(prepared_data)
@@ -61,7 +61,7 @@ class PositionExtrapolator:
         self, sensor_type: KalmanFilterSensorType, sensor_id: str
     ) -> bool:
         if sensor_type == KalmanFilterSensorType.APRIL_TAG:
-            return self.config.tag_use_imu_rotation == TagUseImuRotation.NEVER
+            return False
 
         if sensor_type == KalmanFilterSensorType.ODOMETRY:
             return self.config.odom_config.use_rotation

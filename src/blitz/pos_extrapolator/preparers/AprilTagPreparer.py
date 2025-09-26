@@ -131,26 +131,24 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
                 ),
             )
 
-            tag_in_camera_rotation = make_3d_rotation_from_yaw(tag.rotationWPILib.yaw)
+            # tag_in_camera_rotation = make_3d_rotation_from_yaw(tag.rotationWPILib.yaw)
 
-            """
             tag_in_camera_rotation = (
                 PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION
                 @ from_float_list(list(tag.pose_R), 3, 3)
                 @ PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION.T
             )
-            """
 
+            """
             tag_in_camera_pose = np.array(
                 [tag.positionWPILib.x, tag.positionWPILib.y, tag.positionWPILib.z]
             )
-
             """
+
             tag_in_camera_pose = (
                 PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION
                 @ np.array(tag.pose_t)
             )
-            """
 
             T_tag_in_camera = create_transformation_matrix(
                 rotation_matrix=tag_in_camera_rotation,
@@ -175,14 +173,14 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
             )
 
             render_direction_vector = render_rotation[0:3, 0]
-            # rotation_angle_rad = np.arctan2( <- correct rotation theta angle
-            #    render_direction_vector[1], render_direction_vector[0]
+            # rotation_angle_rad = np.atan2( <- correct rotation theta angle
+            #    render_direction_vector[1] /*y*/, render_direction_vector[0] /*x*/
             # )
 
             datapoint = [
                 render_pose[0],
                 render_pose[1],
-                render_direction_vector[0],  # TODO: fix this bit if wrong.
+                render_direction_vector[0],
                 render_direction_vector[1],
             ]
 

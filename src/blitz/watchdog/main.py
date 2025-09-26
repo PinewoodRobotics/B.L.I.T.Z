@@ -30,6 +30,7 @@ from blitz.generated.proto.python.status.PiStatus_pb2 import Ping, Pong
 app = Flask(__name__)
 
 config_path = "system_data/snapshot_config.txt"
+processes_run_path = "config/processes.json"
 
 config: Config | None = None
 process_monitor: ProcessMonitor | None = None
@@ -203,9 +204,10 @@ async def main():
     config_path = basic_system_config.config_path
     system_name = get_system_name()
 
-    # Get the current event loop and pass it to ProcessMonitor
     event_loop = asyncio.get_running_loop()
-    process_monitor = ProcessMonitor(event_loop)
+    process_monitor = ProcessMonitor(processes_run_path, event_loop)
+    if basic_system_config.config_path:
+        process_monitor.set_config_path(basic_system_config.config_path)
 
     autobahn_server = Autobahn(
         Address(

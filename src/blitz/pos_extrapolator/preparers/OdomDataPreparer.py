@@ -23,7 +23,7 @@ class OdomDataPreparerConfig(ConfigProvider[OdomConfig]):
         return self.config
 
 
-SHOULD_USE_ROTATION_MATRIX = False
+SHOULD_USE_ROTATION_MATRIX = True
 
 
 @DataPreparerManager.register(proto_type=OdometryData)
@@ -57,7 +57,12 @@ class OdomDataPreparer(DataPreparer[OdometryData, OdomDataPreparerConfig]):
         assert context is not None
         cos = context.x[4]
         sin = context.x[5]
-        rotation_matrix = np.array([[cos, -sin], [sin, cos]])
+        rotation_matrix = np.array(
+            [
+                [cos, -sin],
+                [sin, cos],
+            ]
+        )
 
         vel = np.array([data.velocity.x, data.velocity.y])
         if SHOULD_USE_ROTATION_MATRIX:
