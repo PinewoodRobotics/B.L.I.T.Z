@@ -97,7 +97,7 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
             return True
 
         if self.use_imu_rotation == TagUseImuRotation.UNTIL_FIRST_NON_TAG_ROTATION:
-            return not context.has_gotten_rotation
+            return context.has_gotten_rotation
 
         return False
 
@@ -131,19 +131,11 @@ class AprilTagDataPreparer(DataPreparer[AprilTagData, AprilTagDataPreparerConfig
                 ),
             )
 
-            # tag_in_camera_rotation = make_3d_rotation_from_yaw(tag.rotationWPILib.yaw)
-
             tag_in_camera_rotation = (
                 PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION
                 @ from_float_list(list(tag.pose_R), 3, 3)
                 @ PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION.T
             )
-
-            """
-            tag_in_camera_pose = np.array(
-                [tag.positionWPILib.x, tag.positionWPILib.y, tag.positionWPILib.z]
-            )
-            """
 
             tag_in_camera_pose = (
                 PositionExtrapolator.CAMERA_OUTPUT_TO_ROBOT_ROTATION

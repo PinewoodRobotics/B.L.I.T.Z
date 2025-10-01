@@ -1,6 +1,7 @@
 import time
 
 import numpy as np
+from blitz.common.debug.logger import info
 from blitz.generated.proto.python.util.position_pb2 import RobotPosition
 from blitz.generated.proto.python.util.vector_pb2 import Vector2, Vector3
 from blitz.generated.thrift.config.camera.ttypes import CameraParameters
