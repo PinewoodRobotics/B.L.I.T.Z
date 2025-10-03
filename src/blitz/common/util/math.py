@@ -2,8 +2,7 @@ from typing import Optional, cast
 import numpy as np
 from numpy.typing import NDArray
 
-from blitz.generated.thrift.config.common.ttypes import (
-    GenericVector, GenericMatrix)
+from blitz.generated.thrift.config.common.ttypes import GenericVector, GenericMatrix
 
 
 def get_translation_rotation_components(
@@ -25,7 +24,9 @@ def make_transformation_matrix_p_d(
     z_axis: NDArray[np.float64] = np.array([0, 0, 1]),
 ) -> NDArray[np.float64]:
     x_axis = normalize_vector(direction_vector)
-    y_axis = normalize_vector(np.cross(z_axis, x_axis))  # pyright: ignore[reportArgumentType]
+    y_axis = normalize_vector(
+        np.cross(z_axis, x_axis)
+    )  # pyright: ignore[reportArgumentType]
     return create_transformation_matrix(
         rotation_matrix=np.column_stack((x_axis, y_axis, z_axis)),
         translation_vector=np.array([position[0], position[1], position[2]]),
@@ -41,6 +42,15 @@ def create_transformation_matrix(
     transformation_matrix[:3, :3] = rotation_matrix
     transformation_matrix[:3, 3] = translation_vector
     return transformation_matrix
+
+
+def ensure_proper_rotation(rotation_matrix: NDArray[np.float64]) -> NDArray[np.float64]:
+    u, _, vt = np.linalg.svd(rotation_matrix)
+    r = u @ vt
+    if np.linalg.det(r) < 0:
+        u[:, -1] *= -1
+        r = u @ vt
+    return r
 
 
 # T_bbb_in_aaa = T_###_in_aaa @ T_bbb_in_###
@@ -76,10 +86,17 @@ def get_robot_in_world(
     else:
         T_tag_in_robot = T_camera_in_robot @ T_tag_in_camera
         T_robot_in_tag = np.linalg.inv(T_tag_in_robot)
-        return T_tag_in_world @ T_robot_in_tag
+        T_robot_in_world = T_tag_in_world @ T_robot_in_tag
+        corrected_rotation = ensure_proper_rotation(T_robot_in_world[:3, :3])
+        return create_transformation_matrix(
+            rotation_matrix=corrected_rotation,
+            translation_vector=T_robot_in_world[:3, 3],
+        )
 
 
-def swap_rotation_components(*, T_one: NDArray[np.float64], T_two: NDArray[np.float64], R_side_size: int):
+def swap_rotation_components(
+    *, T_one: NDArray[np.float64], T_two: NDArray[np.float64], R_side_size: int
+):
     # NOTE: This function swaps the rotation (top-left R_side_size x R_side_size) blocks of T_one and T_two,
     # returning new matrices with the swapped rotation components and all other elements preserved.
     T_one_new = T_one.copy()
@@ -91,17 +108,22 @@ def swap_rotation_components(*, T_one: NDArray[np.float64], T_two: NDArray[np.fl
     return T_one_new, T_two_new
 
 
-def from_float_list(flat_list: list[float], rows: int, cols: int) -> NDArray[np.float64]:
+def from_float_list(
+    flat_list: list[float], rows: int, cols: int
+) -> NDArray[np.float64]:
     if not flat_list or len(flat_list) != rows * cols:
         raise ValueError("The provided list does not match the specified dimensions.")
     return np.array(flat_list).reshape(rows, cols)
 
+
 def make_3d_rotation_from_yaw(yaw: float) -> NDArray[np.float64]:
-    return np.array([
-        [np.cos(yaw), -np.sin(yaw), 0],
-        [np.sin(yaw), np.cos(yaw), 0],
-        [0, 0, 1],
-    ])
+    return np.array(
+        [
+            [np.cos(yaw), -np.sin(yaw), 0],
+            [np.sin(yaw), np.cos(yaw), 0],
+            [0, 0, 1],
+        ]
+    )
 
 
 def get_np_from_vector(vector: GenericVector) -> NDArray[np.float64]:
@@ -121,8 +143,9 @@ def transform_matrix_to_size(
     indices = [i for i, used in enumerate(used_diagonals) if used]
     return matrix[indices, :]
 
+
 def transform_matrix_to_size_square(
-        used_diagonals: list[bool],
+    used_diagonals: list[bool],
     matrix: NDArray[np.float64] = np.eye(6),
 ) -> NDArray[np.float64]:
     indices = [i for i, used in enumerate(used_diagonals) if used]
