@@ -38,7 +38,7 @@ def get_sample_imu_data():
 
 def test_pose_extrapolator():
     config = from_file(
-        "src/blitz/pos_extrapolator/__tests__/fixtures/sample_config.txt"
+        "backend/python/pos_extrapolator/__tests__/fixtures/sample_config.txt"
     )
 
     position_extrapolator = initialize(config)
