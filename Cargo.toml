@@ -1,11 +1,7 @@
 # This is not a workspace root anymore - the workspace is defined in project/rust/Cargo.toml
 
 [workspace]
-members = [
-    "src/blitz/rust/common",
-    "src/blitz/rust/lidar_3d",
-    "src/blitz/rust/pathfinding",
-]
+members = ["backend/rust/*"]
 
 [workspace.dependencies]
 tokio = { version = "1.36", features = ["full"] }
@@ -35,4 +31,4 @@ autobahn-client = "0.1"
 ctor = "0.1"
 
 [workspace.metadata]
-rust-project = { path = "src/blitz/rust" }
+rust-project = { path = "backend/rust" }

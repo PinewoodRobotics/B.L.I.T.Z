@@ -5,9 +5,9 @@ VENV_PYTHON := .venv/bin/python
 
 THRIFT_DIR = ThriftTsConfig/schema
 THRIFT_ROOT_FILE = $(THRIFT_DIR)/config.thrift
-PROTO_DIR = src/proto
+PROTO_DIR = backend/proto
 
-GEN_DIR = src/blitz/generated
+GEN_DIR = backend/generated
 PROTO_GEN_DIR = $(GEN_DIR)/proto
 THRIFT_GEN_DIR = $(GEN_DIR)/thrift
 
@@ -103,12 +103,12 @@ test-coverage:
 thrift-to-py:
 	mkdir -p $(THRIFT_GEN_DIR)
 	@if [ "$$(uname)" = "Linux" ]; then \
-		thrift -r --gen py:enum,package_prefix=blitz.generated.thrift. \
+		thrift -r --gen py:enum,package_prefix=backend.generated.thrift. \
 			-I $(THRIFT_DIR) \
 			-out $(THRIFT_GEN_DIR) \
 			$(THRIFT_ROOT_FILE); \
 	else \
-		thrift -r --gen py:type_hints,enum,package_prefix=blitz.generated.thrift. \
+		thrift -r --gen py:type_hints,enum,package_prefix=backend.generated.thrift. \
 			-I $(THRIFT_DIR) \
 			-out $(THRIFT_GEN_DIR) \
 			$(THRIFT_ROOT_FILE); \

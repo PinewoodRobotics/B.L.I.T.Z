@@ -5,7 +5,7 @@
     "ThriftTsConfig"
   ],
   "scripts": {
-    "config": "npm run -w ThriftTsConfig config -- --dir src/config",
+    "config": "npm run -w ThriftTsConfig config -- --dir config",
     "generate-thrift": "npm run -w ThriftTsConfig generate-thrift --"
   }
 }
