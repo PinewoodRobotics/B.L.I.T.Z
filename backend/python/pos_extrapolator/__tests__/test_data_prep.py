@@ -9,7 +9,10 @@ from backend.generated.thrift.config.ttypes import Config
 from backend.python.pos_extrapolator.__tests__.fixtures.shared_resources import (
     set_config_data_preparer_manager,
 )
-from backend.python.pos_extrapolator.data_prep import DataPreparerManager
+from backend.python.pos_extrapolator.data_prep import (
+    DataPreparerManager,
+    ExtrapolationContext,
+)
 from backend.python.pos_extrapolator.preparers.AprilTagPreparer import (
     AprilTagDataPreparerConfig,
 )
@@ -60,8 +63,20 @@ def test_data_prep():
     imu_data = sample_imu_data()
     odometry_data = sample_odometry_data()
 
-    imu_input = data_preparer_manager.prepare_data(imu_data, "0")
-    odometry_input = data_preparer_manager.prepare_data(odometry_data, "odom")
+    imu_input = data_preparer_manager.prepare_data(
+        imu_data,
+        "0",
+        ExtrapolationContext(
+            x=np.array([0.0, 0.0, 0.0, 0.0, 1.0, 0.0]), has_gotten_rotation=False
+        ),
+    )
+    odometry_input = data_preparer_manager.prepare_data(
+        odometry_data,
+        "odom",
+        ExtrapolationContext(
+            x=np.array([0.0, 0.0, 0.0, 0.0, 1.0, 0.0]), has_gotten_rotation=False
+        ),
+    )
 
     assert imu_input is not None and odometry_input is not None
 

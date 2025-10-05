@@ -55,7 +55,7 @@ def ekf_dataset_imu_input():
 
 def test_ekf():
     config = from_file(
-        "src/blitz/pos_extrapolator/__tests__/fixtures/sample_config.txt"
+        "backend/python/pos_extrapolator/__tests__/fixtures/sample_config.txt"
     )
 
     ekf = ExtendedKalmanFilterStrategy(
@@ -77,7 +77,7 @@ def test_ekf():
 
 def test_ekf_timing():
     config = from_file(
-        "src/blitz/pos_extrapolator/__tests__/fixtures/sample_config.txt"
+        "backend/python/pos_extrapolator/__tests__/fixtures/sample_config.txt"
     )
 
     ekf = ExtendedKalmanFilterStrategy(

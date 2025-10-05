@@ -14,17 +14,44 @@ from backend.python.april.src.util import (
 )
 
 
+def get_detector():
+    return pyapriltags.Detector(
+        families="tag36h11",
+        nthreads=1,
+        quad_decimate=1.0,
+        quad_sigma=0.0,
+    )
+
+
+def camera_1_matrix():
+    return np.array(
+        [
+            [450, 0, 400],
+            [0, 450, 300],
+            [0, 0, 1],
+        ]
+    )
+
+
+def camera_1_dist_coeff():
+    return np.array(
+        [
+            0.02421893240091871,
+            -0.019483745628435203,
+            -0.0002353973963860865,
+            0.0010526889774734997,
+            -0.032565426732841275,
+        ]
+    )
+
+
 def test_detect_tag_corners_cam_1():
     image_path = add_cur_dir("fixtures/images/cam_1_tag_6_37cm_d.png")
 
     assert os.path.exists(image_path)
 
     image = cv2.imread(image_path)
-    detector = pyapriltags.Detector(
-        families="tag36h11",
-        nthreads=1,
-        quad_decimate=1.0,
-    )
+    detector = get_detector()
 
     tag_corners = process_image(image, detector)
 
@@ -43,17 +70,13 @@ def test_detect_tag_corners_cam_1():
         assert corner[1] == pytest.approx(corners_req[i][1], abs=1)
 
 
-def test_post_process_detection_cam_1(camera_1_matrix, camera_1_dist_coeff):
+def test_post_process_detection_cam_1():
     image_path = add_cur_dir("fixtures/images/cam_1_tag_6_37cm_d.png")
     image = cv2.imread(image_path)
-    detector = pyapriltags.Detector(
-        families="tag36h11",
-        nthreads=1,
-        quad_decimate=1.0,
-    )
+    detector = get_detector()
     tag_corners = process_image(image, detector)
     post_processed_tag_corners = post_process_detection(
-        tag_corners, camera_1_matrix, camera_1_dist_coeff
+        tag_corners, camera_1_matrix(), camera_1_dist_coeff()
     )
 
     assert len(post_processed_tag_corners) == 1
@@ -72,11 +95,11 @@ def test_post_process_detection_cam_1(camera_1_matrix, camera_1_dist_coeff):
         assert corner.y == pytest.approx(corners_req[i][1], abs=1)
 
 
-def test_undistort_point(camera_1_matrix, camera_1_dist_coeff):
+def test_undistort_point():
     point = np.array([[300, 200]], dtype=np.float32)
 
     undistorted_point = cv2.undistortPoints(
-        point, camera_1_matrix, camera_1_dist_coeff, P=camera_1_matrix
+        point, camera_1_matrix(), camera_1_dist_coeff(), P=camera_1_matrix()
     )
 
     print(undistorted_point.reshape(2))
@@ -85,73 +108,67 @@ def test_undistort_point(camera_1_matrix, camera_1_dist_coeff):
     assert undistorted_point[0, 0, 1] == pytest.approx(200, abs=1)
 
 
-def test_detected_position_1_cam_1_37cm(camera_1_matrix, camera_1_dist_coeff):
+def test_detected_position_1_cam_1_37cm():
     image_path = add_cur_dir("fixtures/images/cam_1_tag_6_37cm_d.png")
     image = cv2.imread(image_path)
-    detector = pyapriltags.Detector(
-        families="tag36h11",
-        nthreads=1,
-        quad_decimate=1.0,
-    )
+    detector = get_detector()
 
     tag_corners = process_image(image, detector)
     post_processed_tag_corners = post_process_detection(
-        tag_corners, camera_1_matrix, camera_1_dist_coeff
+        tag_corners, camera_1_matrix(), camera_1_dist_coeff()
     )
 
     assert len(post_processed_tag_corners) == 1
     assert post_processed_tag_corners[0].id == 6
 
     tag = post_processed_tag_corners[0]
-    position = solve_pnp_tag_corners(tag, 0.17, camera_1_matrix, camera_1_dist_coeff)
+    position = solve_pnp_tag_corners(
+        tag, 0.17, camera_1_matrix(), camera_1_dist_coeff()
+    )
 
     assert position[1][0] == pytest.approx(-0.0766, abs=0.01)
     assert position[1][2] == pytest.approx(0.345, abs=0.01)
 
 
-def test_detected_position_1_cam_1_90cm(camera_1_matrix, camera_1_dist_coeff):
+def test_detected_position_1_cam_1_90cm():
     image_path = add_cur_dir("fixtures/images/cam_1_tag_6_90cm_d.png")
     image = cv2.imread(image_path)
-    detector = pyapriltags.Detector(
-        families="tag36h11",
-        nthreads=1,
-        quad_decimate=1.0,
-    )
+    detector = get_detector()
 
     tag_corners = process_image(image, detector)
     post_processed_tag_corners = post_process_detection(
-        tag_corners, camera_1_matrix, camera_1_dist_coeff
+        tag_corners, camera_1_matrix(), camera_1_dist_coeff()
     )
 
     assert len(post_processed_tag_corners) == 1
     assert post_processed_tag_corners[0].id == 6
 
     tag = post_processed_tag_corners[0]
-    position = solve_pnp_tag_corners(tag, 0.17, camera_1_matrix, camera_1_dist_coeff)
+    position = solve_pnp_tag_corners(
+        tag, 0.17, camera_1_matrix(), camera_1_dist_coeff()
+    )
 
     assert position[1][0] == pytest.approx(-0.0766, abs=0.003)
     assert position[1][2] == pytest.approx(0.923, abs=0.003)
 
 
-def test_detected_position_1_cam_1_74cm(camera_1_matrix, camera_1_dist_coeff):
+def test_detected_position_1_cam_1_74cm():
     image_path = add_cur_dir("fixtures/images/cam_1_tag_6_74cm_d.png")
     image = cv2.imread(image_path)
-    detector = pyapriltags.Detector(
-        families="tag36h11",
-        nthreads=1,
-        quad_decimate=1.0,
-    )
+    detector = get_detector()
 
     tag_corners = process_image(image, detector)
     post_processed_tag_corners = post_process_detection(
-        tag_corners, camera_1_matrix, camera_1_dist_coeff
+        tag_corners, camera_1_matrix(), camera_1_dist_coeff()
     )
 
     assert len(post_processed_tag_corners) == 1
     assert post_processed_tag_corners[0].id == 6
 
     tag = post_processed_tag_corners[0]
-    position = solve_pnp_tag_corners(tag, 0.17, camera_1_matrix, camera_1_dist_coeff)
+    position = solve_pnp_tag_corners(
+        tag, 0.17, camera_1_matrix(), camera_1_dist_coeff()
+    )
 
     assert position[1][0] == pytest.approx(0.44, abs=0.01)
     assert position[1][2] == pytest.approx(0.73, abs=0.01)
@@ -168,11 +185,7 @@ def test_generated_tags():
     )
     coeff = np.zeros(5)
     for generated_tag in all_generated_tags:
-        detector = pyapriltags.Detector(
-            families="tag36h11",
-            nthreads=1,
-            quad_decimate=1.0,
-        )
+        detector = get_detector()
         tag_corners = process_image(generated_tag.image, detector)
         post_processed_tag_corners = post_process_detection(tag_corners, matrix, coeff)
 
