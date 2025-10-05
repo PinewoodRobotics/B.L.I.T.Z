@@ -23,14 +23,15 @@ from backend.python.common.util.system import (
     get_system_name,
     load_basic_system_config,
 )
-from watchdog.helper import process_watcher
+from watchdog.discovery import enable_discovery
+from watchdog.helper import process_watcher, setup_ping_pong
 from watchdog.monitor import ProcessMonitor
 from backend.generated.proto.python.status.PiStatus_pb2 import Ping, Pong
 
 app = Flask(__name__)
 
-config_path = "system_data/snapshot_config.txt"
-processes_run_path = "config/processes.json"
+config_path = "system_data/config.txt"  # note: this should never be used because the config is set in the basic system config
+processes_ran_path = "config/processes.json"
 
 config: Config | None = None
 process_monitor: ProcessMonitor | None = None
@@ -153,61 +154,21 @@ def get_system_info():
     )
 
 
-def enable_discovery():
-    """
-    Enables zeroconf discovery for the system.
-
-    This allows other devices on the same network to discover this Pi.
-    Uses the zeroconf protocol to broadcast the Pi's presence and details.
-    """
-    global zeroconf
-    zeroconf = Zeroconf()
-
-    hostname = socket.gethostname()
-    local_ip = get_local_ip()
-    if local_ip is None:
-        error("No local IP found, cannot register service")
-        return
-
-    addr = socket.inet_aton(local_ip)
-
-    _info = ServiceInfo(
-        "_deploy._udp.local.",
-        f"{hostname}._deploy._udp.local.",
-        addresses=[addr],
-        port=9999,
-        properties={"id": hostname},
-    )
-
-    zeroconf.register_service(_info)
-    success(f"Registered service {hostname} on {local_ip}")
-
-
-async def setup_ping_pong(autobahn_server: Autobahn):
-    async def ping_server(data: bytes):
-        ping = Ping.FromString(data)
-        pong = Pong(
-            pi_name=system_name,
-            timestamp_ms_received=int(time.time() * 1000),
-            timestamp_ms_original=int(ping.timestamp),
-        )
-
-        await autobahn_server.publish("pi-pong", pong.SerializeToString())
-
-    await autobahn_server.subscribe("pi-ping", ping_server)
-
-
 async def main():
     global config_path, process_monitor, system_name
 
-    basic_system_config = load_basic_system_config()
+    try:
+        basic_system_config = load_basic_system_config()
+    except FileNotFoundError:
+        error("Basic system config not found, exiting.")
+        return
+
     config_path = basic_system_config.config_path
     system_name = get_system_name()
 
     event_loop = asyncio.get_running_loop()
-    process_monitor = ProcessMonitor(processes_run_path, event_loop)
-    if basic_system_config.config_path:
-        process_monitor.set_config_path(basic_system_config.config_path)
+    process_monitor = ProcessMonitor(processes_ran_path, event_loop)
+    process_monitor.set_config_path(config_path)
 
     autobahn_server = Autobahn(
         Address(
@@ -216,7 +177,6 @@ async def main():
         )
     )
     await autobahn_server.begin()
-    await setup_ping_pong(autobahn_server)
 
     init_logging(
         "WATCHDOG",
@@ -227,18 +187,21 @@ async def main():
 
     success("Watchdog started!")
 
-    asyncio.create_task(process_watcher(basic_system_config))
+    await setup_ping_pong(autobahn_server, system_name)
+
+    _ = await asyncio.to_thread(process_watcher, basic_system_config)
     success("Process watcher started!")
 
-    await asyncio.to_thread(enable_discovery)
+    _ = await asyncio.to_thread(enable_discovery)
     success("Discovery enabled!")
 
-    await asyncio.to_thread(
+    _ = await asyncio.to_thread(
         app.run,
         host=basic_system_config.watchdog.host,
         port=basic_system_config.watchdog.port,
         debug=False,
     )
+    success("Flask app started!")
 
 
 def cli_main():

@@ -1,10 +1,14 @@
 import asyncio
 from enum import Enum
+import time
+from autobahn_client.client import Autobahn
 import psutil
 from backend.python.common.debug.logger import error, stats, success
 from backend.generated.proto.python.status.PiStatus_pb2 import (
     PiProcess,
     PiStatus,
+    Ping,
+    Pong,
     StatusType,
 )
 from backend.generated.thrift.config.ttypes import Config
@@ -50,3 +54,17 @@ async def process_watcher(config: BasicSystemConfig | None):
             if config and config.watchdog.send_stats
             else 1
         )
+
+
+async def setup_ping_pong(autobahn_server: Autobahn, system_name: str):
+    async def ping_server(data: bytes):
+        ping = Ping.FromString(data)
+        pong = Pong(
+            pi_name=system_name,
+            timestamp_ms_received=int(time.time() * 1000),
+            timestamp_ms_original=int(ping.timestamp),
+        )
+
+        await autobahn_server.publish("pi-pong", pong.SerializeToString())
+
+    await autobahn_server.subscribe("pi-ping", ping_server)

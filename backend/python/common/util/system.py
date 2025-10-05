@@ -6,6 +6,7 @@ import json
 import re
 from pydantic import BaseModel
 import netifaces
+import socket
 
 from backend.python.common.config import from_uncertainty_config
 from backend.generated.thrift.config.ttypes import Config
@@ -100,6 +101,13 @@ def get_local_ip(iface: str = "eth0") -> str | None:
     except ValueError:
         pass
     return None
+
+
+def get_local_hostname(include_local_suffix: bool = True) -> str:
+    hostname = socket.gethostname()
+    if include_local_suffix and not hostname.endswith(".local"):
+        return f"{hostname}.local"
+    return hostname
 
 
 def get_config_parser() -> argparse.ArgumentParser:
