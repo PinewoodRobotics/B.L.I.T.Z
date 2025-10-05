@@ -1,0 +1,7 @@
+[env]
+PROTO_ROOT_PATH = "backend/proto"
+
+THRIFT_ROOT_PATH = "ThriftTsConfig/schema"
+THRIFT_ROOT_FILE = "config.thrift"
+
+THRIFT_ROOT_FILE_PATH = "ThriftTsConfig/schema/config.thrift"
