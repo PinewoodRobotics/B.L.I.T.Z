@@ -51,6 +51,7 @@ def test_detect_tag_corners_cam_1():
     assert os.path.exists(image_path)
 
     image = cv2.imread(image_path)
+    assert image is not None
     detector = get_detector()
 
     tag_corners = process_image(image, detector)
@@ -73,6 +74,7 @@ def test_detect_tag_corners_cam_1():
 def test_post_process_detection_cam_1():
     image_path = add_cur_dir("fixtures/images/cam_1_tag_6_37cm_d.png")
     image = cv2.imread(image_path)
+    assert image is not None
     detector = get_detector()
     tag_corners = process_image(image, detector)
     post_processed_tag_corners = post_process_detection(
@@ -111,6 +113,7 @@ def test_undistort_point():
 def test_detected_position_1_cam_1_37cm():
     image_path = add_cur_dir("fixtures/images/cam_1_tag_6_37cm_d.png")
     image = cv2.imread(image_path)
+    assert image is not None
     detector = get_detector()
 
     tag_corners = process_image(image, detector)
@@ -133,6 +136,7 @@ def test_detected_position_1_cam_1_37cm():
 def test_detected_position_1_cam_1_90cm():
     image_path = add_cur_dir("fixtures/images/cam_1_tag_6_90cm_d.png")
     image = cv2.imread(image_path)
+    assert image is not None
     detector = get_detector()
 
     tag_corners = process_image(image, detector)
@@ -155,6 +159,7 @@ def test_detected_position_1_cam_1_90cm():
 def test_detected_position_1_cam_1_74cm():
     image_path = add_cur_dir("fixtures/images/cam_1_tag_6_74cm_d.png")
     image = cv2.imread(image_path)
+    assert image is not None
     detector = get_detector()
 
     tag_corners = process_image(image, detector)

@@ -2,7 +2,9 @@ from dataclasses import dataclass
 import os
 import time
 import cv2
+from cv2.typing import MatLike
 import numpy as np
+from numpy.typing import NDArray
 import pyapriltags
 from pydantic import BaseModel
 
@@ -31,7 +33,11 @@ def tag_size():
     return 0.0254
 
 
-def preprocess_image(image: np.ndarray, matrix: np.ndarray, dist_coeff: np.ndarray):
+def preprocess_image(
+    image: NDArray[np.uint8] | MatLike,
+    matrix: NDArray[np.float64],
+    dist_coeff: NDArray[np.float64],
+):
     map1, map2, new_camera_matrix = get_map1_and_map2(
         matrix, dist_coeff, image.shape[1], image.shape[0]
     )
@@ -88,7 +94,7 @@ class GeneratedTagData(BaseModel):
 
 @dataclass
 class GeneratedTagDataWithImage:
-    image: np.ndarray
+    image: NDArray[np.uint8] | MatLike
     data: GeneratedTagData
 
 
@@ -99,10 +105,12 @@ def get_generated_tag_metadata(file_name: str) -> GeneratedTagData:
         return GeneratedTagData.model_validate_json(f.read())
 
 
-def load_png_image(file_name: str) -> np.ndarray:
-    return cv2.imread(
+def load_png_image(file_name: str) -> NDArray[np.uint8] | MatLike:
+    image = cv2.imread(
         add_cur_dir(f"fixtures/images/generated_apriltags/{file_name}.png")
     )
+    assert image is not None
+    return image
 
 
 def get_all_generated_tags() -> list[GeneratedTagDataWithImage]:

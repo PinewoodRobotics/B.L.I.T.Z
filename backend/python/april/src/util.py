@@ -7,6 +7,7 @@ import re
 import subprocess
 import time
 import cv2
+from cv2.typing import MatLike
 import numpy as np
 from numpy.typing import NDArray
 from typing import cast
@@ -93,7 +94,7 @@ def from_detection_to_corners_raw(
 
 
 def process_image(
-    image: NDArray[np.uint8],
+    image: NDArray[np.uint8] | MatLike,
     detector: pyapriltags.Detector,
 ) -> list[pyapriltags.Detection]:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -102,9 +103,11 @@ def process_image(
 
 
 def get_undistored_frame(
-    frame: NDArray[np.uint8], map1: NDArray[np.int16], map2: NDArray[np.uint16]
-) -> NDArray[np.uint8]:
-    return cast(NDArray[np.uint8], cv2.remap(frame, map1, map2, cv2.INTER_LINEAR))
+    frame: NDArray[np.uint8] | MatLike,
+    map1: NDArray[np.int16],
+    map2: NDArray[np.uint16],
+) -> NDArray[np.uint8] | MatLike:
+    return cv2.remap(frame, map1, map2, cv2.INTER_LINEAR)
 
 
 def get_map1_and_map2(
