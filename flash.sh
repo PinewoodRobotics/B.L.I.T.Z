@@ -32,4 +32,8 @@ cd B.L.I.T.Z
 # install git submodules
 git submodule update --init --recursive
 
+# install dependencies
+bash scripts/install_deps.sh
+
+# install project
 bash scripts/install.sh --name "$name"
