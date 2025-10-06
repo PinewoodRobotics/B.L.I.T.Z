@@ -7,17 +7,21 @@ from typing import Callable
 from backend.deployment.util import CommonModule
 
 
-def _find_module_by_name(name: str):
+def get_all_modules() -> list[CommonModule]:
     backend_deploy = importlib.import_module("backend.deploy")
     _ = importlib.reload(backend_deploy)
-
     get_modules: Callable[[], list[CommonModule] | CommonModule] = getattr(
         backend_deploy, "get_modules"
     )
-
     modules = get_modules()
-    if not isinstance(modules, list):
+    if isinstance(modules, CommonModule):
         modules = [modules]
+
+    return modules
+
+
+def _find_module_by_name(name: str):
+    modules = get_all_modules()
 
     for m in modules:
         if m.equivalent_run_definition == name:
