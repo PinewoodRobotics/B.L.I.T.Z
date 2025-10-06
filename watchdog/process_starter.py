@@ -1,32 +1,46 @@
-from logging import debug, error, info
+from logging import debug, error
 import subprocess
-from typing import Optional, List
-import sys
-import os
+import shlex
+import importlib
+from typing import Callable
 
-from backend.python.common.util.system import ProcessType
-
-
-def start_process(process_type: ProcessType, config_path: str):
-    return start_process_make(process_type.value, ["--config", config_path])
+from backend.deployment.util import CommonModule
 
 
-def start_process_make(process_name: str, extra_args: Optional[List[str]] = None):
+def _find_module_by_name(name: str):
+    backend_deploy = importlib.import_module("backend.deploy")
+    _ = importlib.reload(backend_deploy)
+
+    get_modules: Callable[[], list[CommonModule] | CommonModule] = getattr(
+        backend_deploy, "get_modules"
+    )
+
+    modules = get_modules()
+    if not isinstance(modules, list):
+        modules = [modules]
+
+    for m in modules:
+        if m.equivalent_run_definition == name:
+            return m
+
+    return None
+
+
+def start_process(process_name: str, config_path: str):
+    module = _find_module_by_name(process_name)
+    if module is None:
+        error(f"Unknown process {process_name}")
+        return None
+    base_cmd = module.get_run_command().strip()
+    cmd = f"{base_cmd} --config {config_path}".strip()
+    debug(f"Starting: {cmd}\n")
+
     try:
-        env = os.environ.copy()
-        if extra_args:
-            env["ARGS"] = " ".join(extra_args)
-
-        cmd = ["make", process_name]
-
-        debug(f"Starting: {' '.join(cmd)} with ARGS={env.get('ARGS', '')}\n")
-
         return subprocess.Popen(
-            cmd,
+            shlex.split(cmd),
             text=True,
             bufsize=1,
             universal_newlines=True,
-            env=env,
         )
     except subprocess.SubprocessError as e:
         error(f"Failed to start {process_name}: {str(e)}")

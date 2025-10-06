@@ -2,23 +2,15 @@ import argparse
 import asyncio
 from logging import info
 import os
-import socket
-import subprocess
-import sys
-import time
-from typing import Dict, List
 
 from flask import Flask, request, jsonify
-import psutil
-from zeroconf import ServiceInfo, Zeroconf
 
 from backend.python.common.debug.logger import LogLevel, error, init_logging, success
 from autobahn_client.client import Autobahn
 from autobahn_client.util import Address
-from backend.generated.thrift.config.ttypes import Config
 from backend.python.common.config import from_file
 from backend.python.common.util.system import (
-    ProcessType,
+    BasicSystemConfig,
     get_local_ip,
     get_system_name,
     load_basic_system_config,
@@ -26,14 +18,15 @@ from backend.python.common.util.system import (
 from watchdog.discovery import enable_discovery
 from watchdog.helper import process_watcher, setup_ping_pong
 from watchdog.monitor import ProcessMonitor
-from backend.generated.proto.python.status.PiStatus_pb2 import Ping, Pong
+from backend.generated.thrift.config.ttypes import Config
 
 app = Flask(__name__)
 
-config_path = "system_data/config.txt"  # note: this should never be used because the config is set in the basic system config
+config_path = ""  # note: this should never be used because the config is set in the basic system config
 processes_ran_path = "config/processes.json"
 
 config: Config | None = None
+basic_system_config: BasicSystemConfig | None = None
 process_monitor: ProcessMonitor | None = None
 zeroconf = None
 system_name = ""
@@ -46,19 +39,12 @@ def set_config():
     if "config" not in data:
         return jsonify({"status": "error", "message": "Missing config"}), 400
 
-    config_dir = os.path.dirname(config_path)
-    if config_dir and not os.path.exists(config_dir):
-        os.makedirs(config_dir, exist_ok=True)
-
     config_data = data["config"].replace("\\n", "").replace("\n", "")
 
     with open(config_path, "w") as f:
         f.write(config_data)
 
     config = from_file(config_path)
-
-    if process_monitor is not None:
-        process_monitor.set_config_path(config_path)
 
     return jsonify({"status": "success"})
 
@@ -76,25 +62,11 @@ def start():
     if "process_types" not in data:
         return jsonify({"status": "error", "message": "Missing process_types"}), 400
 
-    process_types = []
-    for process_type_str in data["process_types"]:
-        try:
-            process_type = ProcessType(process_type_str)
-            process_types.append(process_type)
-        except ValueError:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": f"Invalid process type: {process_type_str}",
-                    }
-                ),
-                400,
-            )
+    process_names = [str(p) for p in data["process_types"]]
 
-    for process_type in process_types:
-        success(f"Starting process: {process_type}")
-        process_monitor.start_and_monitor_process(process_type)
+    for process_name in process_names:
+        success(f"Starting process: {process_name}")
+        process_monitor.start_and_monitor_process(process_name)
 
     return jsonify({"status": "success"})
 
@@ -112,25 +84,11 @@ def stop():
     if "process_types" not in data:
         return jsonify({"status": "error", "message": "Missing process_types"}), 400
 
-    process_types = []
-    for process_type_str in data["process_types"]:
-        try:
-            process_type = ProcessType(process_type_str)
-            process_types.append(process_type)
-        except ValueError:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": f"Invalid process type: {process_type_str}",
-                    }
-                ),
-                400,
-            )
+    process_names = [str(p) for p in data["process_types"]]
 
-    for process_type in process_types:
-        success(f"Stopping process: {process_type}")
-        process_monitor.stop_process(process_type)
+    for process_name in process_names:
+        success(f"Stopping process: {process_name}")
+        process_monitor.stop_process(process_name)
 
     return jsonify({"status": "success"})
 
@@ -143,19 +101,19 @@ def get_system_info():
             500,
         )
 
-    active_processes = process_monitor.get_active_processes()
+    active_processes = process_monitor.ping_processes_and_get_alive()
     return jsonify(
         {
             "status": "success",
             "system_info": system_name,
-            "active_processes": list(active_processes),
+            "active_processes": active_processes,
             "config_set": config is not None,
         }
     )
 
 
 async def main():
-    global config_path, process_monitor, system_name
+    global config_path, process_monitor, system_name, basic_system_config
 
     try:
         basic_system_config = load_basic_system_config()
@@ -164,11 +122,15 @@ async def main():
         return
 
     config_path = basic_system_config.config_path
+    if not os.path.exists(config_path):
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        with open(config_path, "w") as f:
+            f.write("")
+
     system_name = get_system_name()
 
-    event_loop = asyncio.get_running_loop()
-    process_monitor = ProcessMonitor(processes_ran_path, event_loop)
-    process_monitor.set_config_path(config_path)
+    process_monitor = ProcessMonitor(processes_ran_path, config_path)
+    process_monitor.set_event_loop(asyncio.get_running_loop())
 
     autobahn_server = Autobahn(
         Address(
@@ -189,8 +151,10 @@ async def main():
 
     await setup_ping_pong(autobahn_server, system_name)
 
-    _ = await asyncio.to_thread(process_watcher, basic_system_config)
+    _ = asyncio.create_task(process_watcher(basic_system_config))
     success("Process watcher started!")
+
+    process_monitor._restore_processes_from_memory()
 
     _ = await asyncio.to_thread(enable_discovery)
     success("Discovery enabled!")

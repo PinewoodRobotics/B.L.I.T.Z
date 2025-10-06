@@ -65,7 +65,7 @@ position-extrapolator:
 	$(VENV_PYTHON) -u src/blitz/pos_extrapolator/main.py $(ARGS)
 
 watchdog:
-	$(VENV_PYTHON) -u src/blitz/watchdog/main.py
+	$(VENV_PYTHON) -u watchdog/main.py
 
 flash:
 	./scripts/flash.bash $(ARGS)
