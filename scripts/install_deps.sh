@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# LLM generated suggested dependencies for the project. a lot of rando deps but like....
+
 sudo apt-get update
 sudo apt install -y \
     protobuf-compiler \
