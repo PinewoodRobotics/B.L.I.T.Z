@@ -11,7 +11,7 @@ def get_modules() -> list[CommonModule] | CommonModule:
     return [
         PythonModule(
             local_root_folder_path="./pose_extrapolator",
-            local_main_file_path="main.py",
+            local_main_file_path="main",
             extra_run_args=[],
             equivalent_run_definition="pose_extrapolator",
         )

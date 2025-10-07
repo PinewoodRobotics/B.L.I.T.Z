@@ -2,18 +2,14 @@ from logging import debug, error
 import subprocess
 import shlex
 import importlib
-from typing import Callable
 
 from backend.deployment.util import CommonModule
 
 
 def get_all_modules() -> list[CommonModule]:
     backend_deploy = importlib.import_module("backend.deploy")
-    _ = importlib.reload(backend_deploy)
-    get_modules: Callable[[], list[CommonModule] | CommonModule] = getattr(
-        backend_deploy, "get_modules"
-    )
-    modules = get_modules()
+    backend_deploy = importlib.reload(backend_deploy)
+    modules = backend_deploy.get_modules()
     if isinstance(modules, CommonModule):
         modules = [modules]
 

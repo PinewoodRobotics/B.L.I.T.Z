@@ -10,8 +10,7 @@ sudo apt install -y \
     make \
     build-essential \
     pkg-config \
-    cargo \
-    rustc \
+    rustup \
     python3 \
     python3-dev \
     python3-pip \
