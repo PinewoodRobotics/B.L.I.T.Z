@@ -155,18 +155,24 @@ async def main():
     _ = asyncio.create_task(process_watcher(basic_system_config))
     success("Process watcher started!")
 
-    process_monitor._restore_processes_from_memory()
-
     _ = await asyncio.to_thread(enable_discovery)
     success("Discovery enabled!")
 
-    _ = await asyncio.to_thread(
-        app.run,
-        host=basic_system_config.watchdog.host,
-        port=basic_system_config.watchdog.port,
-        debug=False,
+    flask_task = asyncio.create_task(
+        asyncio.to_thread(
+            app.run,
+            host=basic_system_config.watchdog.host,
+            port=basic_system_config.watchdog.port,
+            debug=False,
+        )
     )
     success("Flask app started!")
+
+    await asyncio.sleep(1)
+
+    process_monitor._restore_processes_from_memory()
+
+    await flask_task
 
 
 def cli_main():
