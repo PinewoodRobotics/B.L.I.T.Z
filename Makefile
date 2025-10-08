@@ -81,7 +81,7 @@ run-config-ts:
 	npm run config
 
 
-UBUNTU_TARGET = raspberrypi.local
+UBUNTU_TARGET = raspberrypi1.local
 UBUNTU_TARGET_NAME = "agathaking"
 SSH_PASS = ubuntu
 

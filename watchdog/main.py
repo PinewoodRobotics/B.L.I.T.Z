@@ -5,7 +5,6 @@ import os
 
 from flask import Flask, request, jsonify
 
-from backend.deployment.util import CommonModule
 from backend.python.common.debug.logger import LogLevel, error, init_logging, success
 from autobahn_client.client import Autobahn
 from autobahn_client.util import Address

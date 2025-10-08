@@ -3,14 +3,14 @@ import subprocess
 import shlex
 import importlib
 
-from backend.deployment.util import CommonModule
+from backend.deployment.util import RunnableModule
 
 
-def get_all_modules() -> list[CommonModule]:
+def get_all_modules() -> list[RunnableModule]:
     backend_deploy = importlib.import_module("backend.deploy")
     backend_deploy = importlib.reload(backend_deploy)
     modules = backend_deploy.get_modules()
-    if isinstance(modules, CommonModule):
+    if isinstance(modules, RunnableModule):
         modules = [modules]
 
     return modules
