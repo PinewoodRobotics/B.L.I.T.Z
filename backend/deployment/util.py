@@ -33,6 +33,9 @@ class RunnableModule(Module):
     def get_run_command(self) -> str:
         return ""
 
+    def get_compile_command(self) -> str | None:
+        return None
+
     def get_lang_folder_name(self) -> str:
         if isinstance(self, PythonModule):
             return "python"
@@ -40,6 +43,8 @@ class RunnableModule(Module):
             return "rust"
         elif isinstance(self, ProtobufModule):
             return "proto"
+        elif isinstance(self, ThriftModule):
+            return "thrift"
         else:
             raise ValueError(f"Unknown module type: {type(self)}")
 
@@ -54,16 +59,24 @@ class RunnableModule(Module):
 @dataclass
 class RustModule(RunnableModule):
     runnable_name: str
-    build_on_deploy: bool = False
 
     @override
     def get_run_command(self) -> str:
         extra_run_args = self.get_extra_run_args()
-        return f"cargo run --bin {self.runnable_name} -- {extra_run_args}"
+        return f"cargo run --release --bin {self.runnable_name} -- {extra_run_args}"
+
+    @override
+    def get_compile_command(self) -> str | None:
+        return f"cargo build --release --bin {self.runnable_name}"
 
 
 @dataclass
 class ProtobufModule(CompilableModule):
+    pass
+
+
+@dataclass
+class ThriftModule(CompilableModule):
     pass
 
 
@@ -189,10 +202,33 @@ def _deploy_backend_to_pi(
         )
 
 
+def _build_runnable(pi: RaspberryPi, module: RunnableModule):
+    compile_command = module.get_compile_command()
+    if compile_command is None:
+        return
+
+    build_cmd = [
+        "sshpass",
+        "-p",
+        pi.password,
+        "ssh",
+        f"ubuntu@{pi.address}",
+        f"bash -c '{compile_command}'",
+    ]
+
+    exit_code = subprocess.run(build_cmd)
+    if exit_code.returncode != 0:
+        raise Exception(f"Failed to build {module}: {exit_code.returncode}")
+
+
 def _deploy_compilable(pi: RaspberryPi, modules: list[Module]):
     for module in modules:
-        if not isinstance(module, CompilableModule):
+        if isinstance(module, RunnableModule):
+            if not module.get_compile_command() is None:
+                _build_runnable(pi, module)
             continue
+
+        assert isinstance(module, CompilableModule)
 
         remote_target_dir = f"{BACKEND_DEPLOYMENT_PATH.rstrip('/')}"
         target = f"ubuntu@{pi.address}:{remote_target_dir}"
