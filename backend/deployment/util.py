@@ -59,6 +59,7 @@ class RunnableModule(Module):
 @dataclass
 class RustModule(RunnableModule):
     runnable_name: str
+    build_on_deploy: bool = False
 
     @override
     def get_run_command(self) -> str:
@@ -67,6 +68,9 @@ class RustModule(RunnableModule):
 
     @override
     def get_compile_command(self) -> str | None:
+        if not self.build_on_deploy:
+            return None
+
         return f"cargo build --release --bin {self.runnable_name}"
 
 
