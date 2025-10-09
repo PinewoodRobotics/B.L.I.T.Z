@@ -15,7 +15,7 @@ def get_modules() -> list[Module]:
             local_root_folder_path="python/pos_extrapolator",
             local_main_file_path="main.py",
             extra_run_args=[],
-            equivalent_run_definition="pos_extrapolator",
+            equivalent_run_definition="position-extrapolator",
         ),
         PythonModule(
             local_root_folder_path="python/april",

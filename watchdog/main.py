@@ -1,31 +1,26 @@
-import argparse
 import asyncio
-from logging import info
 import os
 
 from flask import Flask, request, jsonify
 
-from backend.python.common.debug.logger import LogLevel, error, init_logging, success
+from watchdog.util.logger import LogLevel, error, init_logging, success
 from autobahn_client.client import Autobahn
 from autobahn_client.util import Address
-from backend.python.common.config import from_file
-from backend.python.common.util.system import (
+from watchdog.util.system import (
     BasicSystemConfig,
-    get_local_ip,
     get_system_name,
     load_basic_system_config,
 )
 from watchdog.discovery import enable_discovery
 from watchdog.helper import process_watcher, setup_ping_pong
 from watchdog.monitor import ProcessMonitor
-from backend.generated.thrift.config.ttypes import Config
 
 app = Flask(__name__)
 
+set_config_path = False
 config_path = ""  # note: this should never be used because the config is set in the basic system config
 processes_ran_path = "config/processes.json"
 
-config: Config | None = None
 basic_system_config: BasicSystemConfig | None = None
 process_monitor: ProcessMonitor | None = None
 zeroconf = None
@@ -34,7 +29,7 @@ system_name = ""
 
 @app.route("/set/config", methods=["POST"])
 def set_config():
-    global config
+    global set_config_path
     data = request.get_json()
     if "config" not in data:
         return jsonify({"status": "error", "message": "Missing config"}), 400
@@ -44,7 +39,7 @@ def set_config():
     with open(config_path, "w") as f:
         f.write(config_data)
 
-    config = from_file(config_path)
+    set_config_path = True
 
     return jsonify({"status": "success"})
 
@@ -52,7 +47,7 @@ def set_config():
 @app.route("/start/process", methods=["POST"])
 def start():
     data = request.get_json()
-    if config is None:
+    if not set_config_path:
         return jsonify({"status": "error", "message": "Config not set"}), 400
     if process_monitor is None:
         return (
@@ -74,7 +69,7 @@ def start():
 @app.route("/stop/process", methods=["POST"])
 def stop():
     data = request.get_json()
-    if config is None:
+    if not set_config_path:
         return jsonify({"status": "error", "message": "Config not set"}), 400
     if process_monitor is None:
         return (
@@ -107,7 +102,7 @@ def get_system_info():
             "status": "success",
             "system_info": system_name,
             "active_processes": active_processes,
-            "config_set": config is not None,
+            "config_set": set_config_path,
         }
     )
 

@@ -1,8 +1,8 @@
 import socket
 from zeroconf import ServiceInfo, Zeroconf
 
-from backend.python.common.debug.logger import error, success
-from backend.python.common.util.system import get_local_hostname, get_local_ip
+from watchdog.util.logger import success
+from watchdog.util.system import get_local_hostname, get_local_ip
 
 
 def enable_discovery():

@@ -13,20 +13,9 @@ authors = [
 ]
 requires-python = ">=3.8"
 
-[project.scripts]
-blitz-ai-server = "blitz.recognition.detection.image_recognition.src.main:main"
-blitz-april-server = "blitz.recognition.position.april.src.main:main"
-blitz-position-extrapolator = "blitz.pos_extrapolator.src.main:main"
-blitz-watchdog = "blitz.watchdog.main:cli_main"
-blitz = "blitz.terminal.main:cli_main"
-
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["backend*", "watchdog*"]
 
 [tool.pytest.ini_options]
-testpaths = ["backend/python"]
-python_files = ["test_*.py", "*_test.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = ["--strict-markers", "--strict-config", "-ra"]
+testpaths = ["watchdog/", "backend/"]

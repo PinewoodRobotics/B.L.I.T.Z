@@ -1,6 +1,5 @@
 import json
 import asyncio
-from dataclasses import dataclass
 from logging import debug, info, warning
 import os
 import subprocess
@@ -8,7 +7,6 @@ import subprocess
 import psutil
 
 
-from backend.python.common.util.system import ProcessType
 from watchdog.process_starter import start_process
 
 
