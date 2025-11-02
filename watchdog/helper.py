@@ -3,7 +3,7 @@ import time
 from autobahn_client.client import Autobahn
 import psutil
 from util.logger import stats
-from generated.status.PiStatus_pb2 import (
+from generated.PiStatus_pb2 import (
     PiProcess,
     PiStatus,
     Ping,

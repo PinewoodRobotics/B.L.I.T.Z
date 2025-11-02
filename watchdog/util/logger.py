@@ -184,6 +184,7 @@ def success(message: str):
 async def publish_message_if_autobahn(
     topic: str, message: bytes, print_error: bool = True
 ):
+    global autobahn_instance
     if autobahn_instance:
         await autobahn_instance.publish(topic, message)
     elif print_error:
@@ -191,7 +192,9 @@ async def publish_message_if_autobahn(
 
 
 async def stats(message: bytes):
-    await publish_message_if_autobahn(STATS_PUBLISH_TOPIC + SUFFIX_STATS, message)
+    await publish_message_if_autobahn(
+        STATS_PUBLISH_TOPIC + SUFFIX_STATS, message, print_error=False
+    )
 
 
 async def log_to_akit(
@@ -204,7 +207,9 @@ async def log_to_akit(
     instance.entries.add(type=from_pytype_to_proto(message), values=message)
 
     await publish_message_if_autobahn(
-        STATS_PUBLISH_TOPIC + SUFFIX_AKIT, instance.SerializeToString()
+        STATS_PUBLISH_TOPIC + SUFFIX_AKIT,
+        instance.SerializeToString(),
+        print_error=False,
     )
 
 
