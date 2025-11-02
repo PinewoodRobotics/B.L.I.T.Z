@@ -45,3 +45,5 @@ sudo apt install -y \
     sshpass \
     rsync \
     udev
+
+make test
