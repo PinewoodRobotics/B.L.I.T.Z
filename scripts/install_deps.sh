@@ -3,6 +3,7 @@
 # LLM generated suggested dependencies for the project. a lot of rando deps but like....
 
 sudo apt-get update
+
 sudo apt install -y \
     protobuf-compiler \
     thrift-compiler \
@@ -16,11 +17,8 @@ sudo apt install -y \
     python3-pip \
     python3-venv \
     python3-opencv \
-    libopencv-dev \
     libssl-dev \
     libclang-dev \
-    nodejs \
-    npm \
     libcairo2-dev \
     libpango1.0-dev \
     libjpeg-dev \
@@ -46,4 +44,3 @@ sudo apt install -y \
     rsync \
     udev
 
-make test
