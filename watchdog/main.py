@@ -1,5 +1,6 @@
 import asyncio
 import os
+import threading
 
 from flask import Flask, request, jsonify
 
@@ -149,7 +150,8 @@ async def main():
     _ = asyncio.create_task(process_watcher(basic_system_config))
     success("Process watcher started!")
 
-    _ = await asyncio.to_thread(enable_discovery)
+    discovery_thread = threading.Thread(target=enable_discovery, daemon=True)
+    discovery_thread.start()
     success("Discovery enabled!")
 
     flask_task = asyncio.create_task(
