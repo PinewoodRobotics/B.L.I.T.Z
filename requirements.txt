@@ -111,3 +111,4 @@ wpilib
 wsproto
 zeroconf
 zipp
+colorama
