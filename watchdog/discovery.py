@@ -18,6 +18,7 @@ _should_stop = False
 
 def enable_discovery():
     global zeroconf, _service_info
+    time.sleep(10)  # try sleep 10s to wait for network to come up maybe?
     zeroconf = Zeroconf()
 
     hostname = socket.gethostname()
