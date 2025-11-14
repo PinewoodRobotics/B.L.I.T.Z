@@ -20,7 +20,9 @@ app = Flask(__name__)
 
 set_config_path = False
 config_path = ""  # note: this should never be used because the config is set in the basic system config
-processes_ran_path = "config/processes.json"
+processes_ran_path = (
+    "config/processes.json"  # todo: make sure file is not empty and if it is, add {}
+)
 
 basic_system_config: BasicSystemConfig | None = None
 process_monitor: ProcessMonitor | None = None
@@ -125,8 +127,9 @@ async def main():
 
     system_name = get_system_name()
 
-    process_monitor = ProcessMonitor(processes_ran_path, config_path)
-    process_monitor.set_event_loop(asyncio.get_running_loop())
+    process_monitor = ProcessMonitor(
+        processes_ran_path, config_path, asyncio.get_running_loop()
+    )
 
     autobahn_server = Autobahn(
         Address(
