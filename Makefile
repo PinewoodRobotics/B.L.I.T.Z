@@ -32,9 +32,9 @@ flash:
 	./scripts/flash.bash $(ARGS)
 
 
-UBUNTU_TARGET = localhost
+UBUNTU_TARGET = tripli.local
 SSH_PASS = ubuntu
-TARGET_PORT = 2222
+TARGET_PORT = 22
 TARGET_FOLDER = /opt/blitz/B.L.I.T.Z/
 
 send-to-target:
