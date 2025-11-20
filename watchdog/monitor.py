@@ -41,8 +41,7 @@ class ProcessesMemory(list[str]):
     @staticmethod
     def __verify_non_empty(file_path: str):
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
-        if os.path.getsize(file_path) == 0:
+        if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
             with open(file_path, "w") as f:
                 json.dump({"processes": []}, f)
 
