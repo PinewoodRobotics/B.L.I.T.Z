@@ -22,7 +22,7 @@ prepare:
 	touch $(PROTO_GEN_DIR)/__init__.py
 
 generate: prepare
-	protoc -I=$(PROTO_DIR) \
+	PATH="$(shell pwd)/.venv/bin:$$PATH" protoc -I=$(PROTO_DIR) \
 		--python_out=$(PROTO_GEN_DIR) \
 		--pyi_out=$(PROTO_GEN_DIR) \
 		$(shell find $(PROTO_DIR) -name "*.proto")
