@@ -177,6 +177,10 @@ class ProcessMonitor:
 
             if process is None or process.poll() is not None:
                 warning(f"Process {process_type} is dead, restarting...")
+                if process is not None and process.stderr is not None:
+                    error(
+                        f"Process {process_type} is dead, error: {process.stderr.read()}"
+                    )
                 self.stop_process(process_type)
                 self._start_process(process_type)
 

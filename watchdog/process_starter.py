@@ -11,11 +11,6 @@ from backend.deployment.util import RunnableModule
 import io
 
 
-class StderrLogger(io.StringIO):
-    def log_func(self, message: str):
-        error(message)
-
-
 def get_all_modules() -> list[RunnableModule]:
     backend_deploy = importlib.import_module("backend.deploy")
     backend_deploy = importlib.reload(backend_deploy)
@@ -48,5 +43,5 @@ def start_process(process_name: str, config_path: str):
         text=True,
         bufsize=1,
         universal_newlines=True,
-        stderr=StderrLogger(),
+        stderr=subprocess.PIPE,
     )
