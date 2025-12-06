@@ -7,7 +7,7 @@ import subprocess
 import psutil
 
 
-from watchdog.process_starter import start_process
+from watchdog.process_starter import get_possible_processes, start_process
 
 
 class ProcessesMemory(list[str]):
@@ -66,8 +66,15 @@ class ProcessMonitor:
         self.process_mem: ProcessesMemory = ProcessesMemory.from_file(memory_file)
         self._loop: asyncio.AbstractEventLoop | None = loop
 
+    def set_processes(self, new_processes: list[str]):
+        active_processes = self.get_active_processes()
+        for process_type in new_processes:
+            if process_type not in active_processes:
+                self.start_and_monitor_process(process_type)
+            else:
+                self.stop_process(process_type)
+
     def start_and_monitor_process(self, process_type: str):
-        print("In memory " + str(self.get_active_processes()))
         if process_type in self.get_active_processes():
             info(f"Process {process_type} already running, skipping...")
             return
@@ -102,6 +109,9 @@ class ProcessMonitor:
 
     def get_active_processes(self):
         return list(self.processes.keys())
+
+    def get_possible_processes(self) -> list[str]:
+        return get_possible_processes()
 
     def ping_processes_and_get_alive(self) -> list[str]:
         alive_processes: list[str] = []

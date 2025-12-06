@@ -3,6 +3,7 @@ import os
 import threading
 
 from flask import Flask, request, jsonify
+from pydantic import BaseModel
 
 from watchdog.util.logger import LogLevel, error, init_logging, success
 from autobahn_client.client import Autobahn
@@ -100,14 +101,34 @@ def get_system_info():
         )
 
     active_processes = process_monitor.ping_processes_and_get_alive()
+    possible_processes: list[str] = process_monitor.get_possible_processes()
     return jsonify(
         {
             "status": "success",
             "system_info": system_name,
             "active_processes": active_processes,
+            "possible_processes": possible_processes,
             "config_set": set_config_path,
         }
     )
+
+
+@app.route("/set/processes", methods=["POST"])
+def set_processes():
+    data = request.get_json()
+    if "processes" not in data:
+        return jsonify({"status": "error", "message": "Missing processes"}), 400
+
+    processes: list[str] = [str(p) for p in data["processes"]]
+    if process_monitor is None:
+        return (
+            jsonify({"status": "error", "message": "Process monitor not initialized"}),
+            500,
+        )
+
+    process_monitor.set_processes(processes)
+
+    return jsonify({"status": "success"})
 
 
 async def main():
@@ -150,7 +171,7 @@ async def main():
 
     await setup_ping_pong(autobahn_server, system_name)
 
-    _ = asyncio.create_task(process_watcher(basic_system_config))
+    asyncio.create_task(process_watcher(basic_system_config))
     success("Process watcher started!")
 
     discovery_thread = threading.Thread(target=enable_discovery, daemon=True)

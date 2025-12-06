@@ -2,7 +2,8 @@ import asyncio
 import time
 from autobahn_client.client import Autobahn
 import psutil
-from util.logger import stats
+from watchdog.util.logger import stats, info
+import watchdog.util.logger as logger_module
 from generated.PiStatus_pb2 import (
     PiProcess,
     PiStatus,
@@ -18,6 +19,9 @@ from util.system import (
 
 
 async def process_watcher(config: BasicSystemConfig | None):
+    print(
+        f"[DEBUG] Process watcher running! autobahn_instance={logger_module.autobahn_instance is not None}, PREFIX={logger_module.PREFIX}"
+    )
     while True:
         if config and config.watchdog.send_stats:
             cpu_per_core = psutil.cpu_percent(interval=1, percpu=True)

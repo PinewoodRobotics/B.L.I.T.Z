@@ -8,9 +8,6 @@ from typing import Callable
 from backend.deployment.util import RunnableModule
 
 
-import io
-
-
 def get_all_modules() -> list[RunnableModule]:
     backend_deploy = importlib.import_module("backend.deploy")
     backend_deploy = importlib.reload(backend_deploy)
@@ -27,6 +24,11 @@ def _find_module_by_name(name: str):
             return m
 
     return None
+
+
+def get_possible_processes() -> list[str]:
+    modules = get_all_modules()
+    return [m.equivalent_run_definition for m in modules]
 
 
 def start_process(process_name: str, config_path: str):

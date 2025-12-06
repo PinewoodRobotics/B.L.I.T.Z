@@ -41,20 +41,21 @@ class LogLevel(Enum):
 
 class LogEventLoop(threading.Thread):
     def __init__(self):
-        super().__init__()
+        super().__init__(daemon=True)
         self.loop = asyncio.new_event_loop()
         self.is_running = True
         self.start()
 
     def run(self):
-        pass
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_forever()
 
     def run_coroutine(self, coroutine: Coroutine[Any, Any, Any]):
         asyncio.run_coroutine_threadsafe(coroutine, self.loop)
 
     def stop(self):
         self.is_running = False
-        self.loop.stop()
+        self.loop.call_soon_threadsafe(self.loop.stop)
         self.loop.close()
 
 
@@ -238,14 +239,17 @@ def log(prefix: str, message: str, color: str):
             pi_name=SYSTEM_NAME,
         ).SerializeToString()
 
-        try:
-            asyncio.create_task(
-                autobahn_instance.publish(STATS_PUBLISH_TOPIC, log_message)
+        if main_event_loop:
+            main_event_loop.run_coroutine(
+                autobahn_instance.publish(STATS_PUBLISH_TOPIC, log_message),
             )
-        except RuntimeError:
-            if main_event_loop:
-                main_event_loop.run_coroutine(
-                    autobahn_instance.publish(STATS_PUBLISH_TOPIC, log_message),
+        else:
+            try:
+                loop = asyncio.get_running_loop()
+                asyncio.create_task(
+                    autobahn_instance.publish(STATS_PUBLISH_TOPIC, log_message)
                 )
+            except RuntimeError:
+                pass
 
     print(f"[{prefix}] {color}{message}{colorama.Fore.RESET}")
