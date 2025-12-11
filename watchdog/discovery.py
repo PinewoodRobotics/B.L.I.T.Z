@@ -6,6 +6,7 @@ from watchdog.util.logger import success
 from watchdog.util.system import (
     get_local_hostname,
     get_local_ip,
+    get_primary_ipv4,
     get_system_name,
     load_basic_system_config,
 )
@@ -18,13 +19,13 @@ _should_stop = False
 
 def enable_discovery():
     global zeroconf, _service_info
-    time.sleep(10)  # try sleep 10s to wait for network to come up maybe?
+    time.sleep(2)  # try sleep 10s to wait for network to come up maybe?
     zeroconf = Zeroconf()
 
     hostname = socket.gethostname()
     hostname_local = get_local_hostname()
     system_name = get_system_name()
-    local_ip = get_local_ip("eth0") or get_local_ip("en0") or "127.0.0.1"
+    local_ip = get_primary_ipv4()
     system_config = load_basic_system_config()
 
     addresses = [socket.inet_aton(local_ip)]

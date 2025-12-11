@@ -32,7 +32,7 @@ flash:
 	./scripts/flash.bash $(ARGS)
 
 
-UBUNTU_TARGET = tripli.local
+UBUNTU_TARGET = jetson1.local
 SSH_PASS = ubuntu
 TARGET_PORT = 22
 TARGET_FOLDER = /opt/blitz/B.L.I.T.Z/

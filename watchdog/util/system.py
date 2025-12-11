@@ -1,4 +1,5 @@
 import argparse
+import subprocess
 import psutil
 import json
 import re
@@ -61,6 +62,31 @@ def load_basic_system_config() -> BasicSystemConfig:
 
     config_dict = json.loads(config_content)
     return BasicSystemConfig(**config_dict)
+
+
+def get_primary_ipv4():
+    """
+    Returns the IPv4 address used for the system's default route.
+    This is the true outbound interface (Ethernet if WiFi is off).
+    """
+    try:
+        result = subprocess.run(
+            ["ip", "route", "get", "1.1.1.1"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        parts = result.stdout.split()
+
+        src_index = parts.index("src") + 1
+        ip = parts[src_index]
+
+        socket.inet_aton(ip)
+        return ip
+
+    except Exception as e:
+        raise RuntimeError(f"Failed to determine primary IPv4 address: {e}")
 
 
 def get_local_ip(iface: str = "eth0") -> str | None:

@@ -5,14 +5,14 @@ import shlex
 import importlib
 from typing import Callable
 
-from backend.deployment.util import RunnableModule
+from backend.deployment.util import _RunnableModule
 
 
-def get_all_modules() -> list[RunnableModule]:
+def get_all_modules() -> list[_RunnableModule]:
     backend_deploy = importlib.import_module("backend.deploy")
     backend_deploy = importlib.reload(backend_deploy)
     modules = backend_deploy.get_modules()
-    modules = [m for m in modules if isinstance(m, RunnableModule)]
+    modules = [m for m in modules if isinstance(m, _RunnableModule)]
     return modules
 
 
