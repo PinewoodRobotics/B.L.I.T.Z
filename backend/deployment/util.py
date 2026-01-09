@@ -6,6 +6,7 @@ import subprocess
 import time
 import os
 from zeroconf import Zeroconf, ServiceBrowser, ServiceListener, ServiceInfo
+import shutil
 
 from backend.deployment.compilation_util import CPPBuildConfig
 from backend.deployment.system_types import (
@@ -247,10 +248,6 @@ def _deploy_compilable(pi: _RaspberryPi, modules: list[_Module]):
     from backend.deployment.compilation.cpp.cpp import CPlusPlus
     from backend.deployment.compilation.rust.rust import Rust
 
-    if os.path.exists(LOCAL_BINARIES_PATH):
-        os.removedirs(LOCAL_BINARIES_PATH)
-    os.makedirs(LOCAL_BINARIES_PATH)
-
     if SHOULD_REBUILD_BINARIES:
         for module in modules:
             if not isinstance(module, _CompilableModule):
@@ -349,7 +346,7 @@ class ModuleTypes:
 
         def get_run_command(self) -> str:
             extra_run_args = self.get_extra_run_args()
-            return f"{LOCAL_BINARIES_PATH}/{get_self_ldd_version()}/{get_self_architecture()}/{self.runnable_name} {extra_run_args}".strip()
+            return f"{LOCAL_BINARIES_PATH}/rust/{get_self_ldd_version()}/{get_self_architecture()}/{self.runnable_name}/{self.runnable_name} {extra_run_args}".strip()
 
     @dataclass
     class ProtobufModule(_CompilableModule):
@@ -402,6 +399,10 @@ class DeploymentOptions:
     def with_automatic_discovery(
         modules: list[_Module], backend_local_path: str = "src/backend/"
     ):
+        if os.path.exists(LOCAL_BINARIES_PATH):
+            shutil.rmtree(LOCAL_BINARIES_PATH)
+        os.makedirs(LOCAL_BINARIES_PATH, exist_ok=True)
+
         raspberrypis = _RaspberryPi.discover_all()
         DeploymentOptions.with_preset_pi_addresses(
             raspberrypis, modules, backend_local_path

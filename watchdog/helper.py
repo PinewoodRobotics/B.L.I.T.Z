@@ -13,6 +13,7 @@ from generated.PiStatus_pb2 import (
 )
 from util.system import (
     BasicSystemConfig,
+    get_camera_ports_in_use,
     get_system_name,
     get_top_10_processes,
 )
@@ -47,6 +48,7 @@ async def process_watcher(config: BasicSystemConfig | None):
                     )
                     for process in top_10_processes
                 ],
+                ports_in_use=get_camera_ports_in_use(),
             )
 
             await stats(pi_status.SerializeToString())

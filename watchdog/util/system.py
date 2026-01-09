@@ -1,4 +1,5 @@
 import argparse
+import os
 import subprocess
 import psutil
 import json
@@ -115,3 +116,27 @@ def get_config_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     _ = parser.add_argument("--config", type=str, default=None)
     return parser
+
+
+def get_camera_video_ports() -> list[str]:
+    ports = []
+    symlink_names = ["usb_cam1", "usb_cam2", "usb_cam3", "usb_cam4"]
+    for name in symlink_names:
+        path = f"/dev/{name}"
+        if os.path.exists(path):
+            ports.append(path)
+    return ports
+
+
+def get_camera_tty_ports() -> list[str]:
+    ports = []
+    symlink_names = ["usb_cam1_tty", "usb_cam2_tty", "usb_cam3_tty", "usb_cam4_tty"]
+    for name in symlink_names:
+        path = f"/dev/{name}"
+        if os.path.exists(path):
+            ports.append(path)
+    return ports
+
+
+def get_camera_ports_in_use() -> list[str]:
+    return get_camera_video_ports() + get_camera_tty_ports()

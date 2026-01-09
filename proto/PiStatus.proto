@@ -31,6 +31,8 @@ message PiStatus {
     float net_usage_out = 8;
 
     repeated PiProcess top_10_processes = 9;
+
+    repeated string ports_in_use = 10;
 }
 
 message LogMessage {
