@@ -20,5 +20,5 @@ pytest
 robotpy-cscore
 scipy
 zeroconf
-thrift
+thrift>=0.22.0
 opencv-python
