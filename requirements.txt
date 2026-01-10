@@ -21,3 +21,4 @@ robotpy-cscore
 scipy
 zeroconf
 thrift
+opencv-python
