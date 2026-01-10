@@ -171,28 +171,32 @@ async def main():
 
     await setup_ping_pong(autobahn_server, system_name)
 
-    asyncio.create_task(process_watcher(basic_system_config))
+    threading.Thread(
+        target=lambda: asyncio.run(process_watcher(basic_system_config)), daemon=True
+    ).start()
     success("Process watcher started!")
 
     discovery_thread = threading.Thread(target=enable_discovery, daemon=True)
     discovery_thread.start()
     success("Discovery enabled!")
 
-    flask_task = asyncio.create_task(
-        asyncio.to_thread(
-            app.run,
-            host=basic_system_config.watchdog.host,
-            port=basic_system_config.watchdog.port,
-            debug=False,
-        )
+    flask_thread = threading.Thread(
+        target=app.run,
+        kwargs={
+            "host": basic_system_config.watchdog.host,
+            "port": basic_system_config.watchdog.port,
+            "debug": False,
+        },
+        daemon=True,
     )
+    flask_thread.start()
     success("Flask app started!")
 
     await asyncio.sleep(1)
 
     process_monitor._restore_processes_from_memory()
 
-    await flask_task
+    _ = await asyncio.Event().wait()
 
 
 def cli_main():

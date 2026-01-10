@@ -17,20 +17,14 @@ _service_info = None
 _should_stop = False
 
 
-def enable_discovery():
-    global zeroconf, _service_info
-    time.sleep(2)  # try sleep 10s to wait for network to come up maybe?
-    zeroconf = Zeroconf()
-
+def construct_service_info():
     hostname = socket.gethostname()
     hostname_local = get_local_hostname()
     system_name = get_system_name()
     local_ip = get_primary_ipv4()
     system_config = load_basic_system_config()
-
     addresses = [socket.inet_aton(local_ip)]
-
-    _service_info = ServiceInfo(
+    return ServiceInfo(
         TYPE_,
         f"{hostname}.{TYPE_}",
         addresses=addresses,
@@ -45,26 +39,21 @@ def enable_discovery():
         },
     )
 
+
+def enable_discovery():
+    global zeroconf, _service_info, _should_stop
+
+    zeroconf = Zeroconf()
+    _service_info = construct_service_info()
     zeroconf.register_service(_service_info)
-    success(f"Registered service {system_name} on {hostname_local} ({local_ip})")
 
-    _refresh_loop(interval_seconds=10)
-
-
-def _refresh_loop(interval_seconds: int = 30):
-    global _should_stop, zeroconf, _service_info
+    success(f"Registered service {_service_info.server} on {_service_info.addresses}")
 
     while not _should_stop:
-        time.sleep(interval_seconds)
-        if _should_stop:
-            break
-
-        try:
-            if zeroconf and _service_info:
-                zeroconf.update_service(_service_info)
-                success(f"Refreshed service discovery for {_service_info.server}")
-        except Exception as e:
-            print(f"Error refreshing service: {e}")
+        time.sleep(5)
+        _service_info = construct_service_info()
+        zeroconf.update_service(_service_info)
+        success(f"Refreshed service discovery for {_service_info.server}")
 
 
 def stop_discovery():
