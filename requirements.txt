@@ -21,4 +21,4 @@ robotpy-cscore
 scipy
 zeroconf
 thrift>=0.22.0
-opencv-python
+opencv-python-headless

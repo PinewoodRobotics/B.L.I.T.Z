@@ -2,7 +2,7 @@ import socket
 import time
 from zeroconf import ServiceInfo, Zeroconf
 
-from watchdog.util.logger import success
+from watchdog.util.logger import error, success
 from watchdog.util.system import (
     get_local_hostname,
     get_local_ip,
@@ -44,16 +44,21 @@ def enable_discovery():
     global zeroconf, _service_info, _should_stop
 
     zeroconf = Zeroconf()
-    _service_info = construct_service_info()
-    zeroconf.register_service(_service_info)
-
-    success(f"Registered service {_service_info.server} on {_service_info.addresses}")
+    registered = False
 
     while not _should_stop:
         time.sleep(5)
-        _service_info = construct_service_info()
-        zeroconf.update_service(_service_info)
-        success(f"Refreshed service discovery for {_service_info.server}")
+        try:
+            _service_info = construct_service_info()
+            if not registered:
+                zeroconf.register_service(_service_info)
+                registered = True
+                continue
+
+            zeroconf.update_service(_service_info)
+            success(f"Refreshed service discovery for {_service_info.server}")
+        except Exception as e:
+            error(f"Error updating service discovery: {e}")
 
 
 def stop_discovery():
