@@ -3,7 +3,6 @@ import os
 import threading
 
 from flask import Flask, request, jsonify
-from pydantic import BaseModel
 
 from watchdog.util.logger import LogLevel, error, init_logging, success
 from autobahn_client.client import Autobahn
@@ -171,9 +170,7 @@ async def main():
 
     await setup_ping_pong(autobahn_server, system_name)
 
-    threading.Thread(
-        target=lambda: asyncio.run(process_watcher(basic_system_config)), daemon=True
-    ).start()
+    _ = asyncio.create_task(process_watcher(basic_system_config))
     success("Process watcher started!")
 
     discovery_thread = threading.Thread(target=enable_discovery, daemon=True)

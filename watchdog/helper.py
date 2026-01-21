@@ -19,18 +19,42 @@ from util.system import (
 )
 
 
+def _collect_system_stats():
+    cpu_per_core = psutil.cpu_percent(interval=1, percpu=True)
+    cpu_usage_total = (
+        sum(cpu_per_core) / len(cpu_per_core) if cpu_per_core else psutil.cpu_percent()
+    )
+    memory = psutil.virtual_memory()
+    disk_info = psutil.disk_usage("/")
+    net_info = psutil.net_io_counters()
+    top_10_processes = get_top_10_processes()
+    ports_in_use = get_camera_ports_in_use()
+    return (
+        cpu_per_core,
+        cpu_usage_total,
+        memory,
+        disk_info,
+        net_info,
+        top_10_processes,
+        ports_in_use,
+    )
+
+
 async def process_watcher(config: BasicSystemConfig | None):
     print(
         f"[DEBUG] Process watcher running! autobahn_instance={logger_module.autobahn_instance is not None}, PREFIX={logger_module.PREFIX}"
     )
     while True:
         if config and config.watchdog.send_stats:
-            cpu_per_core = psutil.cpu_percent(interval=1, percpu=True)
-            cpu_usage_total = psutil.cpu_percent(interval=1)
-            memory = psutil.virtual_memory()
-            disk_info = psutil.disk_usage("/")
-            net_info = psutil.net_io_counters()
-            top_10_processes = get_top_10_processes()
+            (
+                cpu_per_core,
+                cpu_usage_total,
+                memory,
+                disk_info,
+                net_info,
+                top_10_processes,
+                ports_in_use,
+            ) = await asyncio.to_thread(_collect_system_stats)
             pi_status = PiStatus(
                 type=StatusType.SYSTEM_STATUS,
                 pi_name=get_system_name(),
@@ -48,7 +72,7 @@ async def process_watcher(config: BasicSystemConfig | None):
                     )
                     for process in top_10_processes
                 ],
-                ports_in_use=get_camera_ports_in_use(),
+                ports_in_use=ports_in_use,
             )
 
             await stats(pi_status.SerializeToString())
