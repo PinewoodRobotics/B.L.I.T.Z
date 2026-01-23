@@ -6,6 +6,7 @@ import importlib
 from typing import Callable
 
 from backend.deployment.util import _RunnableModule
+from watchdog.constants import BASIC_SYSTEM_CONFIG_PATH, SYSTEM_NAME_PATH
 
 
 def get_all_modules() -> list[_RunnableModule]:
@@ -36,8 +37,11 @@ def start_process(process_name: str, config_path: str):
     if module is None:
         error(f"Unknown process {process_name}")
         return None
+
+    name_file_path = SYSTEM_NAME_PATH
+    basic_system_config_file_path = BASIC_SYSTEM_CONFIG_PATH
     base_cmd = module.get_run_command().strip()
-    cmd = f"{base_cmd} --config {config_path}".strip()
+    cmd = f"{base_cmd} --config-file-path {config_path} --name-file-path {name_file_path} --basic-system-config-file-path {basic_system_config_file_path}".strip()
     debug(f"Starting: {cmd}\n")
 
     return subprocess.Popen(

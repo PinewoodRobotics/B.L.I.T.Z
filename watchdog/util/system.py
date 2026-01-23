@@ -8,6 +8,8 @@ from pydantic import BaseModel
 import netifaces
 import socket
 
+from watchdog.constants import BASIC_SYSTEM_CONFIG_PATH, SYSTEM_NAME_PATH
+
 
 class AutobahnBaseConfig(BaseModel):
     host: str
@@ -25,6 +27,7 @@ class WatchdogBaseConfig(BaseModel):
     port: int
     stats_pub_period_s: float
     send_stats: bool
+    process_memory_file: str
 
 
 class BasicSystemConfig(BaseModel):
@@ -32,11 +35,6 @@ class BasicSystemConfig(BaseModel):
     logging: GlobalLoggingBaseConfig
     watchdog: WatchdogBaseConfig
     config_path: str
-
-
-def get_system_name() -> str:
-    with open("system_data/name.txt", "r") as f:
-        return f.read().strip()
 
 
 def get_top_10_processes() -> list[psutil.Process]:
@@ -56,13 +54,17 @@ def get_top_10_processes() -> list[psutil.Process]:
 def load_basic_system_config() -> BasicSystemConfig:
     system_name = get_system_name()
 
-    with open("system_data/basic_system_config.json", "r") as f:
+    with open(BASIC_SYSTEM_CONFIG_PATH, "r") as f:
         config_content = f.read()
 
     config_content = re.sub(r"<system_name>", system_name, config_content)
 
-    config_dict = json.loads(config_content)
-    return BasicSystemConfig(**config_dict)
+    return BasicSystemConfig(**json.loads(config_content))
+
+
+def get_system_name() -> str:
+    with open(SYSTEM_NAME_PATH, "r") as f:
+        return f.read().strip()
 
 
 def get_primary_ipv4():

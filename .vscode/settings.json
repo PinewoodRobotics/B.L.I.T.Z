@@ -30,5 +30,6 @@
   "editor.codeActionsOnSave": {
     "source.organizeImports": "always"
   },
-  "explorer.excludeGitIgnore": true
+  "editor.tabSize": 2,
+  "explorer.excludeGitIgnore": false
 }

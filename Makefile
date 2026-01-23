@@ -32,7 +32,7 @@ flash:
 	./scripts/flash.bash $(ARGS)
 
 
-UBUNTU_TARGET = nathanhale.local
+UBUNTU_TARGET = tynan.local
 SSH_PASS = ubuntu
 TARGET_PORT = 22
 TARGET_FOLDER = /opt/blitz/B.L.I.T.Z/
@@ -41,7 +41,7 @@ send-to-target:
 	sshpass -p $(SSH_PASS) rsync -av --progress --rsync-path="sudo rsync" --exclude-from=.gitignore -e "ssh -p $(TARGET_PORT)" ./ ubuntu@$(UBUNTU_TARGET):$(TARGET_FOLDER)
 
 deploy-to-target: send-to-target
-	sshpass -p $(SSH_PASS) ssh -p $(TARGET_PORT) ubuntu@$(UBUNTU_TARGET) 'sudo systemctl restart startup.service'
+	sshpass -p $(SSH_PASS) ssh -p $(TARGET_PORT) ubuntu@$(UBUNTU_TARGET) 'sudo chmod -R 777 $(TARGET_FOLDER) && sudo systemctl restart startup.service'
 
 
 UBUNTU_TARGET_NAME = "agathaking"

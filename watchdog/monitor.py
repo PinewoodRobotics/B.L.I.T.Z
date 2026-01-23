@@ -1,5 +1,6 @@
 import json
 import asyncio
+import pathlib
 from watchdog.util.logger import info, warning, error, debug
 import os
 import subprocess
@@ -56,7 +57,7 @@ class ProcessMonitor:
         self,
         memory_file: str,
         config_path: str,
-        loop: asyncio.AbstractEventLoop | None = None,
+        loop: asyncio.AbstractEventLoop,
     ):
         self.processes: dict[
             str,
@@ -64,7 +65,12 @@ class ProcessMonitor:
         ] = {}
         self.config_path: str = config_path
         self.process_mem: ProcessesMemory = ProcessesMemory.from_file(memory_file)
-        self._loop: asyncio.AbstractEventLoop | None = loop
+        self._loop: asyncio.AbstractEventLoop = loop
+        self.is_config_exists: bool = (
+            pathlib.Path(config_path).exists()
+            and pathlib.Path(config_path).is_file()
+            and os.path.getsize(config_path) > 0
+        )
 
     def set_processes(self, new_processes: list[str]):
         active_processes = self.get_active_processes()
@@ -75,21 +81,16 @@ class ProcessMonitor:
                 self.stop_process(process_type)
 
     def start_and_monitor_process(self, process_type: str):
+        if not self.is_config_exists:
+            warning(f"Config not set! Cannot start process {process_type}.")
+            return
+
         if process_type in self.get_active_processes():
             info(f"Process {process_type} already running, skipping...")
             return
 
         self._start_process(process_type)
         self.process_mem.append(process_type)
-
-        if self._loop is None:
-            try:
-                self._loop = asyncio.get_running_loop()
-            except RuntimeError:
-                error(
-                    f"No event loop found, skipping process monitoring for {process_type}"
-                )
-                return
 
         if self._loop and self._loop.is_running():
             _ = self._loop.call_soon_threadsafe(
@@ -99,7 +100,12 @@ class ProcessMonitor:
     def _start_process(self, process_type: str):
         self.processes[process_type] = start_process(process_type, self.config_path)
 
+    # todo: make it wait a bit and then try again maybe? some other solution?
     def _restore_processes_from_memory(self):
+        if not self.is_config_exists:
+            warning(f"Config not set! Cannot restore processes from memory.")
+            return
+
         for process_str in self.process_mem:
             try:
                 info(f"Restoring process from memory: {process_str}")
@@ -128,9 +134,7 @@ class ProcessMonitor:
 
         return alive_processes
 
-    def stop_process(self, process_type: str):
-        self.process_mem.remove(process_type)
-
+    def _stop_process_quiet(self, process_type: str):
         process = self.processes.pop(process_type, None)
         if process is None:
             return
@@ -161,12 +165,33 @@ class ProcessMonitor:
 
         info(f"Process {process_type} stopped successfully")
 
+    def stop_process(self, process_type: str):
+        self.process_mem.remove(process_type)
+        self._stop_process_quiet(process_type)
+
     def abort_all_processes(self):
         info("Start Abort!")
         for process_type in self.processes.keys():
             self.stop_process(process_type)
 
         info("Aborted Successfully!")
+
+    def refresh_config(self):
+        self.reboot_processes()
+        self.is_config_exists: bool = (
+            pathlib.Path(self.config_path).exists()
+            and pathlib.Path(self.config_path).is_file()
+            and os.path.getsize(self.config_path) > 0
+        )
+
+    def reboot_processes(self):
+        info("Start reboot!")
+        for process_type in self.processes.keys():
+            self._stop_process_quiet(process_type)
+
+        self._restore_processes_from_memory()
+
+        info("Rebooted Successfully!")
 
     async def monitor_process(self, process_type: str):
         timer = 0
