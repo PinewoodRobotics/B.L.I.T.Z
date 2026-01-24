@@ -32,7 +32,7 @@ flash:
 	./scripts/flash.bash $(ARGS)
 
 
-UBUNTU_TARGET = tynan.local
+UBUNTU_TARGET = nathan-hale.local
 SSH_PASS = ubuntu
 TARGET_PORT = 22
 TARGET_FOLDER = /opt/blitz/B.L.I.T.Z/

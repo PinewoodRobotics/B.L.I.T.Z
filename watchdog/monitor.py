@@ -186,7 +186,8 @@ class ProcessMonitor:
 
     def reboot_processes(self):
         info("Start reboot!")
-        for process_type in self.processes.keys():
+        keys = list(self.processes.keys())
+        for process_type in keys:
             self._stop_process_quiet(process_type)
 
         self._restore_processes_from_memory()
