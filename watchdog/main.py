@@ -22,6 +22,7 @@ _ = importlib.import_module("watchdog.routes.get_status")
 _ = importlib.import_module("watchdog.routes.set_config")
 _ = importlib.import_module("watchdog.routes.start_process")
 _ = importlib.import_module("watchdog.routes.stop_process")
+_ = importlib.import_module("watchdog.routes.stop_all_processes")
 
 app = Flask(__name__)
 app.register_blueprint(routes_bp)
