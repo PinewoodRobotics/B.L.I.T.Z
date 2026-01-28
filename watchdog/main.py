@@ -5,6 +5,8 @@ import importlib
 
 from flask import Flask
 
+from watchdog.routes.getters import GETTERS_BP
+from watchdog.routes.setters import SETTERS_BP
 from watchdog.util.logger import LogLevel, error, init_logging, success
 from autobahn_client.client import Autobahn
 from autobahn_client.util import Address
@@ -16,16 +18,10 @@ from watchdog.util.system import (
 from watchdog.discovery import enable_discovery
 from watchdog.helper import process_watcher, setup_ping_pong
 from watchdog.monitor import ProcessMonitor
-from watchdog.routes.blueprint import bp as routes_bp
-
-_ = importlib.import_module("watchdog.routes.get_status")
-_ = importlib.import_module("watchdog.routes.set_config")
-_ = importlib.import_module("watchdog.routes.start_process")
-_ = importlib.import_module("watchdog.routes.stop_process")
-_ = importlib.import_module("watchdog.routes.stop_all_processes")
 
 app = Flask(__name__)
-app.register_blueprint(routes_bp)
+app.register_blueprint(GETTERS_BP)
+app.register_blueprint(SETTERS_BP)
 process_monitor: ProcessMonitor | None = None
 
 try:

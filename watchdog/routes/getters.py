@@ -1,10 +1,12 @@
-from flask import current_app, jsonify
-from typing import cast
+from flask import Blueprint, current_app, request, jsonify
 from watchdog.monitor import ProcessMonitor
-from .blueprint import bp
+from typing import cast
 
 
-@bp.route("/get/system/status", methods=["GET"])
+GETTERS_BP = Blueprint("getter_routes", __name__)
+
+
+@GETTERS_BP.route("/get/system/status", methods=["GET"])
 def get_system_info():
     process_monitor = current_app.extensions.get("process_monitor", None)
     if not isinstance(process_monitor, ProcessMonitor):
