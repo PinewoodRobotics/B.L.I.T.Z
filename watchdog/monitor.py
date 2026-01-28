@@ -73,12 +73,17 @@ class ProcessMonitor:
         )
 
     def set_processes(self, new_processes: list[str]):
-        active_processes = self.get_active_processes()
-        for process_type in new_processes:
-            if process_type not in active_processes:
-                self.start_and_monitor_process(process_type)
-            else:
-                self.stop_process(process_type)
+        current_active = set(self.get_active_processes())
+        new_set = set(new_processes)
+
+        to_stop = current_active - new_set
+        to_start = new_set - current_active
+
+        for process_type in to_stop:
+            self.stop_process(process_type)
+
+        for process_type in to_start:
+            self.start_and_monitor_process(process_type)
 
     def start_and_monitor_process(self, process_type: str):
         if not self.is_config_exists:
