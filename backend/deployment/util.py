@@ -1,14 +1,18 @@
 import dataclasses
 from dataclasses import dataclass
 from enum import Enum
-from typing import Protocol
+from collections.abc import Sequence
+import json
+from typing import Callable, Mapping, Protocol
+import inspect
 import subprocess
 import time
 import os
-from zeroconf import Zeroconf, ServiceBrowser, ServiceListener, ServiceInfo
 import shutil
 
 from backend.deployment.compilation_util import CPPBuildConfig
+from backend.deployment import pi_api as _pi_api
+from backend.deployment.pi_api import RaspberryPi as _RaspberryPi
 from backend.deployment.system_types import (
     SystemType,
     get_self_architecture,
@@ -16,14 +20,28 @@ from backend.deployment.system_types import (
 )
 
 
-SERVICE = "_watchdog._udp.local."
-DISCOVERY_TIMEOUT = 2.0
+# Backwards-compatible aliases (discovery now lives in `deployment/pi_api.py`)
+SERVICE = _pi_api.SERVICE
+DISCOVERY_TIMEOUT = _pi_api.DISCOVERY_TIMEOUT
 BACKEND_DEPLOYMENT_PATH = "/opt/blitz/B.L.I.T.Z/backend"
 GITIGNORE_PATH = ".gitignore"
 VENV_PATH = ".venv/bin/python"
 LOCAL_BINARIES_PATH = "build/release/"
 EXCLUDE_CPP_DIR = True
 SHOULD_REBUILD_BINARIES = True
+CONFIG_GET_COMMAND = "npm run config --silent"
+
+
+def _get_config() -> str:
+    try:
+        result = subprocess.run(
+            CONFIG_GET_COMMAND.split(), capture_output=True, text=True, check=True
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to run '{CONFIG_GET_COMMAND}': {e}")
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Invalid JSON output from '{CONFIG_GET_COMMAND}': {e}")
 
 
 @dataclass
@@ -65,63 +83,6 @@ class _RunnableModule(_Module):
         )
 
 
-@dataclass
-class _RaspberryPi:
-    address: str
-    host: str = dataclasses.field(default="ubuntu")
-    password: str = dataclasses.field(default="ubuntu")
-    port: int = dataclasses.field(default=22)
-
-    @classmethod
-    def _from_zeroconf(cls, service: ServiceInfo):
-        properties = {
-            k.decode("utf-8") if isinstance(k, bytes) else k: (
-                v.decode("utf-8") if isinstance(v, bytes) else v
-            )
-            for k, v in (service.properties or {}).items()
-        }
-
-        address = (
-            (properties.get("hostname_local") or "").rstrip(".")
-            or (service.server or "").rstrip(".")
-            or None
-        )
-
-        if not address:
-            raise ValueError("Cannot extract Pi address from zeroconf ServiceInfo")
-
-        return cls(address=address, host=address)
-
-    @classmethod
-    def discover_all(cls):
-        raspberrypis: list[_RaspberryPi] = []
-        zc = Zeroconf()
-
-        class _Listener(ServiceListener):
-            def __init__(self, out: list[_RaspberryPi]):
-                self.out: list[_RaspberryPi] = out
-
-            def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-                info = zc.get_service_info(type_, name)
-                if info is None:
-                    return
-                try:
-                    self.out.append(_RaspberryPi._from_zeroconf(info))
-                except Exception:
-                    pass
-
-            def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-                return
-
-            def remove_service(self, zc: Zeroconf, type_: str, name: str) -> None:
-                return
-
-        _ = ServiceBrowser(zc, SERVICE, listener=_Listener(raspberrypis))
-        time.sleep(DISCOVERY_TIMEOUT)
-        zc.close()
-        return raspberrypis
-
-
 def _deploy_backend_to_pi(
     pi: _RaspberryPi,
     backend_local_path: str = "src/backend/",
@@ -138,10 +99,12 @@ def _deploy_backend_to_pi(
         "-p",
         pi.password,
         "ssh",
+        "-o",
+        "StrictHostKeyChecking=no",
         "-p",
-        str(getattr(pi, "port", 22)),
+        str(pi.ssh_port),
         f"ubuntu@{pi.address}",
-        f"sudo mkdir -p {remote_target_dir}",
+        f"mkdir -p {remote_target_dir}",
     ]
 
     mkdir_proc = subprocess.run(mkdir_cmd)
@@ -191,7 +154,7 @@ def _deploy_binaries(pi: _RaspberryPi, local_binaries_path: str):
         pi.password,
         "ssh",
         "-p",
-        str(getattr(pi, "port", 22)),
+        str(pi.ssh_port),
         f"ubuntu@{pi.address}",
         f"sudo rm -rf {remote_full_path}",
     ]
@@ -209,7 +172,7 @@ def _deploy_binaries(pi: _RaspberryPi, local_binaries_path: str):
         pi.password,
         "ssh",
         "-p",
-        str(getattr(pi, "port", 22)),
+        str(pi.ssh_port),
         f"ubuntu@{pi.address}",
         f"sudo mkdir -p {remote_full_path}",
     ]
@@ -292,7 +255,7 @@ def _deploy_on_pi(
         "-o",
         "StrictHostKeyChecking=no",
         "-p",
-        str(getattr(pi, "port", 22)),
+        str(pi.ssh_port),
         f"ubuntu@{pi.address}",
         f"echo {pi.password} | sudo -S systemctl restart startup.service",
     ]
@@ -302,6 +265,23 @@ def _deploy_on_pi(
         raise Exception(
             f"Failed to restart backend on {pi.address}: {exit_code.returncode}"
         )
+
+    # Set config and processes via HTTP API after deployment
+    if pi.processes_to_run:
+        print(f"Setting config and processes on {pi.address}: {pi.processes_to_run}")
+        try:
+            config_base64 = _get_config()
+            if not pi.stop_all_set_config_and_start(
+                config_base64, new_processes_to_run=pi.processes_to_run
+            ):
+                print(
+                    f"Warning: Failed to set config/processes on {pi.address} via HTTP API. "
+                    "Config and processes may need to be set manually."
+                )
+        except Exception as e:
+            print(
+                f"Warning: Failed to get config or set config/processes on {pi.address}: {e}"
+            )
 
 
 def _verify_self():
@@ -315,6 +295,7 @@ def _verify_self():
         )
 
     get_modules = all_functions["get_modules"]
+    pi_name_to_process_types = all_functions.get("pi_name_to_process_types")
     modules = get_modules()
     if not isinstance(modules, list) or not all(
         isinstance(m, _Module) for m in modules
@@ -322,6 +303,57 @@ def _verify_self():
         raise Exception(
             f"get_modules() returned {type(modules)} with element types {[type(m) for m in modules] if isinstance(modules, list) else 'N/A'} instead of list[Module]"
         )
+    if pi_name_to_process_types is None or not callable(pi_name_to_process_types):
+        raise Exception(
+            "pi_name_to_process_types() not found in backend.deploy. Please add a function named pi_name_to_process_types. "
+            "It must return dict[str, list[_WeightedProcess]] and may optionally accept a list[str] of discovered Pi names."
+        )
+
+    # Validate the output shape using a small synthetic Pi list.
+    sig = inspect.signature(pi_name_to_process_types)
+    if len(sig.parameters) == 0:
+        mapping = pi_name_to_process_types()
+    else:
+        mapping = pi_name_to_process_types(["pi1", "pi2"])
+
+    if not isinstance(mapping, dict) or not all(
+        isinstance(k, str)
+        and isinstance(v, Sequence)
+        and not isinstance(v, (str, bytes))
+        and all(isinstance(i, _WeightedProcess) for i in v)
+        for k, v in mapping.items()
+    ):
+        raise Exception(
+            f"pi_name_to_process_types() returned {type(mapping)} with element types "
+            f"{[type(k) for k in mapping.keys()] if isinstance(mapping, dict) else 'N/A'} "
+            f"instead of dict[str, list[_WeightedProcess]]"
+        )
+
+
+class _WeightedProcess(Enum):
+    """
+    This is a base class for a weighted process. It is used to represent a process that has a weight.
+
+    Example usage:
+
+    class ProcessType(_WeightedProcess):
+        POS_EXTRAPOLATOR = "position-extrapolator", 0.5
+        APRIL_SERVER = "april-server", 1.0
+
+    """
+
+    def __init__(self, name: str, weight: float):
+        self._name = name
+        self._weight = weight
+
+    def __str__(self) -> str:
+        return self._name
+
+    def get_name(self) -> str:
+        return self._name
+
+    def get_weight(self) -> float:
+        return self._weight
 
 
 class ModuleTypes:
@@ -346,7 +378,7 @@ class ModuleTypes:
 
         def get_run_command(self) -> str:
             extra_run_args = self.get_extra_run_args()
-            return f"{LOCAL_BINARIES_PATH}/rust/{get_self_ldd_version()}/{get_self_architecture()}/{self.runnable_name}/{self.runnable_name} {extra_run_args}".strip()
+            return f"{LOCAL_BINARIES_PATH}/{get_self_ldd_version()}/{get_self_architecture()}/rust/{self.runnable_name}/{self.runnable_name} {extra_run_args}".strip()
 
     @dataclass
     class ProtobufModule(_CompilableModule):
@@ -373,6 +405,7 @@ class DeploymentOptions:
         DISCOVERY_TIMEOUT = (  # pyright: ignore[reportConstantRedefinition]
             timeout_seconds  # pyright: ignore[reportConstantRedefinition]
         )
+        _pi_api.DISCOVERY_TIMEOUT = timeout_seconds
 
     @staticmethod
     def with_custom_backend_dir(backend_dir: str):
@@ -392,18 +425,40 @@ class DeploymentOptions:
         modules: list[_Module],
         backend_local_path: str = "src/backend/",
     ):
+        _verify_self()
         for pi in pi_addresses:
             _deploy_on_pi(pi, modules, backend_local_path)
 
     @staticmethod
     def with_automatic_discovery(
-        modules: list[_Module], backend_local_path: str = "src/backend/"
+        modules: list[_Module],
+        pi_name_to_process_types: Callable[
+            ..., Mapping[str, Sequence[_WeightedProcess]]
+        ],
+        backend_local_path: str = "src/backend/",
     ):
         if os.path.exists(LOCAL_BINARIES_PATH):
             shutil.rmtree(LOCAL_BINARIES_PATH)
         os.makedirs(LOCAL_BINARIES_PATH, exist_ok=True)
 
         raspberrypis = _RaspberryPi.discover_all()
+
+        process_mapping = pi_name_to_process_types([p.address for p in raspberrypis])
+
+        print(
+            "Process assignment:",
+            {k: [str(p) for p in v] for k, v in process_mapping.items()},
+        )
+
+        # Import here to avoid circular dependency
+        from backend.deployment.process_type_util import normalize_pi_name
+
+        for pi in raspberrypis:
+            assigned_processes = process_mapping.get(
+                normalize_pi_name(pi.address or pi.host), []
+            )
+            pi.processes_to_run = [str(p) for p in assigned_processes]
+
         DeploymentOptions.with_preset_pi_addresses(
             raspberrypis, modules, backend_local_path
         )
