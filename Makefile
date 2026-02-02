@@ -24,7 +24,6 @@ prepare:
 generate: prepare
 	PATH="$(shell pwd)/.venv/bin:$$PATH" protoc -I=$(PROTO_DIR) \
 		--python_out=$(PROTO_GEN_DIR) \
-		--pyi_out=$(PROTO_GEN_DIR) \
 		$(shell find $(PROTO_DIR) -name "*.proto")
 	.venv/bin/fix-protobuf-imports $(PROTO_GEN_DIR)
 
@@ -32,7 +31,7 @@ flash:
 	./scripts/flash.bash $(ARGS)
 
 
-UBUNTU_TARGET = nathan-hale.local
+UBUNTU_TARGET = tynan.local
 SSH_PASS = ubuntu
 TARGET_PORT = 22
 TARGET_FOLDER = /opt/blitz/B.L.I.T.Z/
