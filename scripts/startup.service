@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=ubuntu
-ExecStart=bash /home/ubuntu/Documents/B.L.I.T.Z/scripts/startup.sh
+ExecStart=/bin/bash /opt/blitz/B.L.I.T.Z/scripts/startup.sh
 Restart=always
 RestartSec=3
 

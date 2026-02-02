@@ -12,7 +12,8 @@
     "host": "0.0.0.0",
     "port": 5000,
     "stats_pub_period_s": 0.5,
-    "send_stats": true
+    "send_stats": true,
+    "process_memory_file": "config/processes.json"
   },
-  "config_path": "config/config.txt"
+  "config_path": "config/config.b64"
 }
