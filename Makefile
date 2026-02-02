@@ -22,25 +22,26 @@ prepare:
 	touch $(PROTO_GEN_DIR)/__init__.py
 
 generate: prepare
-	PATH="$(shell pwd)/.venv/bin:$$PATH" protoc -I=$(PROTO_DIR) \
-		--python_out=$(PROTO_GEN_DIR) \
-		$(shell find $(PROTO_DIR) -name "*.proto")
-	.venv/bin/fix-protobuf-imports $(PROTO_GEN_DIR)
+	$(VENV_PYTHON) -m grpc_tools.protoc -I=proto \
+		--python_out=watchdog/generated \
+		--plugin=protoc-gen-pyi="$(pwd)/.venv/bin/python -m mypy_protobuf.main" \
+		--pyi_out=watchdog/generated \
+		proto/StateLogging.proto proto/PiStatus.proto
 
 flash:
 	./scripts/flash.bash $(ARGS)
 
 
-UBUNTU_TARGET = tynan.local
+UBUNTU_TARGET = jetson1.local
 SSH_PASS = ubuntu
 TARGET_PORT = 22
 TARGET_FOLDER = /opt/blitz/B.L.I.T.Z/
 
 send-to-target:
-	sshpass -p $(SSH_PASS) rsync -av --progress --rsync-path="sudo rsync" --exclude-from=.gitignore -e "ssh -p $(TARGET_PORT)" ./ ubuntu@$(UBUNTU_TARGET):$(TARGET_FOLDER)
+	sshpass -p $(SSH_PASS) rsync -av --progress --rsync-path="rsync" --exclude-from=.gitignore -e "ssh -p $(TARGET_PORT)" ./ ubuntu@$(UBUNTU_TARGET):$(TARGET_FOLDER)
 
 deploy-to-target: send-to-target
-	sshpass -p $(SSH_PASS) ssh -p $(TARGET_PORT) ubuntu@$(UBUNTU_TARGET) 'sudo chmod -R 777 $(TARGET_FOLDER) && sudo systemctl restart startup.service'
+	sshpass -p $(SSH_PASS) ssh -tt -p $(TARGET_PORT) ubuntu@$(UBUNTU_TARGET) 'echo $(SSH_PASS) | sudo -S systemctl restart startup.service'
 
 
 UBUNTU_TARGET_NAME = "agathaking"
