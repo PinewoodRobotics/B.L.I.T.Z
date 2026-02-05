@@ -22,3 +22,4 @@ scipy
 zeroconf
 thrift>=0.22.0
 opencv-python-headless
+grpcio-tools
