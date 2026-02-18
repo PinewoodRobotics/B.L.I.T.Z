@@ -5,7 +5,6 @@ from zeroconf import ServiceInfo, Zeroconf
 from watchdog.util.logger import error, success
 from watchdog.util.system import (
     get_local_hostname,
-    get_local_ip,
     get_primary_ipv4,
     get_system_name,
     load_basic_system_config,
@@ -15,6 +14,7 @@ from watchdog.util.system import (
 TYPE_ = "_watchdog._udp.local."
 _service_info = None
 _should_stop = False
+zeroconf = None
 
 
 def construct_service_info():
@@ -43,22 +43,31 @@ def construct_service_info():
 def enable_discovery():
     global zeroconf, _service_info, _should_stop
 
-    zeroconf = Zeroconf()
-    registered = False
-
     while not _should_stop:
         time.sleep(5)
         try:
-            _service_info = construct_service_info()
-            if not registered:
-                zeroconf.register_service(_service_info)
-                registered = True
-                continue
+            if zeroconf is not None:
+                try:
+                    if _service_info is not None:
+                        zeroconf.unregister_service(_service_info)
+                except Exception:
+                    pass
+                zeroconf.close()
 
-            zeroconf.update_service(_service_info)
+            zeroconf = Zeroconf()
+            _service_info = construct_service_info()
+            zeroconf.register_service(_service_info)
             success(f"Refreshed service discovery for {_service_info.server}")
         except Exception as e:
             error(f"Error updating service discovery: {e}")
+
+    if zeroconf is not None:
+        try:
+            if _service_info is not None:
+                zeroconf.unregister_service(_service_info)
+        except Exception:
+            pass
+        zeroconf.close()
 
 
 def stop_discovery():
