@@ -41,7 +41,9 @@ class CPPBuildConfig:
         cmake_lists_path: str = ".",
         cmake_args: list[str] | None = None,
         compiler_cmd: str = "make",
-        compiler_args: list[str | CPPBuildOptions] | None = None,
+        compiler_args: (  # pyright: ignore[reportRedeclaration]
+            list[str | CPPBuildOptions] | None
+        ) = None,  # pyright: ignore[reportRedeclaration]
         libs: list[CPPLibrary] | None = None,
         extra_docker_commands: list[str] | None = None,
         clean_build_dir: bool = False,

@@ -4,16 +4,16 @@ from autobahn_client.client import Autobahn
 import psutil
 from watchdog.util.logger import stats, info
 import watchdog.util.logger as logger_module
-from generated.PiStatus_pb2 import (
+from watchdog.generated.PiStatus_pb2 import (
     PiProcess,
     PiStatus,
     Ping,
     Pong,
     StatusType,
 )
-from util.system import (
+from watchdog.util.system import (
     BasicSystemConfig,
-    get_camera_ports_in_use,
+    get_camera_video_ports,
     get_system_name,
     get_top_10_processes,
 )
@@ -28,7 +28,7 @@ def _collect_system_stats():
     disk_info = psutil.disk_usage("/")
     net_info = psutil.net_io_counters()
     top_10_processes = get_top_10_processes()
-    ports_in_use = get_camera_ports_in_use()
+    ports_in_use = get_camera_video_ports()
     return (
         cpu_per_core,
         cpu_usage_total,

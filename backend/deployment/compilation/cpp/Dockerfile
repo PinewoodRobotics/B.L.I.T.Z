@@ -11,8 +11,8 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone &
 ARG CPPLIBRARIES
 ARG EXTRA_DOCKER_COMMANDS="echo No EXTRA_DOCKER_COMMANDS provided"
 
-RUN /bin/bash -c "${CPPLIBRARIES}"
-RUN /bin/bash -c "${EXTRA_DOCKER_COMMANDS}"
+RUN /bin/bash -c "apt-get update && ${CPPLIBRARIES}"
+RUN /bin/bash -c "apt-get update && ${EXTRA_DOCKER_COMMANDS}"
 
 WORKDIR /work
 

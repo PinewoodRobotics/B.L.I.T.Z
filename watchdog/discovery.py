@@ -4,6 +4,7 @@ from zeroconf import ServiceInfo, Zeroconf
 
 from watchdog.util.logger import error, success
 from watchdog.util.system import (
+    RaspberryPiInfo,
     get_local_hostname,
     get_primary_ipv4,
     get_system_name,
@@ -31,11 +32,11 @@ def construct_service_info():
         port=9999,
         server=hostname_local,
         properties={
-            "hostname": hostname,
-            "hostname_local": hostname_local,
+            "hostname": hostname_local,
             "system_name": system_name,
             "watchdog_port": system_config.watchdog.port,
             "autobahn_port": system_config.autobahn.port,
+            "raspberry_pi_info": RaspberryPiInfo.collect().to_dict(),
         },
     )
 

@@ -7,8 +7,8 @@ from enum import Enum
 from functools import wraps
 
 from autobahn_client.client import Autobahn
-from generated.PiStatus_pb2 import LogMessage, StatusType
-from generated.StateLogging_pb2 import (
+from watchdog.generated.PiStatus_pb2 import LogMessage, StatusType
+from watchdog.generated.StateLogging_pb2 import (
     DataType,
     StateLogging,
 )

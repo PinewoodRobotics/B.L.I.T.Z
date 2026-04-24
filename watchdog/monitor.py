@@ -1,6 +1,7 @@
 import json
 import asyncio
 import pathlib
+from typing import Any
 from watchdog.util.logger import info, warning, error, debug
 import os
 import subprocess
@@ -8,7 +9,11 @@ import subprocess
 import psutil
 
 
-from watchdog.process_starter import get_possible_processes, start_process
+from watchdog.process_starter import (
+    get_all_modules,
+    get_possible_processes,
+    start_process,
+)
 
 
 class ProcessesMemory(list[str]):
@@ -72,6 +77,13 @@ class ProcessMonitor:
             and os.path.getsize(config_path) > 0
         )
 
+        tmp_modules = get_all_modules()
+        if tmp_modules is None:
+            error("Failed to get all or some modules")
+            raise ValueError("Failed to get all modules")
+
+        self.modules: list[Any] = tmp_modules
+
     def set_processes(self, new_processes: list[str]):
         current_active = set(self.get_active_processes())
         new_set = set(new_processes)
@@ -103,7 +115,9 @@ class ProcessMonitor:
             )
 
     def _start_process(self, process_type: str):
-        self.processes[process_type] = start_process(process_type, self.config_path)
+        self.processes[process_type] = start_process(
+            process_type, self.config_path, self.modules
+        )
 
     # todo: make it wait a bit and then try again maybe? some other solution?
     def _restore_processes_from_memory(self):
@@ -122,7 +136,7 @@ class ProcessMonitor:
         return list(self.processes.keys())
 
     def get_possible_processes(self) -> list[str]:
-        return get_possible_processes()
+        return get_possible_processes(self.modules)
 
     def ping_processes_and_get_alive(self) -> list[str]:
         alive_processes: list[str] = []

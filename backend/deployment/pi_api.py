@@ -13,6 +13,74 @@ SERVICE = "_watchdog._udp.local."
 DISCOVERY_TIMEOUT = 2.0
 
 
+@dataclass
+class RaspberryPiInfo:
+    os_name: str
+    sys_platform: str
+    platform_system: str
+    platform_release: str
+    platform_version: str
+    platform_machine: str
+    platform_platform: str
+    python_executable: str
+    python_version: str
+    python_version_major: int
+    python_version_minor: int
+    python_version_micro: int
+    python_implementation: str
+    implementation_short: str
+    abi_guess: str | None
+    sys_abiflags: str
+    soabi: str | None
+    ext_suffix: str | None
+    pip_version: str
+
+
+@dataclass
+class ExpectedZeroconfServiceInfo:
+    hostname: str
+    system_name: str
+    watchdog_port: int
+    autobahn_port: int
+
+    raspberry_pi_info: RaspberryPiInfo
+
+
+def from_service_info_to_dataclass(service: ServiceInfo) -> ExpectedZeroconfServiceInfo:
+    raw_properties = service.properties or {}
+    properties: dict[str, Any] = {}
+
+    for raw_key, raw_value in raw_properties.items():
+        key = raw_key.decode("utf-8")
+        value = raw_value.decode("utf-8") if isinstance(raw_value, bytes) else raw_value
+        properties[key] = value
+
+    raspberry_pi_payload: dict[str, Any] = {}
+    for field_info in dataclasses.fields(RaspberryPiInfo):
+        if field_info.name not in properties:
+            raise ValueError(f"Missing required service property: {field_info.name}")
+        value = properties[field_info.name]
+        if field_info.type in (int, "int"):
+            value = int(value)
+        raspberry_pi_payload[field_info.name] = value
+
+    if service.server is None:
+        raise ValueError("Missing service server hostname")
+    hostname = (
+        service.server.decode("utf-8")
+        if isinstance(service.server, bytes)
+        else str(service.server)
+    )
+
+    return ExpectedZeroconfServiceInfo(
+        hostname=hostname,
+        system_name=properties["system_name"],
+        watchdog_port=int(properties["watchdog_port"]),
+        autobahn_port=int(properties["autobahn_port"]),
+        raspberry_pi_info=RaspberryPiInfo(**raspberry_pi_payload),
+    )
+
+
 def _process_to_name(p: Any) -> str:
     """
     Converts process identifiers to the string name expected by the watchdog API.
@@ -47,13 +115,14 @@ class RaspberryPi(Generic[TProcess]):
     - SSH deployment fields (address, password, port)
     """
 
+    general_info: RaspberryPiInfo
+
     # HTTP API fields
     host: str
-    port_coms: int = 5000
-    port_autobahn: int | None = None
+    watchdog_port: int
+    autobahn_port: int
 
     # SSH/deployment fields
-    address: str | None = None
     password: str = dataclasses.field(default="ubuntu")
     ssh_port: int = dataclasses.field(default=22)
 
@@ -61,14 +130,9 @@ class RaspberryPi(Generic[TProcess]):
     processes_to_run: list[str] = field(default_factory=list)
     weight: float = 0.0
 
-    def __post_init__(self):
-        """If address not set, default to host (common case)."""
-        if self.address is None:
-            object.__setattr__(self, "address", self.host)
-
     @property
     def coms_address(self) -> str:
-        return f"http://{self.host}:{self.port_coms}"
+        return f"http://{self.host}:{self.watchdog_port}"
 
     def add_process(self, process: TProcess) -> None:
         self.processes_to_run.append(_process_to_name(process))
@@ -129,41 +193,29 @@ class RaspberryPi(Generic[TProcess]):
         if not self.set_config(raw_config_base64, timeout_s=timeout_s):
             return False
 
-        if new_processes_to_run is None:
-            return True
-
         return self.set_processes(new_processes_to_run, timeout_s=timeout_s)
 
     @classmethod
     def _from_zeroconf(cls, service: ServiceInfo):
         """Creates a RaspberryPi instance from a zeroconf ServiceInfo."""
-        properties = {
-            k.decode("utf-8") if isinstance(k, bytes) else k: (
-                v.decode("utf-8") if isinstance(v, bytes) else v
-            )
-            for k, v in (service.properties or {}).items()
-        }
+        properties = from_service_info_to_dataclass(service)
 
-        address = (
-            (properties.get("hostname_local") or "").rstrip(".")
-            or (service.server or "").rstrip(".")
-            or None
+        return cls(
+            general_info=properties.raspberry_pi_info,
+            host=properties.hostname,
+            watchdog_port=properties.watchdog_port,
+            autobahn_port=properties.autobahn_port,
         )
-
-        if not address:
-            raise ValueError("Cannot extract Pi address from zeroconf ServiceInfo")
-
-        return cls(host=address, address=address)
 
     @classmethod
     def discover_all(cls):
         """Discovers all Raspberry Pis on the network via zeroconf."""
-        raspberrypis: list[RaspberryPi] = []
+        raspberrypis: list[RaspberryPi[Any]] = []
         zc = Zeroconf()
 
         class _Listener(ServiceListener):
-            def __init__(self, out: list[RaspberryPi]):
-                self.out: list[RaspberryPi] = out
+            def __init__(self, out: list[RaspberryPi[Any]]):
+                self.out: list[RaspberryPi[Any]] = out
 
             def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
                 info = zc.get_service_info(type_, name)
@@ -184,53 +236,3 @@ class RaspberryPi(Generic[TProcess]):
         time.sleep(DISCOVERY_TIMEOUT)
         zc.close()
         return raspberrypis
-
-
-'''
-def start_processes(self, *, timeout_s: float = 5.0) -> bool:
-        if not self.processes_to_run:
-            return False
-        import requests
-
-        payload = {"process_types": list(self.processes_to_run)}
-        r = requests.post(
-            f"{self.coms_address}/start/process", json=payload, timeout=timeout_s
-        )
-        return r.status_code == 200
-
-    def stop_processes(self, *, timeout_s: float = 5.0) -> bool:
-        import requests
-
-        payload = {"process_types": list(self.processes_to_run)}
-        r = requests.post(
-            f"{self.coms_address}/stop/process", json=payload, timeout=timeout_s
-        )
-        return r.status_code == 200
-
-    def stop_all_processes(self, *, timeout_s: float = 5.0) -> bool:
-        """
-        Stops all processes on the Pi (calls /stop/all/processes endpoint).
-        This is more aggressive than stop_processes() which only stops known processes.
-        """
-        import requests
-
-        r = requests.post(f"{self.coms_address}/stop/all/processes", timeout=timeout_s)
-        return r.status_code == 200
-
-    def stop_process(self, process: TProcess, *, timeout_s: float = 5.0) -> bool:
-        """
-        Stops a specific process and removes it from the local run list
-        (mirrors the Java behavior).
-        """
-        import requests
-
-        name = _process_to_name(process)
-        if name in self.processes_to_run:
-            self.processes_to_run.remove(name)
-
-        payload = {"process_types": [name]}
-        r = requests.post(
-            f"{self.coms_address}/stop/process", json=payload, timeout=timeout_s
-        )
-        return r.status_code == 200
-'''

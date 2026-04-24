@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from collections.abc import Sequence
 import json
-from typing import Callable, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol
 import inspect
 import subprocess
 import time
@@ -24,6 +24,7 @@ from backend.deployment.system_types import (
 SERVICE = _pi_api.SERVICE
 DISCOVERY_TIMEOUT = _pi_api.DISCOVERY_TIMEOUT
 BACKEND_DEPLOYMENT_PATH = "/opt/blitz/B.L.I.T.Z/backend"
+DEFAULT_SSH_USER = "ubuntu"
 GITIGNORE_PATH = ".gitignore"
 VENV_PATH = ".venv/bin/python"
 LOCAL_BINARIES_PATH = "build/release/"
@@ -84,7 +85,7 @@ class _RunnableModule(_Module):
 
 
 def _deploy_backend_to_pi(
-    pi: _RaspberryPi,
+    pi: _RaspberryPi[Any],
     backend_local_path: str = "src/backend/",
 ):
     base_path = os.path.normpath(backend_local_path)
@@ -103,7 +104,7 @@ def _deploy_backend_to_pi(
         "StrictHostKeyChecking=no",
         "-p",
         str(pi.ssh_port),
-        f"ubuntu@{pi.address}",
+        f"{DEFAULT_SSH_USER}@{pi.address}",
         f"mkdir -p {remote_target_dir}",
     ]
 
@@ -113,7 +114,7 @@ def _deploy_backend_to_pi(
             f"Failed to create remote directory {remote_target_dir} on {pi.address}: {mkdir_proc.returncode}"
         )
 
-    target = f"ubuntu@{pi.address}:{remote_target_dir}"
+    target = f"{DEFAULT_SSH_USER}@{pi.address}:{remote_target_dir}"
 
     rsync_cmd = [
         "sshpass",
@@ -122,7 +123,7 @@ def _deploy_backend_to_pi(
         "rsync",
         "-av",
         "--progress",
-        "--rsync-path=sudo rsync",
+        "--rsync-path=rsync",
         "--include=libs/***",
         "--exclude-from=" + GITIGNORE_PATH,
         "-e",
@@ -141,7 +142,7 @@ def _deploy_backend_to_pi(
         )
 
 
-def _deploy_binaries(pi: _RaspberryPi, local_binaries_path: str):
+def _deploy_binaries(pi: _RaspberryPi[Any], local_binaries_path: str):
     """Deploy a locally-built Rust binary to the Pi."""
     # Determine remote path
     remote_full_path = f"{BACKEND_DEPLOYMENT_PATH.rstrip('/')}/../{local_binaries_path}"
@@ -155,8 +156,8 @@ def _deploy_binaries(pi: _RaspberryPi, local_binaries_path: str):
         "ssh",
         "-p",
         str(pi.ssh_port),
-        f"ubuntu@{pi.address}",
-        f"sudo rm -rf {remote_full_path}",
+        f"{DEFAULT_SSH_USER}@{pi.address}",
+        f"rm -rf {remote_full_path}",
     ]
 
     rmrf_proc = subprocess.run(rmrf_cmd)
@@ -173,8 +174,8 @@ def _deploy_binaries(pi: _RaspberryPi, local_binaries_path: str):
         "ssh",
         "-p",
         str(pi.ssh_port),
-        f"ubuntu@{pi.address}",
-        f"sudo mkdir -p {remote_full_path}",
+        f"{DEFAULT_SSH_USER}@{pi.address}",
+        f"mkdir -p {remote_full_path}",
     ]
 
     mkdir_proc = subprocess.run(mkdir_cmd)
@@ -191,11 +192,11 @@ def _deploy_binaries(pi: _RaspberryPi, local_binaries_path: str):
         "rsync",
         "-av",
         "--progress",
-        "--rsync-path=sudo rsync",
+        "--rsync-path=rsync",
         "-e",
         f"ssh -p {getattr(pi, 'port', 22)} -o StrictHostKeyChecking=no",
         local_binaries_path,
-        f"ubuntu@{pi.address}:{remote_full_path}",
+        f"{DEFAULT_SSH_USER}@{pi.address}:{remote_full_path}",
     ]
 
     rsync_proc = subprocess.run(rsync_cmd)
@@ -207,7 +208,7 @@ def _deploy_binaries(pi: _RaspberryPi, local_binaries_path: str):
     print(f"✓ Deployed {local_binaries_path} successfully")
 
 
-def _deploy_compilable(pi: _RaspberryPi, modules: list[_Module]):
+def _deploy_compilable(pi: _RaspberryPi[Any], modules: list[_Module]):
     from backend.deployment.compilation.cpp.cpp import CPlusPlus
     from backend.deployment.compilation.rust.rust import Rust
 
@@ -240,7 +241,7 @@ def _deploy_compilable(pi: _RaspberryPi, modules: list[_Module]):
 
 
 def _deploy_on_pi(
-    pi: _RaspberryPi,
+    pi: _RaspberryPi[Any],
     modules: list[_Module],
     backend_local_path: str = "src/backend/",
 ):
@@ -256,7 +257,7 @@ def _deploy_on_pi(
         "StrictHostKeyChecking=no",
         "-p",
         str(pi.ssh_port),
-        f"ubuntu@{pi.address}",
+        f"{DEFAULT_SSH_USER}@{pi.address}",
         f"echo {pi.password} | sudo -S systemctl restart startup.service",
     ]
 
@@ -421,7 +422,7 @@ class DeploymentOptions:
 
     @staticmethod
     def with_preset_pi_addresses(
-        pi_addresses: list[_RaspberryPi],
+        pi_addresses: list[_RaspberryPi[Any]],
         modules: list[_Module],
         backend_local_path: str = "src/backend/",
     ):

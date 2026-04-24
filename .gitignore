@@ -50,6 +50,8 @@ fisheye_calibration_data.npz
 .env.local
 .env.*.local
 
+config/
+
 # NATS
 nats-server.conf
 
