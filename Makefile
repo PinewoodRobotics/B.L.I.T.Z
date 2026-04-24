@@ -13,6 +13,7 @@ TARGET_USER ?= ubuntu
 SSH_PASS ?= ubuntu
 TARGET_PORT ?= 22
 TARGET_NAME ?= agathaking
+TARGET_FOLDER ?= /opt/blitz/
 
 SERVICE_NAME ?= startup
 SERVICE_UNIT_SOURCE := $(BLITZ_PATH)/ops/systemd/watchdog.service
@@ -32,18 +33,14 @@ help:
 		'  make deploy-sync              Rsync the repo to the target machine' \
 		'  make deploy                   Sync and restart the target service' \
 		'  make deploy-reset TARGET_NAME=x  Recreate target folder and install service remotely' \
+		'  make deploy-flash TARGET_NAME=x  Reflash target: reset, sync, bootstrap, install service' \
 
 setup:
 	@if [ ! -d ".venv" ]; then python3 -m venv .venv; fi
 	$(VENV_PYTHON) -m pip install -e .
 
 deps-ubuntu:
-	sudo apt-get update
-	sudo apt install -y protobuf-compiler thrift-compiler git make build-essential pkg-config rustup \
-		python3 python3-dev python3-pip python3-venv python3-opencv libssl-dev libclang-dev \
-		libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libgl1-mesa-dev libglu1-mesa-dev \
-		libx11-dev libxext-dev libxrender-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev libxss-dev \
-		libatlas-base-dev gfortran libblas-dev liblapack-dev libboost-all-dev libtbb-dev sshpass rsync udev
+	./scripts/bootstrap/install_deps_ubuntu.sh
 
 set-name:
 	@if [ -z "$(NAME)" ]; then \
@@ -127,3 +124,16 @@ deploy-reset:
 	TARGET_FOLDER="$(TARGET_FOLDER)" \
 	TARGET_NAME="$(TARGET_NAME)" \
 	./scripts/deploy/reset_target.sh
+
+deploy-flash:
+	UBUNTU_TARGET="$(UBUNTU_TARGET)" \
+	TARGET_USER="$(TARGET_USER)" \
+	SSH_PASS="$(SSH_PASS)" \
+	TARGET_PORT="$(TARGET_PORT)" \
+	TARGET_FOLDER="$(TARGET_FOLDER)" \
+	TARGET_NAME="$(TARGET_NAME)" \
+	SERVICE_NAME="$(SERVICE_NAME)" \
+	SERVICE_UNIT_PATH="$(SERVICE_UNIT_PATH)" \
+	./scripts/deploy/flash_target.sh
+
+flash-target: deploy-flash
