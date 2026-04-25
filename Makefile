@@ -7,6 +7,7 @@ export PYTHONPATH := $(BLITZ_PATH)
 VENV_PYTHON := .venv/bin/python
 NAME_FILE := system_data/name.txt
 PROTO_GEN_DIR := watchdog/generated
+PROTO_FILES := proto/StateLogging.proto proto/PiStatus.proto
 
 UBUNTU_TARGET ?= nathan-hale.local
 TARGET_USER ?= ubuntu
@@ -19,28 +20,44 @@ SERVICE_NAME ?= startup
 SERVICE_UNIT_SOURCE := $(BLITZ_PATH)/ops/systemd/watchdog.service
 SERVICE_UNIT_PATH ?= /etc/systemd/system/$(SERVICE_NAME).service
 
+.PHONY: help setup rebuild create-python-venv dependencies link wipe set-name ensure-name show-name generate codegen run test install-service deploy-sync deploy deploy-wipe deploy-flash send-to-target restart-service deploy-to-target wipe-target flash-target
+
 help:
 	@printf '%s\n' \
 		'BLITZ targets:' \
-		'  make setup                    Create the venv and install Python deps' \
-		'  make deps-ubuntu              Install Ubuntu system packages' \
+		'  make setup NAME=x             Install deps, venv, links, codegen, name, and service' \
+		'  make rebuild                  Regenerate code and reinstall the service' \
+		'  make dependencies             Install Ubuntu system packages' \
 		'  make set-name NAME=<value>    Persist the local system name' \
 		'  make show-name                Print the configured system name' \
 		'  make generate                 Generate protobuf Python files' \
 		'  make run                      Start the watchdog locally' \
 		'  make test                     Run pytest' \
-		'  make install-service NAME=x   Setup, codegen, name, install service; sets BLITZ_PATH in /etc' \
-		'  make deploy-sync              Rsync the repo to the target machine' \
+		'  make install-service          Install and restart the systemd watchdog service' \
+		'  make wipe                     Remove local system links and service' \
+		'  make deploy-sync              Rsync the repo to the target and run setup.sh' \
 		'  make deploy                   Sync and restart the target service' \
-		'  make deploy-reset TARGET_NAME=x  Recreate target folder and install service remotely' \
-		'  make deploy-flash TARGET_NAME=x  Reflash target: reset, sync, bootstrap, install service' \
+		'  make deploy-wipe              Run scripts/deploy/wipe_target.sh on the target' \
+		'  make deploy-flash TARGET_NAME=x  Run scripts/deploy/flash_target.sh on the target' \
 
-setup:
+setup: dependencies create-python-venv link generate ensure-name install-service
+
+rebuild: generate create-python-venv ensure-name install-service
+
+create-python-venv:
 	@if [ ! -d ".venv" ]; then python3 -m venv .venv; fi
 	$(VENV_PYTHON) -m pip install -e .
 
-deps-ubuntu:
-	./scripts/bootstrap/install_deps_ubuntu.sh
+dependencies:
+	bash ./scripts/bootstrap/install_dependencies.sh
+
+link:
+	BLITZ_PATH="$(BLITZ_PATH)" \
+	bash ./scripts/bootstrap/install_links.sh
+
+wipe:
+	SERVICE_NAME="$(SERVICE_NAME)" \
+	bash ./scripts/wipe.sh
 
 set-name:
 	@if [ -z "$(NAME)" ]; then \
@@ -73,35 +90,34 @@ show-name:
 
 generate: codegen
 
-codegen: prepare
+codegen:
 	mkdir -p $(PROTO_GEN_DIR)
-	$(VENV_PYTHON) -m grpc_tools.protoc -I=proto \
+	protoc -I=proto \
 		--python_out=watchdog/generated \
 		--pyi_out=watchdog/generated \
-		proto/StateLogging.proto proto/PiStatus.proto
+		$(PROTO_FILES)
 
 run: ensure-name
 	VENV_PYTHON="$(VENV_PYTHON)" \
 	BLITZ_PATH="$(BLITZ_PATH)" \
 	./scripts/runtime/run_watchdog.sh
 
-test:
+test: create-python-venv
 	$(VENV_PYTHON) -m pytest
 
-install-service: setup generate ensure-name
+install-service: link ensure-name
 	BLITZ_PATH="$(BLITZ_PATH)" \
 	SERVICE_NAME="$(SERVICE_NAME)" \
 	SERVICE_UNIT_SOURCE="$(SERVICE_UNIT_SOURCE)" \
 	SERVICE_UNIT_PATH="$(SERVICE_UNIT_PATH)" \
-	./scripts/bootstrap/install_service.sh
+	bash ./scripts/bootstrap/install_service.sh
 
 deploy-sync:
 	UBUNTU_TARGET="$(UBUNTU_TARGET)" \
 	TARGET_USER="$(TARGET_USER)" \
 	SSH_PASS="$(SSH_PASS)" \
 	TARGET_PORT="$(TARGET_PORT)" \
-	TARGET_FOLDER="$(TARGET_FOLDER)" \
-	./scripts/deploy/sync_target.sh
+	bash ./scripts/deploy/sync_target_install.sh
 
 send-to-target: deploy-sync
 
@@ -111,21 +127,23 @@ deploy: deploy-sync
 	SSH_PASS="$(SSH_PASS)" \
 	TARGET_PORT="$(TARGET_PORT)" \
 	SERVICE_NAME="$(SERVICE_NAME)" \
-	./scripts/deploy/restart_target.sh
+	bash ./scripts/deploy/restart_target.sh
 
 restart-service: deploy
 deploy-to-target: deploy
 
-deploy-reset:
+deploy-wipe:
 	UBUNTU_TARGET="$(UBUNTU_TARGET)" \
 	TARGET_USER="$(TARGET_USER)" \
 	SSH_PASS="$(SSH_PASS)" \
 	TARGET_PORT="$(TARGET_PORT)" \
-	TARGET_FOLDER="$(TARGET_FOLDER)" \
-	TARGET_NAME="$(TARGET_NAME)" \
-	./scripts/deploy/reset_target.sh
+	SERVICE_NAME="$(SERVICE_NAME)" \
+	bash ./scripts/deploy/wipe_target.sh
+
+wipe-target: deploy-wipe
 
 deploy-flash:
+	BLITZ_PATH="$(BLITZ_PATH)" \
 	UBUNTU_TARGET="$(UBUNTU_TARGET)" \
 	TARGET_USER="$(TARGET_USER)" \
 	SSH_PASS="$(SSH_PASS)" \
@@ -133,7 +151,6 @@ deploy-flash:
 	TARGET_FOLDER="$(TARGET_FOLDER)" \
 	TARGET_NAME="$(TARGET_NAME)" \
 	SERVICE_NAME="$(SERVICE_NAME)" \
-	SERVICE_UNIT_PATH="$(SERVICE_UNIT_PATH)" \
-	./scripts/deploy/flash_target.sh
+	bash ./scripts/deploy/flash_target.sh
 
 flash-target: deploy-flash

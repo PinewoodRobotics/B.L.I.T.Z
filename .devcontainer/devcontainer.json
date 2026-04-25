@@ -5,12 +5,5 @@
   "dockerComposeFile": "../compose.yml",
   "service": "blitz",
   "workspaceFolder": "/mnt",
-  "features": {},
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "ms-vscode.cpptools@1.17.5"
-      ]
-    }
-  }
+  "features": {}
 }

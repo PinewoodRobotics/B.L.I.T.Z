@@ -1,6 +1,8 @@
 services:
   blitz:
-    build: .
-    volumes:
-      - .:/mnt
-    entrypoint: "sleep inf"
+    build:
+      context: .
+      dockerfile: Dockerfile.flash.test
+    privileged: true
+    cgroup: host
+    command: ["/sbin/init"]
