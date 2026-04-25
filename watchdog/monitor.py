@@ -1,19 +1,9 @@
 import json
 import asyncio
 import pathlib
-from typing import Any
-from watchdog.util.logger import info, warning, error, debug
+from watchdog.process_starter import OpenedProcess, RunnableModules
+from watchdog.util.logger import info, warning
 import os
-import subprocess
-
-import psutil
-
-
-from watchdog.process_starter import (
-    get_all_modules,
-    get_possible_processes,
-    start_process,
-)
 
 
 class ProcessesMemory(list[str]):
@@ -34,12 +24,12 @@ class ProcessesMemory(list[str]):
 
         return ProcessesMemory(data, file_path)
 
-    def append(self, process_type: str):
+    def append(self, process_type: str):  # pyright: ignore[reportImplicitOverride]
         if process_type not in self:
             super().append(process_type)
             self.save()
 
-    def remove(self, process_type: str):
+    def remove(self, process_type: str):  # pyright: ignore[reportImplicitOverride]
         if process_type in self:
             super().remove(process_type)
             self.save()
@@ -66,7 +56,7 @@ class ProcessMonitor:
     ):
         self.processes: dict[
             str,
-            subprocess.Popen[str] | None,
+            OpenedProcess,
         ] = {}
         self.config_path: str = config_path
         self.process_mem: ProcessesMemory = ProcessesMemory.from_file(memory_file)
@@ -76,13 +66,7 @@ class ProcessMonitor:
             and pathlib.Path(config_path).is_file()
             and os.path.getsize(config_path) > 0
         )
-
-        tmp_modules = get_all_modules()
-        if tmp_modules is None:
-            error("Failed to get all or some modules")
-            raise ValueError("Failed to get all modules")
-
-        self.modules: list[Any] = tmp_modules
+        self.runnable_modules: RunnableModules = RunnableModules()
 
     def set_processes(self, new_processes: list[str]):
         current_active = set(self.get_active_processes())
@@ -106,17 +90,16 @@ class ProcessMonitor:
             info(f"Process {process_type} already running, skipping...")
             return
 
-        self._start_process(process_type)
+        process = self.runnable_modules.start_process(process_type, self.config_path)
+        if process is None:
+            warning(f"Failed to start process {process_type}, skipping...")
+            return
+
+        self.processes[process_type] = process
         self.process_mem.append(process_type)
 
-        if self._loop and self._loop.is_running():
-            _ = self._loop.call_soon_threadsafe(
-                asyncio.create_task, self.monitor_process(process_type)
-            )
-
-    def _start_process(self, process_type: str):
-        self.processes[process_type] = start_process(
-            process_type, self.config_path, self.modules
+        _ = self._loop.call_soon_threadsafe(
+            asyncio.create_task, self.monitor_process(process_type)
         )
 
     # todo: make it wait a bit and then try again maybe? some other solution?
@@ -136,68 +119,29 @@ class ProcessMonitor:
         return list(self.processes.keys())
 
     def get_possible_processes(self) -> list[str]:
-        return get_possible_processes(self.modules)
+        return self.runnable_modules.get_possible_processes()
 
     def ping_processes_and_get_alive(self) -> list[str]:
-        alive_processes: list[str] = []
-        for process_type, process in self.processes.items():
-            if process is None:
-                continue
-
-            try:
-                _ = process.poll()
-                if process.poll() is None:
-                    alive_processes.append(process_type)
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                debug(f"Process {process_type} already dead or inaccessible")
-
-        return alive_processes
-
-    def _stop_process_quiet(self, process_type: str):
-        process = self.processes.pop(process_type, None)
-        if process is None:
-            return
-
-        try:
-            parent = psutil.Process(process.pid)
-            children = parent.children(recursive=True)
-            for child in children:
-                debug(f"Killing child process {child.pid}")
-                child.terminate()
-            gone, alive = psutil.wait_procs(children, timeout=2)
-            for child in alive:
-                debug(f"Force killing stubborn child process {child.pid}")
-                child.kill()
-
-            process.terminate()
-            try:
-                process.wait(timeout=2)
-            except Exception:
-                process.kill()
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            debug(f"Process {process_type} already dead or inaccessible")
-
-        try:
-            process.kill()
-        except Exception:
-            pass
-
-        info(f"Process {process_type} stopped successfully")
+        return [
+            process_type
+            for process_type in self.processes.keys()
+            if self.processes[process_type].is_alive()
+        ]
 
     def stop_process(self, process_type: str):
         self.process_mem.remove(process_type)
-        self._stop_process_quiet(process_type)
+        self.processes.pop(process_type).stop()
 
     def abort_all_processes(self):
         info("Start Abort!")
-        for process_type in self.processes.keys():
+        for process_type in list(self.processes.keys()):
             self.stop_process(process_type)
 
         info("Aborted Successfully!")
 
     def refresh_config(self):
         self.reboot_processes()
-        self.is_config_exists: bool = (
+        self.is_config_exists = (
             pathlib.Path(self.config_path).exists()
             and pathlib.Path(self.config_path).is_file()
             and os.path.getsize(self.config_path) > 0
@@ -205,17 +149,19 @@ class ProcessMonitor:
 
     def reboot_processes(self):
         info("Start reboot!")
-        keys = list(self.processes.keys())
-        for process_type in keys:
-            self._stop_process_quiet(process_type)
+        process_types_to_restore = list(self.process_mem)
+        for process_type in list(self.processes.keys()):
+            self.processes.pop(process_type).stop()
 
-        self._restore_processes_from_memory()
+        for process_type in process_types_to_restore:
+            self.start_and_monitor_process(process_type)
 
         info("Rebooted Successfully!")
 
     async def monitor_process(self, process_type: str):
         timer = 0
         while True:
+            await asyncio.sleep(1)
             if process_type not in self.processes.keys():
                 timer += 1
                 if timer > 10:
@@ -223,23 +169,22 @@ class ProcessMonitor:
                         f"Process {process_type} is not in the processes dictionary, stopping..."
                     )
                     break
-
-                await asyncio.sleep(1)
                 continue
 
             process = self.processes.get(process_type, None)
             timer = 0
 
             if process is None or process.poll() is not None:
-                self.stop_process(process_type)
-                self._start_process(process_type)
-                if process is not None and process.poll() is not None:
-                    warning(f"Process {process_type} is dead, restarting...")
-                    error(
-                        f"{process.stderr.read() if process.stderr is not None else 'No stderr'}"
-                    )
-
-            await asyncio.sleep(1)
+                if process is not None:
+                    process.stop()
+                process = self.runnable_modules.start_process(
+                    process_type, self.config_path
+                )
+                if process is None:
+                    warning(f"Failed to restart process {process_type}, retrying...")
+                    continue
+                self.processes[process_type] = process
+                self.process_mem.append(process_type)
 
     def set_event_loop(self, loop: asyncio.AbstractEventLoop):
         self._loop = loop
