@@ -1,8 +1,15 @@
 services:
-  blitz:
+  blitz-unit-test:
     build:
       context: .
-      dockerfile: Dockerfile.flash.test
+      dockerfile: docker/Dockerfile.unit.test
+    privileged: true
+    cgroup: host
+    command: ["/sbin/init"]
+  blitz-dev-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev.test
     privileged: true
     cgroup: host
     command: ["/sbin/init"]

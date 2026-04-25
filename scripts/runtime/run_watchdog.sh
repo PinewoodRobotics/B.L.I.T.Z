@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-: "${VENV_PYTHON:?./venv/bin/python}"
-: "${BLITZ_PATH:?$(BLITZ_PATH)}"
+: "${VENV_PYTHON:=./.venv/bin/python}"
+: "${BLITZ_PATH:=$(BLITZ_PATH)}"
 
 cd "${BLITZ_PATH}"
 

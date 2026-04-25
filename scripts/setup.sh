@@ -5,6 +5,7 @@ set -euo pipefail
 : "${TARGET_FOLDER:=$(pwd)}"
 : "${GIT_URL:=https://github.com/PinewoodRobotics/B.L.I.T.Z.git}"
 : "${SERVICE_NAME:=startup}"
+: "${DEV_LOCAL_OVERRIDE:="false"}"
 
 : "${TARGET_NAME:?TARGET_NAME is required}"
 
@@ -15,8 +16,9 @@ fi
 sudo chmod 777 "${TARGET_FOLDER}"
 
 cd "${TARGET_FOLDER}"
-
-git clone "${GIT_URL}"
+if [ "${DEV_LOCAL_OVERRIDE}" = "false" ]; then
+    git clone "${GIT_URL}"
+fi
 
 cd "B.L.I.T.Z"
 
