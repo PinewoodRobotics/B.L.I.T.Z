@@ -25,7 +25,7 @@ from backend.deployment.module.base import (
 import os
 
 from backend.deployment.misc import output
-from backend.deployment.module.supported import SupportedModules
+from backend.deployment.module.supported import GeneratedModule, SupportedModules
 
 orange = "\033[33m"
 reset = "\033[0m"
@@ -205,29 +205,9 @@ class CodeBundler:
 if __name__ == "__main__":
     bundler = CodeBundler(
         modules=[
-            SupportedModules.PythonModule(
+            GeneratedModule(
                 name="example",
-                module_folder_path="backend/python/example/",
-                extra_run_args=[],
-                equivalent_run_definition="example",
-            ),
-            SupportedModules.RustModule(
-                name="test",
-                runnable_name="test",
-                extra_run_args=[],
-                equivalent_run_definition="test",
-                project_root_folder_path="backend/rust/test",
-            ),
-            SupportedModules.CPPLibraryModule(
-                name="test",
-                project_root_folder_path="backend/cpp/test",
-                compilation_config=CPPBuildConfig.with_cmake(
-                    clean_build_dir=False,
-                    cmake_args=[],
-                    compiler_args=[CPPBuildOptions.NONE],
-                    libs=[],
-                    extra_docker_commands=[],
-                ),
+                project_root_folder_path="backend/generated/",
             ),
         ],
         backend_local_path="backend/",

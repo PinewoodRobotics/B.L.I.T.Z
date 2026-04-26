@@ -59,6 +59,16 @@ class CPPLibraryModule(CompilableModule):
 
 
 @dataclass
+class GeneratedModule(CompilableModule):
+    def get_language_name(self) -> str:
+        return "generated"
+
+    def assemble(self, result_path: str, system_id: SystemId):
+        parent_dir = os.path.dirname(result_path)
+        shutil.copytree(self.project_root_folder_path, parent_dir, dirs_exist_ok=True)
+
+
+@dataclass
 class CPPRunnableModule(CompilableModule, RunnableModule):
     compilation_config: CPPBuildConfig
     runnable_name: str
@@ -123,18 +133,6 @@ class RustModule(CompilableModule, RunnableModule):
     def get_run_command(self, bundle_path: str) -> str:
         extra_run_args = self.get_extra_run_args()
         return f"{self.get_project_path(bundle_path)}/{self.runnable_name} {extra_run_args}".strip()
-
-
-@dataclass
-class ProtobufModule(CompilableModule):
-    def get_language_name(self) -> str:
-        return "protobuf"
-
-
-@dataclass
-class ThriftModule(CompilableModule):
-    def get_language_name(self) -> str:
-        return "thrift"
 
 
 @dataclass
@@ -242,7 +240,6 @@ class SupportedModules:
     CPPRunnableModule = CPPRunnableModule
     PythonModule = PythonModule
     RustModule = RustModule
-    ProtobufModule = ProtobufModule
-    ThriftModule = ThriftModule
+    GeneratedModule = GeneratedModule
 
     Generic = Module
