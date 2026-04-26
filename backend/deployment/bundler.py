@@ -15,6 +15,7 @@ from backend.deployment.compilation.util.systems import (
 from backend.deployment.compilation.util.cpp_build import (
     CPPBuildConfig,
     CPPBuildOptions,
+    CPPLibrary,
 )
 from backend.deployment.module.base import (
     CompilableModule,
@@ -203,20 +204,16 @@ class CodeBundler:
 
 
 if __name__ == "__main__":
+    output.set_verbosity(False)
     bundler = CodeBundler(
-        modules=[
-            GeneratedModule(
-                name="example",
-                project_root_folder_path="backend/generated/",
-            ),
-        ],
+        modules=[],
         backend_local_path="backend/",
         build_folder_path="build/",
         output_folder_path="build/output/",
         bundle_name="backend-bundle",
         system_id=SystemId(
             c_lib_version="2.39",
-            linux_distro=LinuxDistro.UBUNTU_22,
+            linux_distro=LinuxDistro.JETPACK_L4T_R36_2,
             architecture=Architecture.AARCH64,
             python_version=PythonVersion(major=3, minor=12),
         ),
