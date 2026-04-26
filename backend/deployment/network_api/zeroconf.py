@@ -197,9 +197,9 @@ class DiscoveredNetworkSystem:
             "armhf": Architecture.ARM32,
         }
         linux_distro_by_text = {
-            "24.04": LinuxDistro.UBUNTU,
-            "24-04": LinuxDistro.UBUNTU,
-            "noble": LinuxDistro.UBUNTU,
+            "24.04": LinuxDistro.UBUNTU_24,
+            "24-04": LinuxDistro.UBUNTU_24,
+            "noble": LinuxDistro.UBUNTU_24,
             "22.04": LinuxDistro.UBUNTU_22,
             "22-04": LinuxDistro.UBUNTU_22,
             "jammy": LinuxDistro.UBUNTU_22,
@@ -222,7 +222,7 @@ class DiscoveredNetworkSystem:
                 for marker, distro in linux_distro_by_text.items()
                 if marker in platform_text
             ),
-            LinuxDistro.UBUNTU if "ubuntu" in platform_text else None,
+            LinuxDistro.UBUNTU_24 if "ubuntu" in platform_text else None,
         )
         if (
             linux_distro is None
@@ -230,7 +230,7 @@ class DiscoveredNetworkSystem:
             and "linuxkit" in platform_text
             and glibc_version == "2.39"
         ):
-            linux_distro = LinuxDistro.UBUNTU
+            linux_distro = LinuxDistro.UBUNTU_24
         if linux_distro is None:
             raise self._system_id_error("Could not infer Linux distro")
 

@@ -31,9 +31,10 @@ class Architecture(Enum):
 
 
 class LinuxDistro(Enum):
-    UBUNTU = "ubuntu:24.04"
+    UBUNTU_24 = "ubuntu:24.04"
     UBUNTU_22 = "ubuntu:22.04"
     UBUNTU_20 = "ubuntu:20.04"
+
     JETPACK_L4T_R36_2 = "nvcr.io/nvidia/l4t-cuda:12.2.12-devel"
 
     DEBIAN_12 = "debian:12"  # Debian 12 Bookworm - GLIBC 2.36
