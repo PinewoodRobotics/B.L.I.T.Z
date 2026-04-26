@@ -15,6 +15,7 @@ from backend.deployment.compilation.util.systems import (
 from backend.deployment.module.base import (
     CompilableModule,
     DependencyInstallation,
+    Module,
     RunnableModule,
     VerificationResult,
 )
@@ -243,3 +244,5 @@ class SupportedModules:
     RustModule = RustModule
     ProtobufModule = ProtobufModule
     ThriftModule = ThriftModule
+
+    Generic = Module

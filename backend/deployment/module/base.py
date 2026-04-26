@@ -4,6 +4,7 @@ import re
 import os
 
 from backend.deployment.compilation.util.systems import SystemId
+from backend.deployment.processes import WeightedProcess
 
 
 class VerificationResult(Enum):
@@ -50,7 +51,7 @@ class CompilableModule(Module):
 @dataclass
 class RunnableModule(Module):
     extra_run_args: list[tuple[str, str]]
-    equivalent_run_definition: str
+    equivalent_run_definition: WeightedProcess
 
     def get_run_command(self, _bundle_path: str) -> str:
         raise NotImplementedError(

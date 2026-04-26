@@ -34,7 +34,7 @@ class BlitzNetworkDeployer:
     def deploy(
         modules: list[Module],
         mapper: ProcessMapper,
-        local_backend_path: str = "src/backend/",
+        local_backend_path: str,
     ) -> None:
         output.start_deployment()
         output.start_discovery(BlitzNetworkDeployer.discovery_timeout)
