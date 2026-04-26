@@ -1,11 +1,36 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Generic, Iterable, TypeVar
 
-from backend.deployment.util import _WeightedProcess
-
 TProcess = TypeVar("TProcess", bound=_WeightedProcess)
+
+
+class _WeightedProcess(Enum):
+    """
+    This is a base class for a weighted process. It is used to represent a process that has a weight.
+
+    Example usage:
+
+    class ProcessType(_WeightedProcess):
+        POS_EXTRAPOLATOR = "position-extrapolator", 0.5
+        APRIL_SERVER = "april-server", 1.0
+
+    """
+
+    def __init__(self, name: str, weight: float):
+        self._name = name
+        self._weight = weight
+
+    def __str__(self) -> str:
+        return self._name
+
+    def get_name(self) -> str:
+        return self._name
+
+    def get_weight(self) -> float:
+        return self._weight
 
 
 @dataclass(frozen=True, slots=True)

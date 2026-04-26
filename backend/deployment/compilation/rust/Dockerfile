@@ -1,5 +1,5 @@
-ARG BUILD_DISTRO
-FROM --platform=${TARGETPLATFORM} ${BUILD_DISTRO}
+ARG LINUX_DISTRO
+FROM --platform=${TARGETPLATFORM} ${LINUX_DISTRO}
 
 RUN apt-get update && \
     apt-get install -y curl pkg-config build-essential cmake git libssl-dev protobuf-compiler thrift-compiler && \
@@ -11,4 +11,4 @@ RUN apt-get update && \
 
 WORKDIR /work
 
-ENTRYPOINT ["/bin/bash", "/work/src/backend/deployment/compilation/rust/compile.bash"]
+ENTRYPOINT ["/bin/bash"]

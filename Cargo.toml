@@ -1,0 +1,5 @@
+[workspace]
+members = ["backend/rust/*"]
+
+[workspace.dependencies]
+rand = "0.10.1"

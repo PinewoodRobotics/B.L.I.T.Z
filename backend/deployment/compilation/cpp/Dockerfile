@@ -1,5 +1,5 @@
-ARG BUILD_DISTRO
-FROM --platform=${TARGETPLATFORM} ${BUILD_DISTRO}
+ARG LINUX_DISTRO
+FROM --platform=${TARGETPLATFORM} ${LINUX_DISTRO}
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
@@ -9,11 +9,11 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone &
     apt-get install -y curl pkg-config build-essential cmake git libssl-dev
 
 ARG CPPLIBRARIES
-ARG EXTRA_DOCKER_COMMANDS="echo No EXTRA_DOCKER_COMMANDS provided"
+ARG EXTRA_DOCKER_COMMANDS
 
 RUN /bin/bash -c "apt-get update && ${CPPLIBRARIES}"
-RUN /bin/bash -c "apt-get update && ${EXTRA_DOCKER_COMMANDS}"
+RUN if [ -n "$EXTRA_DOCKER_COMMANDS" ]; then apt-get update && /bin/bash -c "$EXTRA_DOCKER_COMMANDS"; else echo No EXTRA_DOCKER_COMMANDS provided; fi
 
 WORKDIR /work
 
-ENTRYPOINT ["/bin/bash", "/work/src/backend/deployment/compilation/cpp/compile.bash"]
+ENTRYPOINT ["/bin/bash"]

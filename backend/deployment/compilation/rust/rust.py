@@ -1,105 +1,71 @@
-if __name__ == "__main__":
-    import sys
-    from pathlib import Path
-
-    # for local testing insert this
-    script_dir = Path(__file__).parent
-    src_dir = (
-        script_dir.parent.parent.parent.parent
-    )  # src/backend/compilation/rust -> src/
-    if str(src_dir) not in sys.path:
-        sys.path.insert(0, str(src_dir))
-
 import os
 import subprocess
 
-from backend.deployment.system_types import (
+from backend.deployment.compilation.util.parsing import parse_output_flags
+from backend.deployment.compilation.util.systems import (
     Architecture,
-    DockerPlatformImage,
     LinuxDistro,
-    Platform,
-    SystemType,
+    SystemId,
 )
 
 
 class Rust:
-    _built_architectures: set[tuple[str, Architecture]] = set()
+    _built_architectures: set[str] = set()
 
     @classmethod
-    def compile(cls, module_name: str, system_type: SystemType):
-        platform_configs = {
-            SystemType.PI5_BASE_PREBUILT: Platform(
-                name="pi5-base",
-                architecture_docker_image=DockerPlatformImage.LINUX_AARCH64,
-                linux_distro=LinuxDistro.DEBIAN_12,
-            ),
-            SystemType.PI5_BASE: Platform(
-                name="pi5-base",
-                architecture_docker_image=DockerPlatformImage.LINUX_AARCH64,
-                linux_distro=LinuxDistro.UBUNTU,
-            ),
-            SystemType.JETPACK_L4T_R36_2: Platform(
-                name="jetpack-l4t-r35.2",
-                architecture_docker_image=DockerPlatformImage.LINUX_AARCH64,
-                linux_distro=LinuxDistro.JETPACK_L4T_R35_2,
-            ),
-        }
+    def compile(cls, module_name: str, system_id: SystemId) -> str:
+        """
+        Compile a Rust module for a given system ID.
 
-        if system_type not in platform_configs:
-            raise ValueError(f"Unsupported system type: {system_type}")
+        Args:
+            module_name: The name of the module to compile.
+            system_id: The system ID to compile for.
 
-        platform = platform_configs[system_type]
-        architecture = platform.architecture_docker_image.value[1]
+        Returns:
+            The path to the compiled module.
+        """
 
-        build_key = (module_name, architecture)
-        if build_key in cls._built_architectures:
+        if system_id.to_build_key() in cls._built_architectures:
             print("--------------------------------")
             print(
-                f"SKIPPING BUILD: {module_name} already built for {architecture.value} architecture."
+                f"SKIPPING BUILD: {module_name} already built for {system_id.to_build_key()}."
             )
             print("--------------------------------")
-            return
+            return ""
 
-        cls._built_architectures.add(build_key)
-        cls.generic_compile(platform, module_name, system_type)
+        cls._built_architectures.add(system_id.to_build_key())
+        return cls.generic_compile(module_name, system_id)
 
     @classmethod
-    def generic_compile(
-        cls, platform: Platform, module_name: str, system_type: SystemType
-    ):
-        build_distro = platform.linux_distro.value
+    def generic_compile(cls, module_name: str, system_id: SystemId) -> str:
         print("--------------------------------")
         print(
-            f"USING GENERIC COMPILE FOR {platform.name} {module_name} {system_type.value}."
+            f"USING GENERIC COMPILE FOR {system_id.docker_image} {module_name} {system_id.architecture} {system_id.linux_distro}."
         )
-        print(f"Target distro: {build_distro}")
         print("--------------------------------")
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        current_file_path = os.path.dirname(os.path.abspath(__file__))
         dockerfile_path = os.path.join(
-            script_dir,
-            f"Dockerfile",
+            current_file_path,
+            "Dockerfile",
         )
-        compile_bash_path = os.path.join(script_dir, "compile.bash")
+        compile_bash_path = os.path.join(current_file_path, "compile.bash")
         os.chmod(compile_bash_path, 0o755)
+
         root_path = os.getcwd()
+        compile_bash_mount_path = os.path.relpath(compile_bash_path, root_path)
 
-        image_name = f"rust-{system_type.value}-{module_name}"
-
-        print(platform.architecture_docker_image.value[0])
-        print(platform.architecture_docker_image.value[1])
-        print(build_distro)
+        image_name = f"rust-{system_id.to_build_key()}-{module_name}"
 
         docker_build_cmd = [
             "docker",
             "build",
             "--platform",
-            platform.architecture_docker_image.value[0],
+            system_id.docker_image,
             "--build-arg",
             f"MODULE_NAME={module_name}",
             "--build-arg",
-            f"BUILD_DISTRO={build_distro}",
-            "--build-arg",
-            f"LINUX_DISTRO={platform.linux_distro.value}",
+            f"LINUX_DISTRO={system_id.linux_distro.value}",
             "-f",
             dockerfile_path,
             "-t",
@@ -116,27 +82,43 @@ class Rust:
             "docker",
             "run",
             "--platform",
-            platform.architecture_docker_image.value[0],
+            system_id.docker_image,
             "-v",
             f"{root_path}/:/work",
             "--rm",
             "-e",
             f"MODULE_NAME={module_name}",
             "-e",
-            f"PLATFORM_NAME={platform.architecture_docker_image.value[1].value}",
+            f"LINUX_DISTRO={system_id.linux_distro.remove_nonchars()}",
             image_name,
+            f"/work/{compile_bash_mount_path}",
         ]
 
         print("--------------------------------")
         print(f"RUNNING DOCKER CONTAINER {image_name}...")
         print("--------------------------------")
-        _ = subprocess.run(docker_run_cmd, check=True)
+        result = subprocess.run(
+            docker_run_cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        flags = parse_output_flags(
+            result.stdout,
+            ["LINUX_DISTRO", "C_LIB_VERSION", "RESULT_PATH"],
+        )
+
+        return flags["RESULT_PATH"]
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python rust.py <module_name>")
-        sys.exit(1)
+    system_id = SystemId(
+        c_lib_version="2.0.0",
+        linux_distro=LinuxDistro.UBUNTU_22,
+        architecture=Architecture.AARCH64,
+    )
 
-    module_name = sys.argv[1]
-    Rust.compile(module_name, SystemType.JETPACK_L4T_R35_2)
+    release_path = Rust.compile("test", system_id)
+
+    print(release_path)

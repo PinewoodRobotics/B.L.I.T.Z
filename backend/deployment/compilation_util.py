@@ -59,11 +59,12 @@ class CPPBuildConfig:
 
         cmake_args_str = " ".join(cmake_args)
         compiler_args_str = " ".join(compiler_args)
+        build_dir = "${CPP_BUILD_DIR:-build}"
 
         build_cmd = (
-            (f"rm -rf build && " if clean_build_dir else "")
-            + f"cmake -B build -S {cmake_lists_path} {cmake_args_str} && "
-            + f"cd build && {compiler_cmd} {compiler_args_str}"
+            (f"rm -rf {build_dir} && " if clean_build_dir else "")
+            + f"cmake -B {build_dir} -S {cmake_lists_path} {cmake_args_str} && "
+            + f"cd {build_dir} && {compiler_cmd} {compiler_args_str}"
         )
 
         return cls(
