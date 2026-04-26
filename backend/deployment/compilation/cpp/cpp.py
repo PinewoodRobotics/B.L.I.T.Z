@@ -1,14 +1,22 @@
-import os
-import subprocess
+if __name__ == "__main__" and __package__ is None:
+    import sys
+    from pathlib import Path
 
-from backend.deployment.compilation_util import (
+    sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+
+import os
+
+from backend.deployment.misc import output
+from backend.deployment.compilation.util.cpp_build import (
     CPPBuildConfig,
     CPPBuildOptions,
 )
+from backend.deployment.compilation.util.commands import run_command
 from backend.deployment.compilation.util.parsing import parse_output_flags
 from backend.deployment.compilation.util.systems import (
     Architecture,
     LinuxDistro,
+    PythonVersion,
     SystemId,
 )
 
@@ -40,9 +48,10 @@ class CPlusPlus:
         build_key = f"{system_id.to_build_key()}-{module_name}-{local_project_path}"
         built_path = cls._built_modules.get(build_key)
         if built_path is not None:
-            print("--------------------------------")
-            print(f"SKIPPING BUILD: {module_name} already built for {build_key}.")
-            print("--------------------------------")
+            output.step(
+                f"Skip C++ build for {module_name}; already built for {build_key}"
+            )
+            output.detail("result path", built_path)
             return built_path
 
         release_path = cls.generic_compile(
@@ -63,11 +72,11 @@ class CPlusPlus:
         build_config: CPPBuildConfig,
         local_project_path: str,
     ) -> str:
-        print("--------------------------------")
-        print(
-            f"USING GENERIC COMPILE FOR {system_id.docker_image} {module_name} {system_id.architecture} {system_id.linux_distro}."
-        )
-        print("--------------------------------")
+        output.step(f"Compile C++ module {module_name}")
+        output.detail("docker platform", system_id.docker_image)
+        output.detail("linux distro", system_id.linux_distro.value)
+        output.detail("architecture", system_id.architecture.value)
+        output.detail("project path", local_project_path)
 
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         dockerfile_path = os.path.join(
@@ -84,6 +93,7 @@ class CPlusPlus:
         docker_build_cmd = [
             "docker",
             "build",
+            "--progress=plain",
             "--platform",
             system_id.docker_image,
             "--build-arg",
@@ -101,10 +111,12 @@ class CPlusPlus:
             ".",
         ]
 
-        print("--------------------------------")
-        print(f"BUILDING DOCKER IMAGE {image_name}...")
-        print("--------------------------------")
-        _ = subprocess.run(docker_build_cmd, check=True)
+        _ = run_command(
+            docker_build_cmd,
+            f"Prepare C++ build environment for {module_name}",
+            on_output=output.command_output,
+            on_failure=output.command_failure,
+        )
 
         docker_run_cmd = [
             "docker",
@@ -126,21 +138,19 @@ class CPlusPlus:
             f"/work/{compile_bash_mount_path}",
         ]
 
-        print("--------------------------------")
-        print(f"RUNNING DOCKER CONTAINER {image_name}...")
-        print("--------------------------------")
-        result = subprocess.run(
+        result_stdout = run_command(
             docker_run_cmd,
-            check=True,
-            capture_output=True,
-            text=True,
+            f"Compile C++ module {module_name}",
+            on_output=output.command_output,
+            on_failure=output.command_failure,
         )
 
         flags = parse_output_flags(
-            result.stdout,
+            result_stdout,
             ["LINUX_DISTRO", "C_LIB_VERSION", "RESULT_PATH"],
         )
 
+        output.detail("result path", flags["RESULT_PATH"])
         return flags["RESULT_PATH"]
 
 
@@ -151,6 +161,7 @@ if __name__ == "__main__":
             c_lib_version="2.0.0",
             linux_distro=LinuxDistro.UBUNTU_22,
             architecture=Architecture.AARCH64,
+            python_version=PythonVersion(major=3, minor=12),
         ),
         CPPBuildConfig.with_cmake(
             clean_build_dir=False,

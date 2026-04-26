@@ -4,10 +4,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Generic, Iterable, TypeVar
 
-TProcess = TypeVar("TProcess", bound=_WeightedProcess)
+
+class Process:
+    def get_name(self) -> str:
+        raise NotImplementedError
 
 
-class _WeightedProcess(Enum):
+class WeightedProcess(Process, Enum):
     """
     This is a base class for a weighted process. It is used to represent a process that has a weight.
 
@@ -31,6 +34,9 @@ class _WeightedProcess(Enum):
 
     def get_weight(self) -> float:
         return self._weight
+
+
+TProcess = TypeVar("TProcess", bound=WeightedProcess)
 
 
 @dataclass(frozen=True, slots=True)

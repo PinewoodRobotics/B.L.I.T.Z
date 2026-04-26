@@ -13,6 +13,7 @@ sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3-venv \
     sshpass \
     rsync \
+    unzip \
     udev \
     thrift-compiler \
     protobuf-compiler

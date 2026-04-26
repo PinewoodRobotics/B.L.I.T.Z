@@ -1,19 +1,31 @@
-import os
-import subprocess
+if __name__ == "__main__" and __package__ is None:
+    import sys
+    from pathlib import Path
 
+    sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+
+import os
+
+from backend.deployment.misc import output
+from backend.deployment.compilation.util.commands import run_command
 from backend.deployment.compilation.util.parsing import parse_output_flags
 from backend.deployment.compilation.util.systems import (
     Architecture,
     LinuxDistro,
+    PythonVersion,
     SystemId,
 )
 
 
 class Rust:
-    _built_architectures: set[str] = set()
+    _built_modules: dict[str, str] = {}
 
     @classmethod
-    def compile(cls, module_name: str, system_id: SystemId) -> str:
+    def compile(
+        cls,
+        module_name: str,
+        system_id: SystemId,
+    ) -> str:
         """
         Compile a Rust module for a given system ID.
 
@@ -25,24 +37,29 @@ class Rust:
             The path to the compiled module.
         """
 
-        if system_id.to_build_key() in cls._built_architectures:
-            print("--------------------------------")
-            print(
-                f"SKIPPING BUILD: {module_name} already built for {system_id.to_build_key()}."
+        build_key = f"{system_id.to_build_key()}-{module_name}"
+        built_path = cls._built_modules.get(build_key)
+        if built_path is not None:
+            output.step(
+                f"Skip Rust build for {module_name}; already built for {system_id.to_build_key()}"
             )
-            print("--------------------------------")
-            return ""
+            output.detail("result path", built_path)
+            return built_path
 
-        cls._built_architectures.add(system_id.to_build_key())
-        return cls.generic_compile(module_name, system_id)
+        release_path = cls.generic_compile(module_name, system_id)
+        cls._built_modules[build_key] = release_path
+        return release_path
 
     @classmethod
-    def generic_compile(cls, module_name: str, system_id: SystemId) -> str:
-        print("--------------------------------")
-        print(
-            f"USING GENERIC COMPILE FOR {system_id.docker_image} {module_name} {system_id.architecture} {system_id.linux_distro}."
-        )
-        print("--------------------------------")
+    def generic_compile(
+        cls,
+        module_name: str,
+        system_id: SystemId,
+    ) -> str:
+        output.step(f"Compile Rust module {module_name}")
+        output.detail("docker platform", system_id.docker_image)
+        output.detail("linux distro", system_id.linux_distro.value)
+        output.detail("architecture", system_id.architecture.value)
 
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         dockerfile_path = os.path.join(
@@ -60,6 +77,7 @@ class Rust:
         docker_build_cmd = [
             "docker",
             "build",
+            "--progress=plain",
             "--platform",
             system_id.docker_image,
             "--build-arg",
@@ -73,10 +91,12 @@ class Rust:
             ".",
         ]
 
-        print("--------------------------------")
-        print(f"BUILDING DOCKER IMAGE {image_name}...")
-        print("--------------------------------")
-        _ = subprocess.run(docker_build_cmd, check=True)
+        _ = run_command(
+            docker_build_cmd,
+            f"Prepare Rust build environment for {module_name}",
+            on_output=output.command_output,
+            on_failure=output.command_failure,
+        )
 
         docker_run_cmd = [
             "docker",
@@ -94,21 +114,19 @@ class Rust:
             f"/work/{compile_bash_mount_path}",
         ]
 
-        print("--------------------------------")
-        print(f"RUNNING DOCKER CONTAINER {image_name}...")
-        print("--------------------------------")
-        result = subprocess.run(
+        result_stdout = run_command(
             docker_run_cmd,
-            check=True,
-            capture_output=True,
-            text=True,
+            f"Compile Rust module {module_name}",
+            on_output=output.command_output,
+            on_failure=output.command_failure,
         )
 
         flags = parse_output_flags(
-            result.stdout,
+            result_stdout,
             ["LINUX_DISTRO", "C_LIB_VERSION", "RESULT_PATH"],
         )
 
+        output.detail("result path", flags["RESULT_PATH"])
         return flags["RESULT_PATH"]
 
 
@@ -117,6 +135,7 @@ if __name__ == "__main__":
         c_lib_version="2.0.0",
         linux_distro=LinuxDistro.UBUNTU_22,
         architecture=Architecture.AARCH64,
+        python_version=PythonVersion(major=3, minor=12),
     )
 
     release_path = Rust.compile("test", system_id)

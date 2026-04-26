@@ -192,6 +192,22 @@ def guess_abi():
     return None
 
 
+def read_os_release() -> dict[str, str]:
+    os_release_path = Path("/etc/os-release")
+    if not os_release_path.exists():
+        return {}
+
+    values: dict[str, str] = {}
+    for raw_line in os_release_path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        values[key] = value.strip().strip("\"'")
+    return values
+
+
 @dataclass
 class RaspberryPiInfo:
     os_name: str
@@ -213,6 +229,13 @@ class RaspberryPiInfo:
     soabi: str | None
     ext_suffix: str | None
     pip_version: str
+    os_release_pretty_name: str | None = None
+    os_release_name: str | None = None
+    os_release_id: str | None = None
+    os_release_id_like: str | None = None
+    os_release_version: str | None = None
+    os_release_version_id: str | None = None
+    os_release_version_codename: str | None = None
 
     @classmethod
     def collect(cls) -> "RaspberryPiInfo":
@@ -220,6 +243,7 @@ class RaspberryPiInfo:
         pip_version = (
             pip_ver["stdout"].strip() if isinstance(pip_ver["stdout"], str) else ""
         ) or (pip_ver["stderr"].strip() if isinstance(pip_ver["stderr"], str) else "")
+        os_release = read_os_release()
 
         return cls(
             os_name=os.name,
@@ -241,6 +265,13 @@ class RaspberryPiInfo:
             soabi=sysconfig.get_config_var("SOABI"),
             ext_suffix=sysconfig.get_config_var("EXT_SUFFIX"),
             pip_version=pip_version,
+            os_release_pretty_name=os_release.get("PRETTY_NAME"),
+            os_release_name=os_release.get("NAME"),
+            os_release_id=os_release.get("ID"),
+            os_release_id_like=os_release.get("ID_LIKE"),
+            os_release_version=os_release.get("VERSION"),
+            os_release_version_id=os_release.get("VERSION_ID"),
+            os_release_version_codename=os_release.get("VERSION_CODENAME"),
         )
 
     @classmethod

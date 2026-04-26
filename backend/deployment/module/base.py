@@ -63,3 +63,31 @@ class RunnableModule(Module):
             if self.extra_run_args
             else ""
         )
+
+
+@dataclass
+class DependencyInstallation:
+    def should_rerun_for_each_module(self) -> bool:
+        return False
+
+    def verify_dependencies(
+        self, requirements_path: str = "requirements.txt"
+    ) -> tuple[VerificationResult, str]:
+        return VerificationResult.SUCCESS, ""
+
+    def assemble_dependencies(
+        self,
+        result_path: str,
+        system_id: SystemId,
+        requirements_path: str = "requirements.txt",
+    ) -> None:
+        raise NotImplementedError(
+            f"{type(self).__name__} should implement assemble_dependencies(result_path: str, system_id: SystemId, requirements_path: str = 'requirements.txt')"
+        )
+
+    def get_dependency_installation_command(
+        self, blitz_path: str, bundle_path: str
+    ) -> str:
+        raise NotImplementedError(
+            f"{type(self).__name__} should implement get_dependency_installation_command(bundle_path: str)"
+        )

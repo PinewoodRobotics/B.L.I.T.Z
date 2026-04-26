@@ -18,6 +18,9 @@ sudo chmod 777 "${TARGET_FOLDER}"
 cd "${TARGET_FOLDER}"
 if [ "${DEV_LOCAL_OVERRIDE}" = "false" ]; then
     git clone "${GIT_URL}"
+elif [ ! -f "B.L.I.T.Z/Makefile" ]; then
+    echo "DEV_LOCAL_OVERRIDE=true requires ${TARGET_FOLDER}/B.L.I.T.Z to contain a copied BLITZ repo."
+    exit 1
 fi
 
 cd "B.L.I.T.Z"

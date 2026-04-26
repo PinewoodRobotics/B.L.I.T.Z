@@ -1,16 +1,24 @@
 from dataclasses import dataclass
 import os
+import posixpath
 
+import shlex
 import shutil
 from backend.deployment.compilation.cpp.cpp import CPlusPlus
-from backend.deployment.compilation_util import CPPBuildConfig
+from backend.deployment.compilation.util.commands import run_command
+from backend.deployment.compilation.util.cpp_build import CPPBuildConfig
 from backend.deployment.compilation.rust.rust import Rust
-from backend.deployment.compilation.util.systems import SystemId
+from backend.deployment.compilation.util.systems import (
+    SystemId,
+    glibc_to_manylinux_platforms,
+)
 from backend.deployment.module.base import (
     CompilableModule,
+    DependencyInstallation,
     RunnableModule,
     VerificationResult,
 )
+from backend.deployment.misc import output
 
 VENV_PATH = ".venv/bin/python"
 
@@ -129,7 +137,7 @@ class ThriftModule(CompilableModule):
 
 
 @dataclass
-class PythonModule(RunnableModule):
+class PythonModule(RunnableModule, DependencyInstallation):
     module_folder_path: str
 
     def get_language_name(self) -> str:
@@ -137,6 +145,76 @@ class PythonModule(RunnableModule):
 
     def assemble(self, result_path: str, system_id: SystemId):
         shutil.copytree(self.module_folder_path, result_path, dirs_exist_ok=True)
+
+    def verify_dependencies(
+        self, requirements_path: str = "requirements.txt"
+    ) -> tuple[VerificationResult, str]:
+        if not os.path.exists(requirements_path):
+            return (
+                VerificationResult.FATAL,
+                f"Requirements file {requirements_path} does not exist",
+            )
+
+        return VerificationResult.SUCCESS, ""
+
+    def assemble_dependencies(
+        self,
+        result_path: str,
+        system_id: SystemId,
+        requirements_path: str = "requirements.txt",
+    ) -> None:
+        python_version = system_id.python_version
+        py_tag = f"{python_version.major}{python_version.minor}"
+        abi_tag = f"cp{py_tag}"
+
+        platforms = glibc_to_manylinux_platforms(
+            system_id.c_lib_version,
+            system_id.architecture,
+        )
+
+        cmd = [
+            "python",
+            "-m",
+            "pip",
+            "download",
+            "--requirement",
+            requirements_path,
+            "--dest",
+            result_path,
+            "--only-binary=:all:",
+            "--implementation",
+            "cp",
+            "--python-version",
+            py_tag,
+            "--abi",
+            abi_tag,
+        ]
+
+        for platform in platforms:
+            cmd.extend(["--platform", platform])
+
+        _ = run_command(
+            cmd,
+            "Download Python dependencies",
+            on_output=output.command_output,
+            on_failure=output.command_failure,
+        )
+
+    def get_dependency_installation_command(
+        self, blitz_path: str, bundle_path: str
+    ) -> str:
+        venv_python = shlex.quote(posixpath.join(blitz_path, VENV_PATH))
+        wheel_dir = shlex.quote(
+            posixpath.join(bundle_path, "deps", self.get_language_name())
+        )
+        return (
+            f"cd {shlex.quote(blitz_path)} && "
+            f"{venv_python} -m pip install "
+            "--no-index "
+            "--no-cache-dir "
+            f"--find-links {wheel_dir} "
+            f"{wheel_dir}/*.whl"
+        )
 
     def get_run_command(self, bundle_path: str) -> str:
         extra_run_args = self.get_extra_run_args()
