@@ -15,3 +15,11 @@ services:
     privileged: true
     cgroup: host
     command: ["/sbin/init"]
+  blitz-clean:
+    hostname: blitz-clean
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.clean
+    privileged: true
+    cgroup: host
+    command: ["/sbin/init"]

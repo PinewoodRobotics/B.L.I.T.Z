@@ -40,13 +40,16 @@ help:
 		'  make deploy-wipe              Run scripts/deploy/wipe_target.sh on the target' \
 		'  make deploy-flash TARGET_NAME=x  Run scripts/deploy/flash_target.sh on the target' \
 
-setup: dependencies create-python-venv link generate ensure-name install-service
+setup: dependencies create-python-venv link generate ensure-name install-service give-rw-perms
 
-rebuild: generate create-python-venv ensure-name install-service
+rebuild: generate create-python-venv ensure-name install-service give-rw-perms
 
 create-python-venv:
 	@if [ ! -d ".venv" ]; then python3 -m venv .venv; fi
 	$(VENV_PYTHON) -m pip install -e .
+
+give-rw-perms:
+	sudo chmod 777 "${TARGET_FOLDER}"
 
 dependencies:
 	bash ./scripts/bootstrap/install_dependencies.sh
