@@ -6,12 +6,14 @@ DEFAULT_GIT_URL="https://github.com/PinewoodRobotics/B.L.I.T.Z.git"
 DEFAULT_SETUP_SCRIPT_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/setup.sh"
 DEFAULT_TARGET_FOLDER="/opt/blitz/"
 DEFAULT_SERVICE_NAME="startup"
+TEMP_DIR=""
 
 if [ -t 1 ]; then
     BOLD="$(printf '\033[1m')"
     DIM="$(printf '\033[2m')"
     GREEN="$(printf '\033[32m')"
     YELLOW="$(printf '\033[33m')"
+    BLUE="$(printf '\033[34m')"
     RED="$(printf '\033[31m')"
     RESET="$(printf '\033[0m')"
 else
@@ -19,9 +21,18 @@ else
     DIM=""
     GREEN=""
     YELLOW=""
+    BLUE=""
     RED=""
     RESET=""
 fi
+
+clear_screen() {
+    if command -v clear >/dev/null 2>&1; then
+        clear
+    else
+        printf '\033[2J\033[H'
+    fi
+}
 
 print_header() {
     printf '\n%s\n' "${BOLD}B.L.I.T.Z System Installer${RESET}"
@@ -38,6 +49,12 @@ warn() {
 
 error() {
     printf '%s\n' "${RED}Error:${RESET} $*" >&2
+}
+
+cleanup() {
+    if [ -n "${TEMP_DIR}" ]; then
+        rm -rf "${TEMP_DIR}"
+    fi
 }
 
 verify_supported_system() {
@@ -75,74 +92,166 @@ verify_supported_system() {
     esac
 }
 
-prompt_default() {
-    local var_name="$1"
-    local prompt="$2"
-    local default_value="$3"
+prompt_text() {
+    local title="$1"
+    local var_name="$2"
+    local label="$3"
+    local default_value="$4"
+    local required="${5:-false}"
     local value
-
-    if [ -n "${!var_name:-}" ]; then
-        printf -v "${var_name}" '%s' "${!var_name}"
-        return
-    fi
+    local current_value="${!var_name:-${default_value}}"
 
     if [ ! -t 0 ]; then
-        printf -v "${var_name}" '%s' "${default_value}"
-        return
-    fi
-
-    read -r -p "${prompt} [${default_value}]: " value
-    printf -v "${var_name}" '%s' "${value:-${default_value}}"
-}
-
-prompt_required() {
-    local var_name="$1"
-    local prompt="$2"
-    local value
-
-    if [ -n "${!var_name:-}" ]; then
-        printf -v "${var_name}" '%s' "${!var_name}"
-        return
-    fi
-
-    if [ ! -t 0 ]; then
-        error "${var_name} is required in non-interactive mode."
-        exit 1
-    fi
-
-    while [ -z "${value:-}" ]; do
-        read -r -p "${prompt}: " value
-        if [ -z "${value}" ]; then
-            warn "Please enter a value."
+        if [ "${required}" = "true" ] && [ -z "${current_value}" ]; then
+            error "${var_name} is required in non-interactive mode."
+            exit 1
         fi
-    done
-
-    printf -v "${var_name}" '%s' "${value}"
-}
-
-confirm_install() {
-    local answer
-
-    if [ "${BLITZ_ASSUME_YES:-false}" = "true" ] || [ ! -t 0 ]; then
+        printf -v "${var_name}" '%s' "${current_value}"
         return
     fi
 
-    printf '\n%s\n' "${BOLD}Install settings${RESET}"
-    printf '  System name:    %s\n' "${TARGET_NAME}"
-    printf '  Install folder: %s\n' "${TARGET_FOLDER}"
-    printf '  Service name:   %s\n' "${SERVICE_NAME}"
-    printf '  Git repository: %s\n' "${GIT_URL}"
-    printf '\n'
+    while true; do
+        clear_screen
+        print_header
+        printf '%s\n' "${BOLD}${title}${RESET}"
+        printf '%s\n\n' "${DIM}Press Enter to accept the value in brackets.${RESET}"
+        read -r -p "${label} [${current_value}]: " value
+        value="${value:-${current_value}}"
 
-    read -r -p "Continue with installation? [Y/n]: " answer
-    case "${answer}" in
-        "" | [Yy] | [Yy][Ee][Ss])
-            ;;
-        *)
-            printf '%s\n' "Installation cancelled."
-            exit 0
-            ;;
-    esac
+        if [ "${required}" = "true" ] && [ -z "${value}" ]; then
+            warn "This value is required."
+            read -r -p "Press Enter to try again..." _
+            continue
+        fi
+
+        printf -v "${var_name}" '%s' "${value}"
+        break
+    done
+}
+
+selected_menu_index=0
+
+select_menu() {
+    local title="$1"
+    shift
+    local options=("$@")
+    local selected=0
+    local key
+    local rest
+    local index
+
+    while true; do
+        clear_screen
+        print_header
+        printf '%s\n' "${BOLD}${title}${RESET}"
+        printf '%s\n\n' "${DIM}Use arrow keys to move, then press Enter.${RESET}"
+
+        for index in "${!options[@]}"; do
+            if [ "${index}" -eq "${selected}" ]; then
+                printf '  %s> %s%s\n' "${BLUE}${BOLD}" "${options[${index}]}" "${RESET}"
+            else
+                printf '    %s\n' "${options[${index}]}"
+            fi
+        done
+
+        IFS= read -rsn1 key || true
+        case "${key}" in
+            "")
+                selected_menu_index="${selected}"
+                return
+                ;;
+            $'\x1b')
+                IFS= read -rsn2 -t 0.1 rest || true
+                case "${rest}" in
+                    "[A")
+                        if [ "${selected}" -le 0 ]; then
+                            selected=$((${#options[@]} - 1))
+                        else
+                            selected=$((selected - 1))
+                        fi
+                        ;;
+                    "[B")
+                        selected=$(((selected + 1) % ${#options[@]}))
+                        ;;
+                esac
+                ;;
+            q | Q)
+                selected_menu_index="$((${#options[@]} - 1))"
+                return
+                ;;
+        esac
+    done
+}
+
+configure_basic_settings() {
+    prompt_text "Step 1 of 3: Name this system" TARGET_NAME "System name" "${TARGET_NAME:-}" true
+    prompt_text "Step 2 of 3: Choose install folder" TARGET_FOLDER "Install folder" "${TARGET_FOLDER:-${DEFAULT_TARGET_FOLDER}}" false
+    prompt_text "Step 3 of 3: Choose service name" SERVICE_NAME "Systemd service name" "${SERVICE_NAME:-${DEFAULT_SERVICE_NAME}}" false
+}
+
+configure_non_interactive_settings() {
+    : "${TARGET_NAME:?TARGET_NAME is required}"
+    TARGET_FOLDER="${TARGET_FOLDER:-${DEFAULT_TARGET_FOLDER}}"
+    SERVICE_NAME="${SERVICE_NAME:-${DEFAULT_SERVICE_NAME}}"
+    GIT_URL="${GIT_URL:-${DEFAULT_GIT_URL}}"
+    BLITZ_SETUP_SCRIPT_URL="${BLITZ_SETUP_SCRIPT_URL:-${DEFAULT_SETUP_SCRIPT_URL}}"
+}
+
+advanced_settings_menu() {
+    while true; do
+        select_menu \
+            "Advanced settings" \
+            "Edit Git repository URL" \
+            "Edit setup.sh URL" \
+            "Back"
+
+        case "${selected_menu_index}" in
+            0)
+                prompt_text "Advanced: Git repository" GIT_URL "Git repository URL" "${GIT_URL}" false
+                ;;
+            1)
+                prompt_text "Advanced: setup.sh source" BLITZ_SETUP_SCRIPT_URL "setup.sh URL" "${BLITZ_SETUP_SCRIPT_URL}" false
+                ;;
+            *)
+                return
+                ;;
+        esac
+    done
+}
+
+review_install_settings() {
+    while true; do
+        select_menu \
+            "Review install settings" \
+            "Start installation" \
+            "Edit system name        ${TARGET_NAME}" \
+            "Edit install folder     ${TARGET_FOLDER}" \
+            "Edit service name       ${SERVICE_NAME}" \
+            "Advanced settings" \
+            "Cancel"
+
+        case "${selected_menu_index}" in
+            0)
+                return
+                ;;
+            1)
+                prompt_text "Edit system name" TARGET_NAME "System name" "${TARGET_NAME}" true
+                ;;
+            2)
+                prompt_text "Edit install folder" TARGET_FOLDER "Install folder" "${TARGET_FOLDER}" false
+                ;;
+            3)
+                prompt_text "Edit service name" SERVICE_NAME "Systemd service name" "${SERVICE_NAME}" false
+                ;;
+            4)
+                advanced_settings_menu
+                ;;
+            *)
+                printf '%s\n' "Installation cancelled."
+                exit 0
+                ;;
+        esac
+    done
 }
 
 require_command() {
@@ -185,25 +294,24 @@ local_setup_script() {
 
 main() {
     local setup_script="${BLITZ_SETUP_SCRIPT:-}"
-    local temp_dir=""
 
     print_header
 
     verify_supported_system
 
-    if [ "${EUID}" -eq 0 ]; then
-        warn "Running as root is not recommended; setup commands use sudo where needed."
-    else
+    if [ "${EUID}" -ne 0 ]; then
         require_command sudo
     fi
 
-    prompt_required TARGET_NAME "System name for this BLITZ install"
-    prompt_default TARGET_FOLDER "Install folder" "${DEFAULT_TARGET_FOLDER}"
-    prompt_default SERVICE_NAME "Systemd service name" "${DEFAULT_SERVICE_NAME}"
-    prompt_default GIT_URL "Git repository URL" "${DEFAULT_GIT_URL}"
-    prompt_default BLITZ_SETUP_SCRIPT_URL "setup.sh URL" "${DEFAULT_SETUP_SCRIPT_URL}"
+    GIT_URL="${GIT_URL:-${DEFAULT_GIT_URL}}"
+    BLITZ_SETUP_SCRIPT_URL="${BLITZ_SETUP_SCRIPT_URL:-${DEFAULT_SETUP_SCRIPT_URL}}"
 
-    confirm_install
+    if [ "${BLITZ_ASSUME_YES:-false}" = "true" ] || [ ! -t 0 ]; then
+        configure_non_interactive_settings
+    else
+        configure_basic_settings
+        review_install_settings
+    fi
 
     if [ -n "${setup_script}" ]; then
         if [ ! -f "${setup_script}" ]; then
@@ -213,16 +321,20 @@ main() {
     elif setup_script="$(local_setup_script)"; then
         info "Using local setup script: ${setup_script}"
     else
-        temp_dir="$(mktemp -d)"
-        trap 'rm -rf "${temp_dir}"' EXIT
-        setup_script="${temp_dir}/setup.sh"
+        TEMP_DIR="$(mktemp -d)"
+        trap cleanup EXIT
+        setup_script="${TEMP_DIR}/setup.sh"
         info "Downloading setup script..."
         download_file "${BLITZ_SETUP_SCRIPT_URL}" "${setup_script}"
     fi
 
     chmod +x "${setup_script}"
 
-    info "Starting BLITZ setup. You may be prompted for your sudo password."
+    if [ "${EUID}" -eq 0 ]; then
+        info "Starting BLITZ setup as root."
+    else
+        info "Starting BLITZ setup. You may be prompted for your sudo password."
+    fi
     TARGET_NAME="${TARGET_NAME}" \
     TARGET_FOLDER="${TARGET_FOLDER}" \
     SERVICE_NAME="${SERVICE_NAME}" \
