@@ -69,6 +69,7 @@ class DockerTestRunner:
         network: Network | None = None,
         aliases: list[str] | None = None,
         environment: dict[str, str] | None = None,
+        ports: dict[str, object] | None = None,
     ) -> Container:
         container_name = f"blitz-pytest-{name_suffix}-{int(time.time() * 1000)}"
         run_kwargs = {
@@ -79,6 +80,7 @@ class DockerTestRunner:
             "privileged": True,
             "tmpfs": {"/run": "", "/run/lock": ""},
             "environment": environment,
+            "ports": ports,
         }
         try:
             container = self.client.containers.run(cgroupns="host", **run_kwargs)

@@ -103,7 +103,7 @@ run: ensure-name
 	./scripts/runtime/run_watchdog.sh
 
 test: create-python-venv
-	$(VENV_PYTHON) -m pip install -r requirements-dev.txt
+	$(VENV_PYTHON) -m pip install -r requirements.txt.dev
 	$(VENV_PYTHON) -m pytest
 
 install-service: link ensure-name
