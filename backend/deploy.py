@@ -24,10 +24,15 @@ def get_modules() -> list[SupportedModules.Generic]:
 if __name__ == "__main__":
     output.set_verbosity(False)
 
-    _ = BlitzNetworkDeployer.Options.should_bundle_dependencies(
-        True
-    ).set_discovery_timeout(2)
+    config = (
+        BlitzNetworkDeployer.Options()
+        .should_bundle_dependencies(True)
+        .set_discovery_timeout(2)
+        .build()
+    )
 
     BlitzNetworkDeployer.deploy(
-        get_modules(), mapper=pi_name_to_process_types, local_backend_path="backend/"
+        get_modules(),
+        pi_name_to_process_types,
+        config=config,
     )

@@ -10,7 +10,6 @@ import socket
 from dataclasses import asdict, dataclass
 import platform
 import sys
-import sysconfig
 from pathlib import Path
 from typing import Any
 
@@ -147,51 +146,6 @@ def get_camera_tty_ports() -> list[str]:
     return ports
 
 
-def safe_run(cmd):
-    try:
-        p = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False,
-        )
-        return {
-            "returncode": p.returncode,
-            "stdout": p.stdout,
-            "stderr": p.stderr,
-        }
-    except Exception as e:
-        return {
-            "returncode": -1,
-            "stdout": "",
-            "stderr": str(e),
-        }
-
-
-def guess_implementation_short():
-    name = platform.python_implementation()
-    mapping = {
-        "CPython": "cp",
-        "PyPy": "pp",
-        "Jython": "jy",
-        "IronPython": "ip",
-    }
-    return mapping.get(name, name.lower())
-
-
-def guess_abi():
-    """
-    Best-effort ABI guess.
-    For CPython this is usually cpXY, e.g. cp311.
-    """
-    impl = guess_implementation_short()
-    ver = f"{sys.version_info.major}{sys.version_info.minor}"
-    if impl == "cp":
-        return f"cp{ver}"
-    return None
-
-
 def read_os_release() -> dict[str, str]:
     os_release_path = Path("/etc/os-release")
     if not os_release_path.exists():
@@ -210,68 +164,26 @@ def read_os_release() -> dict[str, str]:
 
 @dataclass
 class RaspberryPiInfo:
-    os_name: str
-    sys_platform: str
-    platform_system: str
-    platform_release: str
-    platform_version: str
     platform_machine: str
     platform_platform: str
-    python_executable: str
-    python_version: str
     python_version_major: int
     python_version_minor: int
-    python_version_micro: int
-    python_implementation: str
-    implementation_short: str
-    abi_guess: str | None
-    sys_abiflags: str
-    soabi: str | None
-    ext_suffix: str | None
-    pip_version: str
-    os_release_pretty_name: str | None = None
-    os_release_name: str | None = None
     os_release_id: str | None = None
     os_release_id_like: str | None = None
-    os_release_version: str | None = None
     os_release_version_id: str | None = None
-    os_release_version_codename: str | None = None
 
     @classmethod
     def collect(cls) -> "RaspberryPiInfo":
-        pip_ver = safe_run([sys.executable, "-m", "pip", "--version"])
-        pip_version = (
-            pip_ver["stdout"].strip() if isinstance(pip_ver["stdout"], str) else ""
-        ) or (pip_ver["stderr"].strip() if isinstance(pip_ver["stderr"], str) else "")
         os_release = read_os_release()
 
         return cls(
-            os_name=os.name,
-            sys_platform=sys.platform,
-            platform_system=platform.system(),
-            platform_release=platform.release(),
-            platform_version=platform.version(),
             platform_machine=platform.machine(),
             platform_platform=platform.platform(),
-            python_executable=sys.executable,
-            python_version=platform.python_version(),
             python_version_major=sys.version_info.major,
             python_version_minor=sys.version_info.minor,
-            python_version_micro=sys.version_info.micro,
-            python_implementation=platform.python_implementation(),
-            implementation_short=guess_implementation_short(),
-            abi_guess=guess_abi(),
-            sys_abiflags=getattr(sys, "abiflags", ""),
-            soabi=sysconfig.get_config_var("SOABI"),
-            ext_suffix=sysconfig.get_config_var("EXT_SUFFIX"),
-            pip_version=pip_version,
-            os_release_pretty_name=os_release.get("PRETTY_NAME"),
-            os_release_name=os_release.get("NAME"),
             os_release_id=os_release.get("ID"),
             os_release_id_like=os_release.get("ID_LIKE"),
-            os_release_version=os_release.get("VERSION"),
             os_release_version_id=os_release.get("VERSION_ID"),
-            os_release_version_codename=os_release.get("VERSION_CODENAME"),
         )
 
     @classmethod

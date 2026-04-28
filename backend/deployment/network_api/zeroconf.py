@@ -19,76 +19,29 @@ SERVICE = "_watchdog._udp.local."
 
 @dataclass
 class CoprocessorInfo:
-    os_name: str
-    sys_platform: str
-    platform_system: str
-    platform_release: str
-    platform_version: str
     platform_machine: str
     platform_platform: str
-    python_executable: str
-    python_version: str
     python_version_major: int
     python_version_minor: int
-    python_version_micro: int
-    python_implementation: str
-    implementation_short: str
-    abi_guess: str | None
-    sys_abiflags: str
-    soabi: str | None
-    ext_suffix: str | None
-    pip_version: str
-    os_release_pretty_name: str | None = None
-    os_release_name: str | None = None
     os_release_id: str | None = None
     os_release_id_like: str | None = None
-    os_release_version: str | None = None
     os_release_version_id: str | None = None
-    os_release_version_codename: str | None = None
 
     @classmethod
     def from_properties(cls, properties: Mapping[str, object]) -> "CoprocessorInfo":
         return cls(
-            os_name=_str_property(properties, "os_name"),
-            sys_platform=_str_property(properties, "sys_platform"),
-            platform_system=_str_property(properties, "platform_system"),
-            platform_release=_str_property(properties, "platform_release"),
-            platform_version=_str_property(properties, "platform_version"),
             platform_machine=_str_property(properties, "platform_machine"),
             platform_platform=_str_property(properties, "platform_platform"),
-            python_executable=_str_property(properties, "python_executable"),
-            python_version=_str_property(properties, "python_version"),
             python_version_major=_int_property(properties, "python_version_major"),
             python_version_minor=_int_property(properties, "python_version_minor"),
-            python_version_micro=_int_property(properties, "python_version_micro"),
-            python_implementation=_str_property(properties, "python_implementation"),
-            implementation_short=_str_property(properties, "implementation_short"),
-            abi_guess=_optional_str_property(properties, "abi_guess"),
-            sys_abiflags=_str_property(properties, "sys_abiflags"),
-            soabi=_optional_str_property(properties, "soabi"),
-            ext_suffix=_optional_str_property(properties, "ext_suffix"),
-            pip_version=_str_property(properties, "pip_version"),
-            os_release_pretty_name=_optional_str_property(
-                properties,
-                "os_release_pretty_name",
-            ),
-            os_release_name=_optional_str_property(properties, "os_release_name"),
             os_release_id=_optional_str_property(properties, "os_release_id"),
             os_release_id_like=_optional_str_property(
                 properties,
                 "os_release_id_like",
             ),
-            os_release_version=_optional_str_property(
-                properties,
-                "os_release_version",
-            ),
             os_release_version_id=_optional_str_property(
                 properties,
                 "os_release_version_id",
-            ),
-            os_release_version_codename=_optional_str_property(
-                properties,
-                "os_release_version_codename",
             ),
         )
 
@@ -129,29 +82,11 @@ class DiscoveredNetworkSystem:
             "autobahn_port": self.autobahn_port,
             "blitz_path": self.blitz_path,
             "platform_text": self._platform_text(),
-            "os_name": info.os_name,
-            "sys_platform": info.sys_platform,
-            "platform_system": info.platform_system,
-            "platform_release": info.platform_release,
-            "platform_version": info.platform_version,
             "platform_machine": info.platform_machine,
             "platform_platform": info.platform_platform,
-            "python_executable": info.python_executable,
-            "python_version": info.python_version,
-            "python_implementation": info.python_implementation,
-            "implementation_short": info.implementation_short,
-            "abi_guess": info.abi_guess,
-            "sys_abiflags": info.sys_abiflags,
-            "soabi": info.soabi,
-            "ext_suffix": info.ext_suffix,
-            "pip_version": info.pip_version,
-            "os_release_pretty_name": info.os_release_pretty_name,
-            "os_release_name": info.os_release_name,
             "os_release_id": info.os_release_id,
             "os_release_id_like": info.os_release_id_like,
-            "os_release_version": info.os_release_version,
             "os_release_version_id": info.os_release_version_id,
-            "os_release_version_codename": info.os_release_version_codename,
         }
 
     def _platform_text(self) -> str:
@@ -160,15 +95,9 @@ class DiscoveredNetworkSystem:
             value
             for value in [
                 info.platform_platform,
-                info.platform_version,
-                info.platform_release,
-                info.os_release_pretty_name,
-                info.os_release_name,
                 info.os_release_id,
                 info.os_release_id_like,
-                info.os_release_version,
                 info.os_release_version_id,
-                info.os_release_version_codename,
             ]
             if value
         ).lower()
@@ -187,52 +116,20 @@ class DiscoveredNetworkSystem:
             raise self._system_id_error("Could not infer glibc version")
         glibc_version = glibc_match.group("version")
 
-        architecture_by_machine = {
-            "aarch64": Architecture.AARCH64,
-            "arm64": Architecture.AARCH64,
-            "x86_64": Architecture.AMD64,
-            "amd64": Architecture.AMD64,
-            "armv7l": Architecture.ARM32,
-            "armv7": Architecture.ARM32,
-            "armhf": Architecture.ARM32,
-        }
-        linux_distro_by_text = {
-            "24.04": LinuxDistro.UBUNTU_24,
-            "24-04": LinuxDistro.UBUNTU_24,
-            "noble": LinuxDistro.UBUNTU_24,
-            "22.04": LinuxDistro.UBUNTU_22,
-            "22-04": LinuxDistro.UBUNTU_22,
-            "jammy": LinuxDistro.UBUNTU_22,
-            "20.04": LinuxDistro.UBUNTU_20,
-            "20-04": LinuxDistro.UBUNTU_20,
-            "focal": LinuxDistro.UBUNTU_20,
-            "bookworm": LinuxDistro.DEBIAN_12,
-            "bullseye": LinuxDistro.DEBIAN_11,
-        }
+        try:
+            architecture = Architecture.from_machine(info.platform_machine)
+        except ValueError as error:
+            raise self._system_id_error(str(error)) from error
 
-        architecture = architecture_by_machine.get(info.platform_machine.lower())
-        if architecture is None:
-            raise self._system_id_error(
-                f"Unsupported architecture from zeroconf: {info.platform_machine}"
+        try:
+            linux_distro = LinuxDistro.from_os_release(
+                os_id=info.os_release_id,
+                os_id_like=info.os_release_id_like,
+                version_id=info.os_release_version_id,
+                platform_text=platform_text,
             )
-
-        linux_distro = next(
-            (
-                distro
-                for marker, distro in linux_distro_by_text.items()
-                if marker in platform_text
-            ),
-            LinuxDistro.UBUNTU_24 if "ubuntu" in platform_text else None,
-        )
-        if (
-            linux_distro is None
-            and self.system_name == "blitz-discoverable-dev-test"
-            and "linuxkit" in platform_text
-            and glibc_version == "2.39"
-        ):
-            linux_distro = LinuxDistro.UBUNTU_24
-        if linux_distro is None:
-            raise self._system_id_error("Could not infer Linux distro")
+        except ValueError as error:
+            raise self._system_id_error(str(error)) from error
 
         return SystemId(
             c_lib_version=glibc_version,

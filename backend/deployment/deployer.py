@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 
 from backend.deployment.bundler import CodeBundler
 from backend.deployment.compilation.util.systems import SystemId
@@ -19,35 +20,27 @@ ProcessMapper = Callable[..., Mapping[str, Sequence[WeightedProcess]]]
 
 
 class BlitzNetworkDeployer:
-    build_folder_path: str = "build/"
-    output_folder_path: str = "build/bundle-outputs/"
-    bundle_name: str = "backend-bundle"
-    remote_bundle_path: str = "bundles/"
-    discovery_timeout: float = 5.0
-    bundle_dependencies: bool = False
-    host_to_pass_user_mapper: dict[str, tuple[str, str]] = {}
-    docker_compose_service_mapper: dict[str, str] = {
-        "blitz-discoverable-dev-test": "blitz-dev-test",
-    }
-
     @staticmethod
     def deploy(
         modules: list[Module],
         mapper: ProcessMapper,
-        local_backend_path: str,
+        config: BlitzNetworkDeployer.Options | None = None,
     ) -> None:
+        if config is None:
+            config = BlitzNetworkDeployer.Options().build()
+
         output.start_deployment()
-        output.start_discovery(BlitzNetworkDeployer.discovery_timeout)
+        output.start_discovery(config.discovery_timeout)
+
         discovered_systems = discover_all_on_network(
-            timeout_seconds=BlitzNetworkDeployer.discovery_timeout,
+            timeout_seconds=config.discovery_timeout,
             on_discovered=BlitzNetworkDeployer._log_discovered_system,
             on_tick=output.discovery_tick,
         )
+
         output.finish_discovery(len(discovered_systems))
 
         systems = {System(general_info=discovered) for discovered in discovered_systems}
-        for system in systems:
-            BlitzNetworkDeployer._configure_system_transport(system)
 
         system_ids = BlitzNetworkDeployer._unique_system_ids(systems)
         for system_id in system_ids:
@@ -56,23 +49,23 @@ class BlitzNetworkDeployer:
             output.refresh_deployment_display()
             _ = CodeBundler(
                 modules=modules,
-                backend_local_path=local_backend_path,
-                build_folder_path=BlitzNetworkDeployer.build_folder_path,
-                output_folder_path=BlitzNetworkDeployer.output_folder_path,
+                backend_local_path=config.local_backend_path,
+                build_folder_path=config.build_folder_path,
+                output_folder_path=config.output_folder_path,
                 system_id=system_id,
-                bundle_name=BlitzNetworkDeployer.bundle_name,
-                bundle_dependencies=BlitzNetworkDeployer.bundle_dependencies,
+                bundle_name=config.bundle_name,
+                bundle_dependencies=config.bundle_dependencies,
                 additional_files=[],
             ).bundle()
             output.deployment_stage(bundle_stage, "done", "bundle archive ready")
 
         Rsyncer(
             modules=modules,
-            local_bundler_output_path=BlitzNetworkDeployer.output_folder_path,
-            backend_bundle_path=BlitzNetworkDeployer.remote_bundle_path,
+            local_bundler_output_path=config.output_folder_path,
+            backend_bundle_path=config.remote_bundle_path,
             systems=systems,
-            system_host_to_pass_user=BlitzNetworkDeployer.host_to_pass_user_mapper,
-            are_deps_bundled=BlitzNetworkDeployer.bundle_dependencies,
+            system_host_to_pass_user=config.host_to_pass_user_mapper,
+            are_deps_bundled=config.bundle_dependencies,
         ).deploy()
 
         process_mapping = mapper(
@@ -155,88 +148,85 @@ class BlitzNetworkDeployer:
         for label, value in system.system_id_diagnostics().items():
             output.detail(f"zeroconf {label}", value)
 
-    @staticmethod
-    def _configure_system_transport(system: System) -> None:
-        docker_service = BlitzNetworkDeployer.docker_compose_service_mapper.get(
-            system.general_info.system_name,
-            BlitzNetworkDeployer.docker_compose_service_mapper.get(
-                system.general_info.hostname
-            ),
-        )
-        if docker_service is None:
-            return
-
-        system.docker_compose_service = docker_service
-        output.detail(
-            "deploy transport",
-            f"{system.general_info.system_name} -> docker compose {docker_service}",
-        )
-
+    @dataclass
     class Options:
-        @staticmethod
+        local_backend_path: str = "src/backend"
+        build_folder_path: str = "build/"
+        output_folder_path: str = "build/bundle-outputs/"
+        bundle_name: str = "backend-bundle"
+        remote_bundle_path: str = "bundles/"
+        discovery_timeout: float = 5.0
+        bundle_dependencies: bool = False
+        host_to_pass_user_mapper: dict[str, tuple[str, str]] = field(
+            default_factory=dict
+        )
+
         def set_host_to_pass_user_mapper(
+            self,
             mapper: dict[str, tuple[str, str]],
-        ) -> "type[BlitzNetworkDeployer.Options]":
-            BlitzNetworkDeployer.host_to_pass_user_mapper = mapper
-            return BlitzNetworkDeployer.Options
+        ) -> "BlitzNetworkDeployer.Options":
+            self.host_to_pass_user_mapper = dict(mapper)
+            return self
 
-        @staticmethod
+        def set_local_backend_path(
+            self,
+            path: str,
+        ) -> "BlitzNetworkDeployer.Options":
+            self.local_backend_path = path
+            return self
+
         def set_pass_user_for_host(
-            host: str, pass_user: tuple[str, str]
-        ) -> "type[BlitzNetworkDeployer.Options]":
-            BlitzNetworkDeployer.host_to_pass_user_mapper[host] = pass_user
-            return BlitzNetworkDeployer.Options
+            self,
+            host: str,
+            pass_user: tuple[str, str],
+        ) -> "BlitzNetworkDeployer.Options":
+            self.host_to_pass_user_mapper[host] = pass_user
+            return self
 
-        @staticmethod
-        def set_docker_compose_service_mapper(
-            mapper: dict[str, str],
-        ) -> "type[BlitzNetworkDeployer.Options]":
-            BlitzNetworkDeployer.docker_compose_service_mapper = mapper
-            return BlitzNetworkDeployer.Options
-
-        @staticmethod
-        def set_docker_compose_service_for_system(
-            system_name_or_host: str,
-            service: str,
-        ) -> "type[BlitzNetworkDeployer.Options]":
-            BlitzNetworkDeployer.docker_compose_service_mapper[system_name_or_host] = (
-                service
-            )
-            return BlitzNetworkDeployer.Options
-
-        @staticmethod
         def set_discovery_timeout(
+            self,
             timeout: float,
-        ) -> "type[BlitzNetworkDeployer.Options]":
-            BlitzNetworkDeployer.discovery_timeout = timeout
-            return BlitzNetworkDeployer.Options
+        ) -> "BlitzNetworkDeployer.Options":
+            self.discovery_timeout = timeout
+            return self
 
-        @staticmethod
         def should_bundle_dependencies(
+            self,
             dependencies: bool,
-        ) -> "type[BlitzNetworkDeployer.Options]":
-            BlitzNetworkDeployer.bundle_dependencies = dependencies
-            return BlitzNetworkDeployer.Options
+        ) -> "BlitzNetworkDeployer.Options":
+            self.bundle_dependencies = dependencies
+            return self
 
-        @staticmethod
-        def set_build_folder_path(path: str) -> "type[BlitzNetworkDeployer.Options]":
-            BlitzNetworkDeployer.build_folder_path = path
-            return BlitzNetworkDeployer.Options
+        def set_build_folder_path(
+            self,
+            path: str,
+        ) -> "BlitzNetworkDeployer.Options":
+            self.build_folder_path = path
+            return self
 
-        @staticmethod
-        def set_output_folder_path(path: str) -> "type[BlitzNetworkDeployer.Options]":
-            BlitzNetworkDeployer.output_folder_path = path
-            return BlitzNetworkDeployer.Options
+        def set_output_folder_path(
+            self,
+            path: str,
+        ) -> "BlitzNetworkDeployer.Options":
+            self.output_folder_path = path
+            return self
 
-        @staticmethod
-        def set_bundle_name(name: str) -> "type[BlitzNetworkDeployer.Options]":
-            BlitzNetworkDeployer.bundle_name = name
-            return BlitzNetworkDeployer.Options
+        def set_bundle_name(
+            self,
+            name: str,
+        ) -> "BlitzNetworkDeployer.Options":
+            self.bundle_name = name
+            return self
 
-        @staticmethod
-        def set_remote_bundle_path(path: str) -> "type[BlitzNetworkDeployer.Options]":
-            BlitzNetworkDeployer.remote_bundle_path = path
-            return BlitzNetworkDeployer.Options
+        def set_remote_bundle_path(
+            self,
+            path: str,
+        ) -> "BlitzNetworkDeployer.Options":
+            self.remote_bundle_path = path
+            return self
+
+        def build(self) -> "BlitzNetworkDeployer.Options":
+            return self
 
 
 def _verify_deploy_file():

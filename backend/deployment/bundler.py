@@ -52,9 +52,9 @@ class CodeBundler:
         self.bundle_name: str = bundle_name
         self.full_bundle_name: str = f"{bundle_name}-{self.system_id.to_build_key()}"
         self.bundle_dependencies: bool = bundle_dependencies
-        self.additional_files: set[str] = {backend_local_path + "deploy.py"} | set(
-            additional_files or []
-        )
+        self.additional_files: set[str] = {
+            os.path.join(backend_local_path, "deploy.py")
+        } | set(additional_files or [])
         self.installed_deps_lang_names: set[str] = set()
 
     # build/backend-bundle/backend-bundle-<system_id>/<language>/<module_name>

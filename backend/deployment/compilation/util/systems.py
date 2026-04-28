@@ -18,6 +18,22 @@ class Architecture(Enum):
     ARM32 = "arm32"
     AARCH64 = "aarch64"
 
+    @classmethod
+    def from_machine(cls, machine: str) -> "Architecture":
+        normalized = machine.lower().replace("_", "-")
+        match normalized:
+            case "x86-64":
+                return cls.AMD64
+            case "aarch64" | "arm64":
+                return cls.AARCH64
+            case "armv7l" | "armv7" | "armhf":
+                return cls.ARM32
+            case _:
+                try:
+                    return cls(normalized)
+                except ValueError as error:
+                    raise ValueError(f"Unsupported architecture: {machine}") from error
+
     def to_manylinux_arch_tag(self) -> str:
         match self:
             case Architecture.AMD64:
@@ -39,6 +55,31 @@ class LinuxDistro(Enum):
 
     DEBIAN_12 = "debian:12"  # Debian 12 Bookworm - GLIBC 2.36
     DEBIAN_11 = "debian:11"  # Debian 11 Bullseye - GLIBC 2.31
+
+    @classmethod
+    def from_os_release(
+        cls,
+        *,
+        os_id: str | None,
+        os_id_like: str | None,
+        version_id: str | None,
+        platform_text: str,
+    ) -> "LinuxDistro":
+        release_ids = {
+            value.lower()
+            for value in [os_id, *(os_id_like or "").split()]
+            if value
+        }
+
+        for distro in cls:
+            distro_id, _, distro_version = distro.value.partition(":")
+            distro_id = distro_id.rsplit("/", 1)[-1]
+            if distro_id in release_ids and version_id == distro_version:
+                return distro
+            if distro_id in platform_text and distro_version in platform_text:
+                return distro
+
+        raise ValueError("Could not infer Linux distro")
 
     def remove_nonchars(self) -> str:
         return self.value.replace(":", "-").replace(".", "_")

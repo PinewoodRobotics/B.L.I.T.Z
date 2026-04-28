@@ -1,5 +1,6 @@
 services:
   blitz-unit-test:
+    hostname: blitz-unit-test
     build:
       context: .
       dockerfile: docker/Dockerfile.unit.test
@@ -7,6 +8,7 @@ services:
     cgroup: host
     command: ["/sbin/init"]
   blitz-dev-test:
+    hostname: blitz-dev-test
     build:
       context: .
       dockerfile: docker/Dockerfile.dev.test
