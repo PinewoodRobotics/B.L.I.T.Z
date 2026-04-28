@@ -1,6 +1,12 @@
-## B.L.I.T.Z
+# B.L.I.T.Z
 
 Multi-process robotics stack with a Python watchdog, codegen, and deploy tooling.
+
+## Easy Setup
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install_on_system.sh)"
+```
 
 ## Quickstart (local)
 
