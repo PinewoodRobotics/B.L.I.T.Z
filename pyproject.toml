@@ -30,4 +30,5 @@ where = ["."]
 include = ["backend*", "watchdog*"]
 
 [tool.pytest.ini_options]
-testpaths = ["watchdog/", "backend/"]
+testpaths = ["watchdog/", "backend/", "__tests__/"]
+python_files = ["test_*.py", "*_tests.py"]

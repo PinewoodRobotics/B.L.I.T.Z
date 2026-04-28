@@ -7,7 +7,7 @@ set -euo pipefail
 if [ -f /etc/default/blitz ]; then
     sudo rm -rf /etc/default/blitz
     printf '%s\n' "Deleted /etc/default/blitz"
-els
+else
     printf '%s\n' "/etc/default/blitz does not exist. Skipping deletion..."
 fi
 

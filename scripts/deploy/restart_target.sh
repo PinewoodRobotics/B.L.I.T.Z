@@ -8,5 +8,7 @@ set -euo pipefail
 : "${TARGET_PORT:=22}"
 : "${SERVICE_NAME:=startup}"
 
-sshpass -p "${SSH_PASS}" ssh -tt -p "${TARGET_PORT}" "${TARGET_USER}@${UBUNTU_TARGET}" \
-    "echo \"${SSH_PASS}\" | sudo -S systemctl restart ${SERVICE_NAME}"
+SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+sshpass -p "${SSH_PASS}" ssh ${SSH_OPTIONS} -p "${TARGET_PORT}" "${TARGET_USER}@${UBUNTU_TARGET}" \
+    "echo \"${SSH_PASS}\" | sudo -S systemctl restart \"${SERVICE_NAME}\""

@@ -13,6 +13,9 @@ make run
 
 ## Tests
 
+The default test suite includes Docker-based installation tests. Start Docker
+before running tests.
+
 ```bash
 make test
 ```

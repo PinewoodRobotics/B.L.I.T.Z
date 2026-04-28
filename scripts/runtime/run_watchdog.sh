@@ -3,7 +3,7 @@
 set -euo pipefail
 
 : "${VENV_PYTHON:=./.venv/bin/python}"
-: "${BLITZ_PATH:=$(BLITZ_PATH)}"
+: "${BLITZ_PATH:=$(pwd)}"
 
 cd "${BLITZ_PATH}"
 
@@ -12,4 +12,4 @@ if [ ! -s "system_data/name.txt" ]; then
     exit 1
 fi
 
-exec ${VENV_PYTHON} -u -m watchdog
+exec "${VENV_PYTHON}" -u -m watchdog

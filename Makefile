@@ -103,6 +103,7 @@ run: ensure-name
 	./scripts/runtime/run_watchdog.sh
 
 test: create-python-venv
+	$(VENV_PYTHON) -m pip install -r requirements-dev.txt
 	$(VENV_PYTHON) -m pytest
 
 install-service: link ensure-name
@@ -117,6 +118,8 @@ deploy-sync:
 	TARGET_USER="$(TARGET_USER)" \
 	SSH_PASS="$(SSH_PASS)" \
 	TARGET_PORT="$(TARGET_PORT)" \
+	TARGET_NAME="$(TARGET_NAME)" \
+	SERVICE_NAME="$(SERVICE_NAME)" \
 	bash ./scripts/deploy/sync_target_install.sh
 
 send-to-target: deploy-sync
