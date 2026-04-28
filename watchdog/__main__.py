@@ -1,7 +1,6 @@
 import asyncio
 import os
 import threading
-import importlib
 
 from flask import Flask
 

@@ -49,7 +49,7 @@ create-python-venv:
 	$(VENV_PYTHON) -m pip install -e .
 
 give-rw-perms:
-	sudo chmod 777 "${TARGET_FOLDER}"
+	sudo find "${TARGET_FOLDER}" -type d -exec chmod 777 {} +
 
 dependencies:
 	bash ./scripts/bootstrap/install_dependencies.sh
