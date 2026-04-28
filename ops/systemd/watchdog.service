@@ -7,6 +7,7 @@ Type=simple
 User=ubuntu
 # Written by scripts/bootstrap/install_service.sh (default /etc/default/blitz)
 EnvironmentFile=/etc/default/blitz
+WorkingDirectory=${BLITZ_PATH}
 ExecStart=/bin/bash -c 'exec /bin/bash "${BLITZ_PATH}/scripts/runtime/run_watchdog.sh"'
 Restart=always
 RestartSec=3
