@@ -250,6 +250,27 @@ def test_local_backend_script_changes_backend_folder_and_gradle_blocks(tmp_path:
     assert (project / "build.gradle").read_text().count("// BEGIN BLITZ BACKEND") == 1
 
 
+def test_local_backend_script_deploy_runs_deploy_py_from_project_root(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+
+    install = run_installer(project)
+    assert_success(install)
+
+    (project / "backend" / "deploy.py").write_text(
+        "from pathlib import Path\n"
+        "Path('deploy-ran.txt').write_text(str(Path.cwd()))\n"
+    )
+
+    result = run_local_backend_script(
+        project / "scripts" / "backend.sh",
+        project / "scripts",
+        {"BLITZ_BACKEND_ACTION": "deploy"},
+    )
+
+    assert_success(result)
+    assert (project / "deploy-ran.txt").read_text() == str(project)
+
+
 def test_local_backend_script_creates_python_module_and_requirements(tmp_path: Path):
     project = make_wpilib_project(tmp_path)
 

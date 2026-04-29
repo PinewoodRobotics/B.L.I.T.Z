@@ -712,6 +712,20 @@ check_updates() {
     cleanup
 }
 
+deploy_backend() {
+    local deploy_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+
+    if [ ! -f "${deploy_path}" ]; then
+        error "Deploy script not found: ${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+        exit 1
+    fi
+
+    (
+        cd "${WPILIB_PROJECT}"
+        python3 "${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+    )
+}
+
 settings_menu() {
     local new_backend_dir
 
@@ -770,6 +784,7 @@ main_menu() {
     while true; do
         select_menu \
             "Detected BLITZ backend: ${BLITZ_BACKEND_DIR}" \
+            "Deploy" \
             "Check for updates" \
             "Settings" \
             "Create module" \
@@ -777,15 +792,20 @@ main_menu() {
 
         case "${selected_menu_index}" in
             0)
-                check_updates
+                deploy_backend
                 pause
                 require_initialized_project
                 ;;
             1)
-                settings_menu
+                check_updates
+                pause
                 require_initialized_project
                 ;;
             2)
+                settings_menu
+                require_initialized_project
+                ;;
+            3)
                 create_module_menu
                 require_initialized_project
                 ;;
@@ -798,6 +818,9 @@ main_menu() {
 
 run_non_interactive_action() {
     case "${BLITZ_BACKEND_ACTION:-}" in
+        deploy)
+            deploy_backend
+            ;;
         check-updates)
             check_updates
             ;;
