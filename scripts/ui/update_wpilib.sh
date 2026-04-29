@@ -4,11 +4,12 @@ set -euo pipefail
 
 DEFAULT_GIT_URL="https://github.com/PinewoodRobotics/B.L.I.T.Z.git"
 DEFAULT_UI_LIB_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/common/terminal_ui.sh"
-DEFAULT_BACKEND_DIR="backend"
+DEFAULT_BUILD_VERSION_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/backend/deployment/.build-version"
 DEFAULT_BIN_DIR="bin"
-DEFAULT_DEPLOY_SCRIPT="deploy.py"
+DEFAULT_LOCAL_SCRIPT="backend.sh"
 UI_LIB_TEMP_DIR=""
 CLONED_SOURCE_ROOT=""
+DEPLOYMENT_PATH=""
 
 source_terminal_ui() {
     local source_path="${BASH_SOURCE[0]:-}"
@@ -77,6 +78,22 @@ absolute_path() {
     fi
 }
 
+relative_to_project() {
+    local path="$1"
+
+    case "${path}" in
+        "${WPILIB_PROJECT}")
+            printf '.\n'
+            ;;
+        "${WPILIB_PROJECT}"/*)
+            printf '%s\n' "${path#"${WPILIB_PROJECT}/"}"
+            ;;
+        *)
+            printf '%s\n' "${path}"
+            ;;
+    esac
+}
+
 is_wpilib_java_project() {
     local project_path="$1"
 
@@ -113,42 +130,6 @@ discover_wpilib_project() {
     done
 }
 
-clone_source_root() {
-    local bin_path="${WPILIB_PROJECT}/${BLITZ_BIN_DIR}"
-    local source_root
-
-    require_command git
-
-    mkdir -p "${bin_path}"
-    rm -rf "${bin_path}/B.L.I.T.Z"
-    source_root="${bin_path}/B.L.I.T.Z"
-
-    info "Checking the latest BLITZ source..." >&2
-    git clone --depth 1 --recurse-submodules "${GIT_URL}" "${source_root}"
-    if [ ! -d "${source_root}/backend/deployment" ]; then
-        error "Cloned source does not contain backend/deployment."
-        printf '%s\n' "Source: ${GIT_URL}" >&2
-        printf '%s\n' "Clone path: ${source_root}" >&2
-        printf '%s\n' "Check that the selected BLITZ repository contains backend/deployment." >&2
-        exit 1
-    fi
-
-    printf '%s\n' "${source_root}"
-}
-
-resolve_source_root() {
-    if [ -n "${BLITZ_SOURCE_DIR:-}" ]; then
-        if [ ! -d "${BLITZ_SOURCE_DIR}/backend/deployment" ]; then
-            error "BLITZ_SOURCE_DIR must contain backend/deployment: ${BLITZ_SOURCE_DIR}"
-            exit 1
-        fi
-        absolute_path "${BLITZ_SOURCE_DIR}"
-        return
-    fi
-
-    clone_source_root
-}
-
 configure_project_path() {
     local discovered_path="${DISCOVERED_WPILIB_PROJECT:-}"
 
@@ -183,14 +164,6 @@ configure_project_path() {
     fi
 }
 
-configure_basic_settings() {
-    configure_project_path
-
-    prompt_text "Backend folder" BLITZ_BACKEND_DIR "Backend folder" "${BLITZ_BACKEND_DIR:-${DEFAULT_BACKEND_DIR}}" false
-    prompt_text "Deploy script" BLITZ_DEPLOY_SCRIPT "Deploy script" "${BLITZ_DEPLOY_SCRIPT:-${DEFAULT_DEPLOY_SCRIPT}}" false
-    prompt_text "Clone folder" BLITZ_BIN_DIR "Clone folder" "${BLITZ_BIN_DIR:-${DEFAULT_BIN_DIR}}" false
-}
-
 configure_non_interactive_settings() {
     if [ -n "${WPILIB_PROJECT:-}" ]; then
         WPILIB_PROJECT="$(absolute_path "${WPILIB_PROJECT}")"
@@ -200,84 +173,9 @@ configure_non_interactive_settings() {
         error "WPILIB_PROJECT is required when no Java WPILib project is discoverable."
         exit 1
     fi
-
-    BLITZ_BACKEND_DIR="${BLITZ_BACKEND_DIR:-${DEFAULT_BACKEND_DIR}}"
-    BLITZ_BIN_DIR="${BLITZ_BIN_DIR:-${DEFAULT_BIN_DIR}}"
-    BLITZ_DEPLOY_SCRIPT="${BLITZ_DEPLOY_SCRIPT:-${DEFAULT_DEPLOY_SCRIPT}}"
-    GIT_URL="${GIT_URL:-${DEFAULT_GIT_URL}}"
 }
 
-advanced_settings_menu() {
-    while true; do
-        select_menu \
-            "Advanced settings" \
-            "Edit BLITZ Git URL" \
-            "Edit backend folder" \
-            "Edit clone folder" \
-            "Edit deploy script" \
-            "Back"
-
-        case "${selected_menu_index}" in
-            0)
-                prompt_text "Advanced: BLITZ Git source" GIT_URL "Git URL" "${GIT_URL}" false
-                ;;
-            1)
-                prompt_text "Advanced: backend folder" BLITZ_BACKEND_DIR "Backend folder" "${BLITZ_BACKEND_DIR}" false
-                ;;
-            2)
-                prompt_text "Advanced: clone folder" BLITZ_BIN_DIR "Clone folder" "${BLITZ_BIN_DIR}" false
-                ;;
-            3)
-                prompt_text "Advanced: deploy script" BLITZ_DEPLOY_SCRIPT "Deploy script" "${BLITZ_DEPLOY_SCRIPT}" false
-                ;;
-            *)
-                return
-                ;;
-        esac
-    done
-}
-
-review_update_settings() {
-    while true; do
-        select_menu \
-            "Review WPILib update settings" \
-            "Check for updates" \
-            "Edit project path       ${WPILIB_PROJECT}" \
-            "Edit backend folder     ${BLITZ_BACKEND_DIR}" \
-            "Edit deploy script      ${BLITZ_DEPLOY_SCRIPT}" \
-            "Edit clone folder       ${BLITZ_BIN_DIR}" \
-            "Advanced settings" \
-            "Cancel"
-
-        case "${selected_menu_index}" in
-            0)
-                return
-                ;;
-            1)
-                prompt_text "Edit project path" WPILIB_PROJECT "Project path" "${WPILIB_PROJECT}" true
-                WPILIB_PROJECT="$(absolute_path "${WPILIB_PROJECT}")"
-                ;;
-            2)
-                prompt_text "Edit backend folder" BLITZ_BACKEND_DIR "Backend folder" "${BLITZ_BACKEND_DIR}" false
-                ;;
-            3)
-                prompt_text "Edit deploy script" BLITZ_DEPLOY_SCRIPT "Deploy script" "${BLITZ_DEPLOY_SCRIPT}" false
-                ;;
-            4)
-                prompt_text "Edit clone folder" BLITZ_BIN_DIR "Clone folder" "${BLITZ_BIN_DIR}" false
-                ;;
-            5)
-                advanced_settings_menu
-                ;;
-            *)
-                printf '%s\n' "Update cancelled."
-                exit 0
-                ;;
-        esac
-    done
-}
-
-validate_settings() {
+validate_project() {
     if [ ! -d "${WPILIB_PROJECT}" ]; then
         error "Project path does not exist: ${WPILIB_PROJECT}"
         exit 1
@@ -289,32 +187,72 @@ validate_settings() {
         exit 1
     fi
 
-    case "${BLITZ_BACKEND_DIR}" in
-        "" | /* | *..* | *" "*)
-            error "Backend folder must be a simple relative path without spaces: ${BLITZ_BACKEND_DIR}"
-            exit 1
-            ;;
-    esac
-
-    case "${BLITZ_DEPLOY_SCRIPT}" in
-        "" | */* | *..* | *" "*)
-            error "Deploy script must be a file name without spaces: ${BLITZ_DEPLOY_SCRIPT}"
-            exit 1
-            ;;
-    esac
-
     case "${BLITZ_BIN_DIR}" in
         "" | /* | *..* | *" "*)
             error "Clone folder must be a simple relative path without spaces: ${BLITZ_BIN_DIR}"
             exit 1
             ;;
     esac
+}
 
-    if [ ! -d "${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/deployment" ]; then
-        error "BLITZ deployment is not installed at ${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/deployment."
+detect_deployment_path() {
+    local preferred="${WPILIB_PROJECT}/backend/deployment"
+    local version_file
+    local candidate_count=0
+    local first_candidate=""
+
+    if [ -f "${preferred}/.build-version" ]; then
+        DEPLOYMENT_PATH="${preferred}"
+        return
+    fi
+
+    while IFS= read -r version_file; do
+        candidate_count=$((candidate_count + 1))
+        if [ -z "${first_candidate}" ]; then
+            first_candidate="$(dirname "${version_file}")"
+        fi
+    done < <(
+        find "${WPILIB_PROJECT}" \
+            -path "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}" -prune -o \
+            -path "*/deployment/.build-version" -type f -print
+    )
+
+    if [ "${candidate_count}" -eq 0 ]; then
+        error "Could not find an installed BLITZ deployment folder in ${WPILIB_PROJECT}."
         printf '%s\n' "Run the WPILib installer before running the updater." >&2
         exit 1
     fi
+
+    DEPLOYMENT_PATH="${first_candidate}"
+    if [ "${candidate_count}" -gt 1 ]; then
+        warn "Found multiple BLITZ deployment folders; using $(relative_to_project "${DEPLOYMENT_PATH}")."
+    fi
+}
+
+detect_backend_and_deploy_script() {
+    local backend_path
+    local candidate
+
+    backend_path="$(dirname "${DEPLOYMENT_PATH}")"
+    BLITZ_BACKEND_DIR="$(relative_to_project "${backend_path}")"
+
+    if [ -n "${BLITZ_DEPLOY_SCRIPT:-}" ] && [ -f "${backend_path}/${BLITZ_DEPLOY_SCRIPT}" ]; then
+        return
+    fi
+
+    if [ -f "${backend_path}/deploy.py" ]; then
+        BLITZ_DEPLOY_SCRIPT="deploy.py"
+        return
+    fi
+
+    while IFS= read -r candidate; do
+        if grep -Eq "BlitzNetworkDeployer|backend\.deployment" "${candidate}"; then
+            BLITZ_DEPLOY_SCRIPT="$(basename "${candidate}")"
+            return
+        fi
+    done < <(find "${backend_path}" -maxdepth 1 -type f -name "*.py" -print)
+
+    BLITZ_DEPLOY_SCRIPT="deploy.py"
 }
 
 read_build_version() {
@@ -328,19 +266,106 @@ read_build_version() {
     sed -n '1{s/[[:space:]]*$//;p;q;}' "${version_path}"
 }
 
-latest_commit_message() {
-    local source_root="$1"
+fetch_url() {
+    local url="$1"
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "${url}"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO - "${url}"
+    else
+        error "Install curl or wget, then run this updater again."
+        exit 1
+    fi
+}
+
+github_slug_from_git_url() {
+    local git_url="$1"
+    local slug=""
+
+    case "${git_url}" in
+        https://github.com/*)
+            slug="${git_url#https://github.com/}"
+            ;;
+        git@github.com:*)
+            slug="${git_url#git@github.com:}"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    slug="${slug%.git}"
+    slug="${slug%%/*}/${slug#*/}"
+    if [ "${slug}" = "/" ] || [ -z "${slug%%/*}" ] || [ -z "${slug#*/}" ]; then
+        return 1
+    fi
+
+    printf '%s\n' "${slug}"
+}
+
+build_version_url() {
+    local slug
+
+    if [ -n "${BLITZ_BUILD_VERSION_URL:-}" ]; then
+        printf '%s\n' "${BLITZ_BUILD_VERSION_URL}"
+        return
+    fi
+
+    if slug="$(github_slug_from_git_url "${GIT_URL}")"; then
+        printf 'https://raw.githubusercontent.com/%s/HEAD/backend/deployment/.build-version\n' "${slug}"
+        return
+    fi
+
+    printf '%s\n' "${DEFAULT_BUILD_VERSION_URL}"
+}
+
+fetch_latest_build_version() {
+    if [ -n "${BLITZ_LATEST_BUILD_VERSION:-}" ]; then
+        printf '%s\n' "${BLITZ_LATEST_BUILD_VERSION}"
+        return
+    fi
+
+    if [ -n "${BLITZ_SOURCE_DIR:-}" ]; then
+        read_build_version "${BLITZ_SOURCE_DIR}/backend/deployment/.build-version"
+        return
+    fi
+
+    fetch_url "$(build_version_url)" | sed -n '1{s/[[:space:]]*$//;p;q;}'
+}
+
+fetch_github_commit_message() {
+    local slug="$1"
+    local api_url="https://api.github.com/repos/${slug}/commits/HEAD"
+
+    if command -v python3 >/dev/null 2>&1; then
+        fetch_url "${api_url}" | python3 -c 'import json, sys; print(json.load(sys.stdin)["commit"]["message"].splitlines()[0])'
+    else
+        fetch_url "${api_url}" | sed -n 's/^[[:space:]]*"message":[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p'
+    fi
+}
+
+fetch_latest_commit_message() {
+    local slug
 
     if [ -n "${BLITZ_LATEST_COMMIT_MESSAGE:-}" ]; then
         printf '%s\n' "${BLITZ_LATEST_COMMIT_MESSAGE}"
         return
     fi
 
-    if command -v git >/dev/null 2>&1 && git -C "${source_root}" rev-parse --git-dir >/dev/null 2>&1; then
-        git -C "${source_root}" log -1 --pretty=%s 2>/dev/null || printf '%s\n' "Unknown latest commit"
-    else
-        printf '%s\n' "Unknown latest commit"
+    if [ -n "${BLITZ_SOURCE_DIR:-}" ] &&
+        command -v git >/dev/null 2>&1 &&
+        git -C "${BLITZ_SOURCE_DIR}" rev-parse --git-dir >/dev/null 2>&1; then
+        git -C "${BLITZ_SOURCE_DIR}" log -1 --pretty=%s 2>/dev/null || printf '%s\n' "Unknown latest commit"
+        return
     fi
+
+    if slug="$(github_slug_from_git_url "${GIT_URL}")"; then
+        fetch_github_commit_message "${slug}" 2>/dev/null || printf '%s\n' "Unknown latest commit"
+        return
+    fi
+
+    printf '%s\n' "Unknown latest commit"
 }
 
 confirm_update() {
@@ -366,20 +391,63 @@ confirm_update() {
     [ "${selected_menu_index}" -eq 0 ]
 }
 
+clone_source_root() {
+    local bin_path="${WPILIB_PROJECT}/${BLITZ_BIN_DIR}"
+    local source_root
+
+    require_command git
+
+    mkdir -p "${bin_path}"
+    rm -rf "${bin_path}/B.L.I.T.Z"
+    source_root="${bin_path}/B.L.I.T.Z"
+
+    info "Downloading BLITZ source..." >&2
+    git clone --depth 1 --recurse-submodules "${GIT_URL}" "${source_root}"
+    if [ ! -d "${source_root}/backend/deployment" ]; then
+        error "Cloned source does not contain backend/deployment."
+        printf '%s\n' "Source: ${GIT_URL}" >&2
+        printf '%s\n' "Clone path: ${source_root}" >&2
+        printf '%s\n' "Check that the selected BLITZ repository contains backend/deployment." >&2
+        exit 1
+    fi
+
+    printf '%s\n' "${source_root}"
+}
+
+resolve_source_root() {
+    if [ -n "${BLITZ_SOURCE_DIR:-}" ]; then
+        if [ ! -d "${BLITZ_SOURCE_DIR}/backend/deployment" ]; then
+            error "BLITZ_SOURCE_DIR must contain backend/deployment: ${BLITZ_SOURCE_DIR}"
+            exit 1
+        fi
+        absolute_path "${BLITZ_SOURCE_DIR}"
+        return
+    fi
+
+    clone_source_root
+}
+
 update_deployment_files() {
     local source_root="$1"
-    local backend_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}"
-    local deployment_path="${backend_path}/deployment"
-    local deploy_path="${backend_path}/${BLITZ_DEPLOY_SCRIPT}"
+    local deploy_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+    local scripts_path="${WPILIB_PROJECT}/scripts"
+    local local_script_path="${scripts_path}/${DEFAULT_LOCAL_SCRIPT}"
 
-    rm -rf "${deployment_path}"
-    cp -R "${source_root}/backend/deployment" "${deployment_path}"
-    find "${deployment_path}" \( -name "__pycache__" -o -name ".DS_Store" \) -prune -exec rm -rf {} +
+    rm -rf "${DEPLOYMENT_PATH}"
+    cp -R "${source_root}/backend/deployment" "${DEPLOYMENT_PATH}"
+    find "${DEPLOYMENT_PATH}" \( -name "__pycache__" -o -name ".DS_Store" \) -prune -exec rm -rf {} +
+
+    if [ -f "${source_root}/scripts/wpi-local/${DEFAULT_LOCAL_SCRIPT}" ]; then
+        mkdir -p "${scripts_path}"
+        cp "${source_root}/scripts/wpi-local/${DEFAULT_LOCAL_SCRIPT}" "${local_script_path}"
+        chmod +x "${local_script_path}"
+        info "Updated scripts/${DEFAULT_LOCAL_SCRIPT}"
+    fi
 
     if [ -f "${deploy_path}" ]; then
         info "Kept existing ${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
     else
-        warn "${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT} was not found; the updater only refreshes deployment files."
+        warn "Could not identify a deploy script to preserve; only $(relative_to_project "${DEPLOYMENT_PATH}") was refreshed."
     fi
 
     rm -rf "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}/B.L.I.T.Z"
@@ -396,9 +464,7 @@ main() {
     print_header
 
     GIT_URL="${GIT_URL:-${DEFAULT_GIT_URL}}"
-    BLITZ_BACKEND_DIR="${BLITZ_BACKEND_DIR:-${DEFAULT_BACKEND_DIR}}"
     BLITZ_BIN_DIR="${BLITZ_BIN_DIR:-${DEFAULT_BIN_DIR}}"
-    BLITZ_DEPLOY_SCRIPT="${BLITZ_DEPLOY_SCRIPT:-${DEFAULT_DEPLOY_SCRIPT}}"
 
     if DISCOVERED_WPILIB_PROJECT="$(discover_wpilib_project)"; then
         :
@@ -409,36 +475,38 @@ main() {
     if [ "${BLITZ_ASSUME_YES:-false}" = "true" ] || [ ! -t 0 ]; then
         configure_non_interactive_settings
     else
-        configure_basic_settings
-        review_update_settings
+        configure_project_path
     fi
 
-    validate_settings
-    source_root="$(resolve_source_root)"
-    if [ "${source_root}" = "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}/B.L.I.T.Z" ]; then
-        CLONED_SOURCE_ROOT="${source_root}"
-        trap cleanup EXIT
-    fi
+    validate_project
+    detect_deployment_path
+    detect_backend_and_deploy_script
 
-    local_version="$(read_build_version "${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/deployment/.build-version")"
-    latest_version="$(read_build_version "${source_root}/backend/deployment/.build-version")"
-    commit_message="$(latest_commit_message "${source_root}")"
+    local_version="$(read_build_version "${DEPLOYMENT_PATH}/.build-version")"
+    latest_version="$(fetch_latest_build_version)"
+    commit_message="$(fetch_latest_commit_message)"
 
     if [ "${local_version}" = "${latest_version}" ]; then
         printf '\n%s\n' "${GREEN}BLITZ WPILib deployment is already up to date (${local_version}).${RESET}"
-        rm -rf "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}/B.L.I.T.Z"
-        rmdir "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}" 2>/dev/null || true
-        CLONED_SOURCE_ROOT=""
+        printf '%s\n' "Detected deployment folder: $(relative_to_project "${DEPLOYMENT_PATH}")"
         return
     fi
 
-    printf '%s\n' "Current version: ${local_version}"
-    printf '%s\n' "Latest version:  ${latest_version}"
-    printf '%s\n' "Latest commit:   ${commit_message}"
+    printf '%s\n' "Detected deployment folder: $(relative_to_project "${DEPLOYMENT_PATH}")"
+    printf '%s\n' "Detected deploy script:      ${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+    printf '%s\n' "Current version:             ${local_version}"
+    printf '%s\n' "Latest version:              ${latest_version}"
+    printf '%s\n' "Latest commit:               ${commit_message}"
 
     if ! confirm_update "${local_version}" "${latest_version}" "${commit_message}"; then
         printf '%s\n' "Update skipped."
         return
+    fi
+
+    source_root="$(resolve_source_root)"
+    if [ "${source_root}" = "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}/B.L.I.T.Z" ]; then
+        CLONED_SOURCE_ROOT="${source_root}"
+        trap cleanup EXIT
     fi
 
     info "Updating BLITZ deployment files..."

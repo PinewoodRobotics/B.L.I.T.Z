@@ -7,6 +7,7 @@ DEFAULT_UI_LIB_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z
 DEFAULT_BACKEND_DIR="backend"
 DEFAULT_BIN_DIR="bin"
 DEFAULT_DEPLOY_SCRIPT="deploy.py"
+DEFAULT_LOCAL_SCRIPT="backend.sh"
 UI_LIB_TEMP_DIR=""
 CLONED_SOURCE_ROOT=""
 
@@ -390,11 +391,13 @@ install_gradle_integration() {
     case "${settings_file}" in
         *.kts)
             append_marked_block "${settings_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<KTS
+// B.L.I.T.Z backend path used by the backend Gradle task script.
 gradle.extra["backendPath"] = file("${BLITZ_BACKEND_DIR}").absolutePath
 KTS
             ;;
         *)
             append_marked_block "${settings_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<GRADLE
+// B.L.I.T.Z backend path used by the backend Gradle task script.
 gradle.ext.backendPath = file("${BLITZ_BACKEND_DIR}").absolutePath
 GRADLE
             ;;
@@ -404,12 +407,20 @@ GRADLE
         *.kts)
             gradle_script='build.gradle.kts'
             append_marked_block "${build_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<KTS
+// B.L.I.T.Z backend integration.
+// This applies backend/deployment/gradle/${gradle_script}, which adds Gradle tasks
+// for the Python backend deployment workflow, including deployBlitz.
+// Gradle script plugin docs: https://docs.gradle.org/current/userguide/plugins.html#sec:script_plugins
 apply(from = "\${gradle.extra["backendPath"]}/deployment/gradle/${gradle_script}")
 KTS
             ;;
         *)
             gradle_script='build.gradle'
             append_marked_block "${build_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<GRADLE
+// B.L.I.T.Z backend integration.
+// This applies backend/deployment/gradle/${gradle_script}, which adds Gradle tasks
+// for the Python backend deployment workflow, including deployBlitz.
+// Gradle script plugin docs: https://docs.gradle.org/current/userguide/plugins.html#sec:script_plugins
 apply from: "\${gradle.ext.backendPath}/deployment/gradle/${gradle_script}"
 GRADLE
             ;;
@@ -478,6 +489,8 @@ install_files() {
     local backend_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}"
     local deployment_path="${backend_path}/deployment"
     local deploy_path="${backend_path}/${BLITZ_DEPLOY_SCRIPT}"
+    local scripts_path="${WPILIB_PROJECT}/scripts"
+    local local_script_path="${scripts_path}/${DEFAULT_LOCAL_SCRIPT}"
 
     if [ "${BLITZ_UPDATE_ONLY}" = "true" ] && [ ! -d "${deployment_path}" ]; then
         error "Update only was selected, but ${deployment_path} does not exist."
@@ -494,6 +507,13 @@ install_files() {
         info "Created ${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
     else
         info "Kept existing ${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+    fi
+
+    if [ -f "${source_root}/scripts/wpi-local/${DEFAULT_LOCAL_SCRIPT}" ]; then
+        mkdir -p "${scripts_path}"
+        cp "${source_root}/scripts/wpi-local/${DEFAULT_LOCAL_SCRIPT}" "${local_script_path}"
+        chmod +x "${local_script_path}"
+        info "Installed scripts/${DEFAULT_LOCAL_SCRIPT}"
     fi
 
     install_gradle_integration
