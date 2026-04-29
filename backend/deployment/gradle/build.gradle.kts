@@ -1,6 +1,6 @@
 val backendPath = gradle.extra["backendPath"] as String
 
-tasks.register<Exec>("deployBlitz") {
+tasks.register<Exec>("deployBackend") {
     workingDir = rootProject.projectDir
     standardInput = System.`in`
     standardOutput = System.out
