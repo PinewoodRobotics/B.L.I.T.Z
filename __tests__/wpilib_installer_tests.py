@@ -2,24 +2,34 @@ from __future__ import annotations
 
 import ast
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = REPO_ROOT / "scripts" / "ui" / "install_on_wpilib.sh"
+UPDATER = REPO_ROOT / "scripts" / "ui" / "update_wpilib.sh"
 
 
-def make_wpilib_project(root: Path) -> Path:
+def make_wpilib_project(root: Path, *, kotlin_dsl: bool = False) -> Path:
     project = root / "robot"
     java_dir = project / "src" / "main" / "java" / "frc" / "robot"
     java_dir.mkdir(parents=True)
-    (project / "build.gradle").write_text(
-        "plugins {\n"
-        "    id 'java'\n"
-        "}\n",
-    )
-    (project / "settings.gradle").write_text("rootProject.name = 'robot'\n")
+    if kotlin_dsl:
+        (project / "build.gradle.kts").write_text(
+            "plugins {\n"
+            "    java\n"
+            "}\n",
+        )
+        (project / "settings.gradle.kts").write_text("rootProject.name = \"robot\"\n")
+    else:
+        (project / "build.gradle").write_text(
+            "plugins {\n"
+            "    id 'java'\n"
+            "}\n",
+        )
+        (project / "settings.gradle").write_text("rootProject.name = 'robot'\n")
     (java_dir / "Robot.java").write_text("package frc.robot;\n")
     return project
 
@@ -47,6 +57,29 @@ def run_installer(
     )
 
 
+def run_updater(
+    cwd: Path,
+    env: dict[str, str] | None = None,
+    use_local_source: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    merged_env = os.environ.copy()
+    merged_env.update({"BLITZ_ASSUME_YES": "true"})
+    if use_local_source:
+        merged_env["BLITZ_SOURCE_DIR"] = str(REPO_ROOT)
+    if env:
+        merged_env.update(env)
+
+    return subprocess.run(
+        ["bash", str(UPDATER)],
+        cwd=cwd,
+        env=merged_env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+
 def assert_success(result: subprocess.CompletedProcess[str]) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -59,7 +92,7 @@ def test_installs_into_discovered_wpilib_project_from_nested_directory(tmp_path:
 
     assert_success(result)
     assert (project / "backend" / "deployment" / "deployer.py").is_file()
-    assert (project / "backend" / "__init__.py").is_file()
+    assert not (project / "backend" / "__init__.py").exists()
     deploy_py = project / "backend" / "deploy.py"
     assert deploy_py.is_file()
     deploy_source = deploy_py.read_text()
@@ -112,8 +145,36 @@ def test_rerun_refreshes_deployment_and_preserves_deploy_py(tmp_path: Path):
     assert_success(second)
 
     build_gradle = project / "build.gradle"
-    assert "// BEGIN BLITZ DEPLOY TASK" not in build_gradle.read_text()
+    assert build_gradle.read_text().count("// BEGIN BLITZ BACKEND") == 1
     assert deploy_py.read_text() == "# team customization\n"
+
+
+def test_installs_groovy_gradle_backend_task_blocks(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+
+    result = run_installer(project)
+
+    assert_success(result)
+    settings_gradle = (project / "settings.gradle").read_text()
+    build_gradle = (project / "build.gradle").read_text()
+    assert 'gradle.ext.backendPath = file("backend").absolutePath' in settings_gradle
+    assert 'apply from: "${gradle.ext.backendPath}/deployment/gradle/build.gradle"' in build_gradle
+    assert settings_gradle.count("// BEGIN BLITZ BACKEND") == 1
+    assert build_gradle.count("// BEGIN BLITZ BACKEND") == 1
+
+
+def test_installs_kotlin_gradle_backend_task_blocks(tmp_path: Path):
+    project = make_wpilib_project(tmp_path, kotlin_dsl=True)
+
+    result = run_installer(project)
+
+    assert_success(result)
+    settings_gradle = (project / "settings.gradle.kts").read_text()
+    build_gradle = (project / "build.gradle.kts").read_text()
+    assert 'gradle.extra["backendPath"] = file("backend").absolutePath' in settings_gradle
+    assert 'apply(from = "${gradle.extra["backendPath"]}/deployment/gradle/build.gradle.kts")' in build_gradle
+    assert (project / "backend" / "deployment" / "gradle" / "build.gradle").is_file()
+    assert (project / "backend" / "deployment" / "gradle" / "build.gradle.kts").is_file()
 
 
 def test_update_only_requires_existing_install(tmp_path: Path):
@@ -123,6 +184,68 @@ def test_update_only_requires_existing_install(tmp_path: Path):
 
     assert result.returncode != 0
     assert "Update only was selected" in result.stderr
+
+
+def test_updater_requires_existing_install(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+
+    result = run_updater(project)
+
+    assert result.returncode != 0
+    assert "BLITZ deployment is not installed" in result.stderr
+
+
+def test_updater_reports_already_current(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+
+    install = run_installer(project)
+    assert_success(install)
+
+    result = run_updater(project)
+
+    assert_success(result)
+    assert "already up to date" in result.stdout
+
+
+def test_updater_accepts_kotlin_gradle_wpilib_project(tmp_path: Path):
+    project = make_wpilib_project(tmp_path, kotlin_dsl=True)
+
+    install = run_installer(project)
+    assert_success(install)
+
+    result = run_updater(project)
+
+    assert_success(result)
+    assert "already up to date" in result.stdout
+
+
+def test_updater_refreshes_deployment_and_preserves_deploy_py(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+    source = tmp_path / "source"
+
+    install = run_installer(project)
+    assert_success(install)
+
+    deploy_py = project / "backend" / "deploy.py"
+    deploy_py.write_text("# team customization\n")
+
+    shutil.copytree(REPO_ROOT / "backend" / "deployment", source / "backend" / "deployment")
+    (source / "backend" / "deployment" / ".build-version").write_text("9.9.9\n")
+    extra_file = source / "backend" / "deployment" / "new_file.py"
+    extra_file.write_text("UPDATED = True\n")
+
+    result = run_updater(
+        project,
+        {
+            "BLITZ_SOURCE_DIR": str(source),
+            "BLITZ_LATEST_COMMIT_MESSAGE": "test update commit",
+        },
+    )
+
+    assert_success(result)
+    assert (project / "backend" / "deployment" / ".build-version").read_text() == "9.9.9\n"
+    assert (project / "backend" / "deployment" / "new_file.py").read_text() == "UPDATED = True\n"
+    assert deploy_py.read_text() == "# team customization\n"
 
 
 def test_installs_from_git_source_when_local_source_is_not_set(tmp_path: Path):

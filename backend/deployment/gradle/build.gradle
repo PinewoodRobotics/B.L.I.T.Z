@@ -1,0 +1,6 @@
+def backendPath = gradle.ext.backendPath
+
+tasks.register('deployBlitz', Exec) {
+    workingDir = rootProject.projectDir
+    commandLine 'python3', "${backendPath}/deploy.py"
+}

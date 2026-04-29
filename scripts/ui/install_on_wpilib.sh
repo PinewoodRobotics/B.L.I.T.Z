@@ -80,8 +80,11 @@ absolute_path() {
 is_wpilib_java_project() {
     local project_path="$1"
 
-    [ -f "${project_path}/build.gradle" ] || return 1
+    [ -f "${project_path}/build.gradle" ] ||
+        [ -f "${project_path}/build.gradle.kts" ] ||
+        return 1
     [ -f "${project_path}/settings.gradle" ] ||
+        [ -f "${project_path}/settings.gradle.kts" ] ||
         [ -f "${project_path}/gradlew" ] ||
         [ -d "${project_path}/.wpilib" ] ||
         [ -d "${project_path}/vendordeps" ] ||
@@ -327,6 +330,94 @@ validate_settings() {
     esac
 }
 
+gradle_settings_file() {
+    if [ -f "${WPILIB_PROJECT}/settings.gradle.kts" ]; then
+        printf '%s\n' "${WPILIB_PROJECT}/settings.gradle.kts"
+    elif [ -f "${WPILIB_PROJECT}/settings.gradle" ]; then
+        printf '%s\n' "${WPILIB_PROJECT}/settings.gradle"
+    else
+        error "Missing settings.gradle or settings.gradle.kts in ${WPILIB_PROJECT}"
+        exit 1
+    fi
+}
+
+gradle_build_file() {
+    if [ -f "${WPILIB_PROJECT}/build.gradle.kts" ]; then
+        printf '%s\n' "${WPILIB_PROJECT}/build.gradle.kts"
+    elif [ -f "${WPILIB_PROJECT}/build.gradle" ]; then
+        printf '%s\n' "${WPILIB_PROJECT}/build.gradle"
+    else
+        error "Missing build.gradle or build.gradle.kts in ${WPILIB_PROJECT}"
+        exit 1
+    fi
+}
+
+append_marked_block() {
+    local target_file="$1"
+    local start_marker="$2"
+    local end_marker="$3"
+    local tmp_file
+    local block_file
+
+    tmp_file="$(mktemp)"
+    block_file="$(mktemp)"
+    cat >"${block_file}"
+
+    awk -v start="${start_marker}" -v end="${end_marker}" '
+        $0 == start { skipping = 1; next }
+        $0 == end { skipping = 0; next }
+        skipping != 1 { print }
+    ' "${target_file}" >"${tmp_file}"
+
+    {
+        cat "${tmp_file}"
+        printf '\n%s\n' "${start_marker}"
+        cat "${block_file}"
+        printf '%s\n' "${end_marker}"
+    } >"${target_file}"
+
+    rm -f "${tmp_file}" "${block_file}"
+}
+
+install_gradle_integration() {
+    local settings_file
+    local build_file
+    local gradle_script
+
+    settings_file="$(gradle_settings_file)"
+    build_file="$(gradle_build_file)"
+
+    case "${settings_file}" in
+        *.kts)
+            append_marked_block "${settings_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<KTS
+gradle.extra["backendPath"] = file("${BLITZ_BACKEND_DIR}").absolutePath
+KTS
+            ;;
+        *)
+            append_marked_block "${settings_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<GRADLE
+gradle.ext.backendPath = file("${BLITZ_BACKEND_DIR}").absolutePath
+GRADLE
+            ;;
+    esac
+
+    case "${build_file}" in
+        *.kts)
+            gradle_script='build.gradle.kts'
+            append_marked_block "${build_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<KTS
+apply(from = "\${gradle.extra["backendPath"]}/deployment/gradle/${gradle_script}")
+KTS
+            ;;
+        *)
+            gradle_script='build.gradle'
+            append_marked_block "${build_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<GRADLE
+apply from: "\${gradle.ext.backendPath}/deployment/gradle/${gradle_script}"
+GRADLE
+            ;;
+    esac
+
+    info "Updated Gradle backend tasks"
+}
+
 write_deploy_template() {
     local deploy_path="$1"
 
@@ -398,16 +489,14 @@ install_files() {
     cp -R "${source_root}/backend/deployment" "${deployment_path}"
     find "${deployment_path}" \( -name "__pycache__" -o -name ".DS_Store" \) -prune -exec rm -rf {} +
 
-    if [ ! -f "${backend_path}/__init__.py" ]; then
-        : >"${backend_path}/__init__.py"
-    fi
-
     if [ ! -f "${deploy_path}" ]; then
         write_deploy_template "${deploy_path}"
         info "Created ${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
     else
         info "Kept existing ${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
     fi
+
+    install_gradle_integration
 
     rm -rf "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}/B.L.I.T.Z"
     rmdir "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}" 2>/dev/null || true

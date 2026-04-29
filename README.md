@@ -23,6 +23,9 @@ and creates `backend/deploy.py` if it does not already exist. Re-running the
 installer refreshes BLITZ deployment files while preserving your customized
 `backend/deploy.py`. During installation, BLITZ is cloned into `bin/B.L.I.T.Z`
 inside the robot project and cleaned up after the needed files are copied.
+The installer also adds a Gradle `deployBlitz` task by setting `backendPath`
+in `settings.gradle` or `settings.gradle.kts` and applying the backend Gradle
+task script from `backend/deployment/gradle`.
 
 For non-interactive setup:
 
