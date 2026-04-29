@@ -119,20 +119,34 @@ prompt_text() {
 
 selected_menu_index=0
 
+read_menu_key() {
+    local key
+    local second
+    local third
+
+    IFS= read -rsn1 key || true
+    if [ "${key}" = $'\x1b' ]; then
+        IFS= read -rsn1 -t 0.5 second || true
+        IFS= read -rsn1 -t 0.5 third || true
+        key="${key}${second}${third}"
+    fi
+
+    printf '%s' "${key}"
+}
+
 select_menu() {
     local title="$1"
     shift
     local options=("$@")
     local selected=0
     local key
-    local rest
     local index
 
     while true; do
         clear_screen
         print_header
         printf '%s\n' "${BOLD}${title}${RESET}"
-        printf '%s\n\n' "${DIM}Use arrow keys to move, then press Enter.${RESET}"
+        printf '%s\n\n' "${DIM}Use arrow keys or j/k to move, then press Enter.${RESET}"
 
         for index in "${!options[@]}"; do
             if [ "${index}" -eq "${selected}" ]; then
@@ -142,30 +156,31 @@ select_menu() {
             fi
         done
 
-        IFS= read -rsn1 key || true
+        key="$(read_menu_key)"
         case "${key}" in
             "")
                 selected_menu_index="${selected}"
                 return
                 ;;
-            $'\x1b')
-                IFS= read -rsn2 -t 0.1 rest || true
-                case "${rest}" in
-                    "[A")
-                        if [ "${selected}" -le 0 ]; then
-                            selected=$((${#options[@]} - 1))
-                        else
-                            selected=$((selected - 1))
-                        fi
-                        ;;
-                    "[B")
-                        selected=$(((selected + 1) % ${#options[@]}))
-                        ;;
-                esac
+            $'\x1b[A' | $'\x1bOA' | k | K)
+                if [ "${selected}" -le 0 ]; then
+                    selected=$((${#options[@]} - 1))
+                else
+                    selected=$((selected - 1))
+                fi
+                ;;
+            $'\x1b[B' | $'\x1bOB' | j | J)
+                selected=$(((selected + 1) % ${#options[@]}))
                 ;;
             q | Q)
                 selected_menu_index="$((${#options[@]} - 1))"
                 return
+                ;;
+            [1-9])
+                if [ "${key}" -le "${#options[@]}" ]; then
+                    selected_menu_index="$((key - 1))"
+                    return
+                fi
                 ;;
         esac
     done

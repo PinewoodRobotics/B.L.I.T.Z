@@ -4,9 +4,34 @@ Multi-process robotics stack with a Python watchdog, codegen, and deploy tooling
 
 ## Easy Setup
 
+Install BLITZ on a Raspberry Pi or Linux coprocessor:
+
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install_on_system.sh)"
 ```
+
+## WPILib Java Project Setup
+
+From inside a Java WPILib robot project, run:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install_on_wpilib.sh)"
+```
+
+The installer discovers the current WPILib project, adds `backend/deployment`,
+and creates `backend/deploy.py` if it does not already exist. Re-running the
+installer refreshes BLITZ deployment files while preserving your customized
+`backend/deploy.py`.
+
+For non-interactive setup:
+
+```bash
+WPILIB_PROJECT=/path/to/robot \
+BLITZ_ASSUME_YES=true \
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install_on_wpilib.sh)"
+```
+
+Set `BLITZ_GRADLE_INTEGRATION=true` to add a `deployBlitz` Gradle task.
 
 ## Quickstart (local)
 
