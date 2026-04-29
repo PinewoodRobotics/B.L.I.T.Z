@@ -27,6 +27,13 @@ The installer also adds a Gradle `deployBlitz` task by setting `backendPath`
 in `settings.gradle` or `settings.gradle.kts` and applying the backend Gradle
 task script from `backend/deployment/gradle`.
 
+Run the Gradle task with Gradle's own console output muted so BLITZ can keep
+control of the terminal:
+
+```bash
+./gradlew --console=plain --quiet deployBlitz
+```
+
 For non-interactive setup:
 
 ```bash

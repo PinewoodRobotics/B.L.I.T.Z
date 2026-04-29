@@ -2,5 +2,10 @@ val backendPath = gradle.extra["backendPath"] as String
 
 tasks.register<Exec>("deployBlitz") {
     workingDir = rootProject.projectDir
+    standardInput = System.`in`
+    standardOutput = System.out
+    errorOutput = System.err
+    environment("PYTHONUNBUFFERED", "1")
+    environment("TERM", System.getenv("TERM") ?: "xterm-256color")
     commandLine("python3", "$backendPath/deploy.py")
 }
