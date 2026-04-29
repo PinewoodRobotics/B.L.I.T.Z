@@ -21,7 +21,8 @@ From inside a Java WPILib robot project, run:
 The installer discovers the current WPILib project, adds `backend/deployment`,
 and creates `backend/deploy.py` if it does not already exist. Re-running the
 installer refreshes BLITZ deployment files while preserving your customized
-`backend/deploy.py`.
+`backend/deploy.py`. During installation, BLITZ is cloned into `bin/B.L.I.T.Z`
+inside the robot project and cleaned up after the needed files are copied.
 
 For non-interactive setup:
 
@@ -30,8 +31,6 @@ WPILIB_PROJECT=/path/to/robot \
 BLITZ_ASSUME_YES=true \
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install_on_wpilib.sh)"
 ```
-
-Set `BLITZ_GRADLE_INTEGRATION=true` to add a `deployBlitz` Gradle task.
 
 ## Quickstart (local)
 

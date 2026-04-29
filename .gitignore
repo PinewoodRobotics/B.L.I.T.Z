@@ -80,3 +80,4 @@ project/recognition/image-recognition/dataset/
 .VSCodeCounter/
 htmlcov/
 .coverage
+.gradle/

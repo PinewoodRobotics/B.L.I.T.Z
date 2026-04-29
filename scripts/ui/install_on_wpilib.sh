@@ -3,13 +3,12 @@
 set -euo pipefail
 
 DEFAULT_GIT_URL="https://github.com/PinewoodRobotics/B.L.I.T.Z.git"
-DEFAULT_SOURCE_URL="https://github.com/PinewoodRobotics/B.L.I.T.Z/archive/HEAD.tar.gz"
 DEFAULT_UI_LIB_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/common/terminal_ui.sh"
 DEFAULT_BACKEND_DIR="backend"
+DEFAULT_BIN_DIR="bin"
 DEFAULT_DEPLOY_SCRIPT="deploy.py"
-DEFAULT_GRADLE_TASK="deployBlitz"
-TEMP_DIR=""
 UI_LIB_TEMP_DIR=""
+CLONED_SOURCE_ROOT=""
 
 source_terminal_ui() {
     local source_path="${BASH_SOURCE[0]:-}"
@@ -51,8 +50,8 @@ print_header() {
 }
 
 cleanup() {
-    if [ -n "${TEMP_DIR}" ]; then
-        rm -rf "${TEMP_DIR}"
+    if [ -n "${CLONED_SOURCE_ROOT}" ]; then
+        rm -rf "${CLONED_SOURCE_ROOT}"
     fi
     if [ -n "${UI_LIB_TEMP_DIR}" ]; then
         rm -rf "${UI_LIB_TEMP_DIR}"
@@ -64,20 +63,6 @@ require_command() {
 
     if ! command -v "${command_name}" >/dev/null 2>&1; then
         error "Missing required command: ${command_name}"
-        exit 1
-    fi
-}
-
-download_file() {
-    local url="$1"
-    local output="$2"
-
-    if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "${url}" -o "${output}"
-    elif command -v wget >/dev/null 2>&1; then
-        wget -qO "${output}" "${url}"
-    else
-        error "Install curl or wget, then run this installer again."
         exit 1
     fi
 }
@@ -125,73 +110,26 @@ discover_wpilib_project() {
     done
 }
 
-local_source_root() {
-    local source_path="${BASH_SOURCE[0]:-}"
-    local script_dir
-    local repo_root
-
-    if [ -n "${source_path}" ] && [ -f "${source_path}" ]; then
-        script_dir="$(cd "$(dirname "${source_path}")" && pwd)"
-        repo_root="$(cd "${script_dir}/../.." && pwd)"
-        if [ -d "${repo_root}/backend/deployment" ]; then
-            printf '%s\n' "${repo_root}"
-            return 0
-        fi
-    fi
-
-    if [ -d "$(pwd)/backend/deployment" ]; then
-        pwd
-        return 0
-    fi
-
-    return 1
-}
-
-download_source_root() {
-    local archive_path
+clone_source_root() {
+    local bin_path="${WPILIB_PROJECT}/${BLITZ_BIN_DIR}"
     local source_root
 
-    TEMP_DIR="$(mktemp -d)"
-    trap cleanup EXIT
-    archive_path="${TEMP_DIR}/blitz.tar.gz"
+    require_command git
 
-    info "Downloading BLITZ source..." >&2
-    download_file "${BLITZ_SOURCE_URL}" "${archive_path}"
-    require_command tar
-    tar -xzf "${archive_path}" -C "${TEMP_DIR}"
+    mkdir -p "${bin_path}"
+    rm -rf "${bin_path}/B.L.I.T.Z"
+    source_root="${bin_path}/B.L.I.T.Z"
 
-    source_root="$(find "${TEMP_DIR}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
-    if [ -z "${source_root}" ] || [ ! -d "${source_root}/backend/deployment" ]; then
-        error "Downloaded source does not contain backend/deployment."
+    info "Cloning BLITZ source..." >&2
+    git clone --depth 1 --recurse-submodules "${GIT_URL}" "${source_root}"
+    if [ ! -d "${source_root}/backend/deployment" ]; then
+        error "Cloned source does not contain backend/deployment."
+        printf '%s\n' "Source: ${GIT_URL}" >&2
+        printf '%s\n' "Clone path: ${source_root}" >&2
+        printf '%s\n' "Check that the selected BLITZ repository contains backend/deployment." >&2
         exit 1
     fi
 
-    printf '%s\n' "${source_root}"
-}
-
-clone_source_root() {
-    local clone_temp
-    local source_root
-
-    command -v git >/dev/null 2>&1 || return 1
-
-    clone_temp="$(mktemp -d)"
-    source_root="${clone_temp}/B.L.I.T.Z"
-
-    info "Cloning BLITZ source..." >&2
-    if ! git clone --depth 1 --recurse-submodules "${GIT_URL}" "${source_root}" >&2; then
-        rm -rf "${clone_temp}"
-        return 1
-    fi
-
-    if [ ! -d "${source_root}/backend/deployment" ]; then
-        error "Cloned source does not contain backend/deployment."
-        rm -rf "${clone_temp}"
-        return 1
-    fi
-
-    TEMP_DIR="${clone_temp}"
-    trap cleanup EXIT
     printf '%s\n' "${source_root}"
 }
 
@@ -205,16 +143,7 @@ resolve_source_root() {
         return
     fi
 
-    if local_source_root; then
-        return
-    fi
-
-    if clone_source_root; then
-        return
-    fi
-
-    warn "Git clone failed or git is unavailable; falling back to source archive."
-    download_source_root
+    clone_source_root
 }
 
 configure_project_path() {
@@ -274,20 +203,7 @@ configure_basic_settings() {
 
     prompt_text "Backend folder" BLITZ_BACKEND_DIR "Backend folder" "${BLITZ_BACKEND_DIR:-${DEFAULT_BACKEND_DIR}}" false
     prompt_text "Deploy script" BLITZ_DEPLOY_SCRIPT "Deploy script" "${BLITZ_DEPLOY_SCRIPT:-${DEFAULT_DEPLOY_SCRIPT}}" false
-
-    select_menu \
-        "Gradle integration" \
-        "Do not edit Gradle" \
-        "Add ${BLITZ_GRADLE_TASK:-${DEFAULT_GRADLE_TASK}} task"
-    case "${selected_menu_index}" in
-        0)
-            BLITZ_GRADLE_INTEGRATION="false"
-            ;;
-        1)
-            BLITZ_GRADLE_INTEGRATION="true"
-            prompt_text "Gradle task" BLITZ_GRADLE_TASK "Gradle task name" "${BLITZ_GRADLE_TASK:-${DEFAULT_GRADLE_TASK}}" false
-            ;;
-    esac
+    prompt_text "Clone folder" BLITZ_BIN_DIR "Clone folder" "${BLITZ_BIN_DIR:-${DEFAULT_BIN_DIR}}" false
 }
 
 configure_non_interactive_settings() {
@@ -301,9 +217,8 @@ configure_non_interactive_settings() {
     fi
 
     BLITZ_BACKEND_DIR="${BLITZ_BACKEND_DIR:-${DEFAULT_BACKEND_DIR}}"
+    BLITZ_BIN_DIR="${BLITZ_BIN_DIR:-${DEFAULT_BIN_DIR}}"
     BLITZ_DEPLOY_SCRIPT="${BLITZ_DEPLOY_SCRIPT:-${DEFAULT_DEPLOY_SCRIPT}}"
-    BLITZ_GRADLE_INTEGRATION="${BLITZ_GRADLE_INTEGRATION:-false}"
-    BLITZ_GRADLE_TASK="${BLITZ_GRADLE_TASK:-${DEFAULT_GRADLE_TASK}}"
     BLITZ_UPDATE_ONLY="${BLITZ_UPDATE_ONLY:-false}"
     GIT_URL="${GIT_URL:-${DEFAULT_GIT_URL}}"
 }
@@ -313,8 +228,8 @@ advanced_settings_menu() {
         select_menu \
             "Advanced settings" \
             "Edit BLITZ Git URL" \
-            "Edit BLITZ archive URL" \
             "Edit backend folder" \
+            "Edit clone folder" \
             "Edit deploy script" \
             "Back"
 
@@ -323,10 +238,10 @@ advanced_settings_menu() {
                 prompt_text "Advanced: BLITZ Git source" GIT_URL "Git URL" "${GIT_URL}" false
                 ;;
             1)
-                prompt_text "Advanced: BLITZ archive source" BLITZ_SOURCE_URL "Archive URL" "${BLITZ_SOURCE_URL}" false
+                prompt_text "Advanced: backend folder" BLITZ_BACKEND_DIR "Backend folder" "${BLITZ_BACKEND_DIR}" false
                 ;;
             2)
-                prompt_text "Advanced: backend folder" BLITZ_BACKEND_DIR "Backend folder" "${BLITZ_BACKEND_DIR}" false
+                prompt_text "Advanced: clone folder" BLITZ_BIN_DIR "Clone folder" "${BLITZ_BIN_DIR}" false
                 ;;
             3)
                 prompt_text "Advanced: deploy script" BLITZ_DEPLOY_SCRIPT "Deploy script" "${BLITZ_DEPLOY_SCRIPT}" false
@@ -339,22 +254,14 @@ advanced_settings_menu() {
 }
 
 review_install_settings() {
-    local gradle_label
-
     while true; do
-        if [ "${BLITZ_GRADLE_INTEGRATION}" = "true" ]; then
-            gradle_label="Add ${BLITZ_GRADLE_TASK}"
-        else
-            gradle_label="No Gradle edits"
-        fi
-
         select_menu \
             "Review WPILib install settings" \
             "Start installation" \
             "Edit project path       ${WPILIB_PROJECT}" \
             "Edit backend folder     ${BLITZ_BACKEND_DIR}" \
             "Edit deploy script      ${BLITZ_DEPLOY_SCRIPT}" \
-            "Edit Gradle setting     ${gradle_label}" \
+            "Edit clone folder       ${BLITZ_BIN_DIR}" \
             "Advanced settings" \
             "Cancel"
 
@@ -373,12 +280,7 @@ review_install_settings() {
                 prompt_text "Edit deploy script" BLITZ_DEPLOY_SCRIPT "Deploy script" "${BLITZ_DEPLOY_SCRIPT}" false
                 ;;
             4)
-                if [ "${BLITZ_GRADLE_INTEGRATION}" = "true" ]; then
-                    BLITZ_GRADLE_INTEGRATION="false"
-                else
-                    BLITZ_GRADLE_INTEGRATION="true"
-                    prompt_text "Gradle task" BLITZ_GRADLE_TASK "Gradle task name" "${BLITZ_GRADLE_TASK}" false
-                fi
+                prompt_text "Edit clone folder" BLITZ_BIN_DIR "Clone folder" "${BLITZ_BIN_DIR}" false
                 ;;
             5)
                 advanced_settings_menu
@@ -417,9 +319,9 @@ validate_settings() {
             ;;
     esac
 
-    case "${BLITZ_GRADLE_TASK}" in
-        "" | *[!A-Za-z0-9_]*)
-            error "Gradle task must contain only letters, numbers, and underscores: ${BLITZ_GRADLE_TASK}"
+    case "${BLITZ_BIN_DIR}" in
+        "" | /* | *..* | *" "*)
+            error "Clone folder must be a simple relative path without spaces: ${BLITZ_BIN_DIR}"
             exit 1
             ;;
     esac
@@ -480,30 +382,6 @@ if __name__ == "__main__":
 PY
 }
 
-install_gradle_task() {
-    local build_gradle="$1"
-    local tmp_file
-
-    tmp_file="$(mktemp)"
-    awk '
-        /^\/\/ BEGIN BLITZ DEPLOY TASK$/ { skipping = 1; next }
-        /^\/\/ END BLITZ DEPLOY TASK$/ { skipping = 0; next }
-        skipping != 1 { print }
-    ' "${build_gradle}" >"${tmp_file}"
-
-    cat >>"${tmp_file}" <<GRADLE
-
-// BEGIN BLITZ DEPLOY TASK
-tasks.register('${BLITZ_GRADLE_TASK}', Exec) {
-    workingDir = projectDir
-    commandLine 'python3', '${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}'
-}
-// END BLITZ DEPLOY TASK
-GRADLE
-
-    mv "${tmp_file}" "${build_gradle}"
-}
-
 install_files() {
     local source_root="$1"
     local backend_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}"
@@ -531,10 +409,9 @@ install_files() {
         info "Kept existing ${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
     fi
 
-    if [ "${BLITZ_GRADLE_INTEGRATION}" = "true" ]; then
-        install_gradle_task "${WPILIB_PROJECT}/build.gradle"
-        info "Updated build.gradle with ${BLITZ_GRADLE_TASK}"
-    fi
+    rm -rf "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}/B.L.I.T.Z"
+    rmdir "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}" 2>/dev/null || true
+    CLONED_SOURCE_ROOT=""
 }
 
 main() {
@@ -543,10 +420,9 @@ main() {
     print_header
 
     GIT_URL="${GIT_URL:-${DEFAULT_GIT_URL}}"
-    BLITZ_SOURCE_URL="${BLITZ_SOURCE_URL:-${DEFAULT_SOURCE_URL}}"
     BLITZ_BACKEND_DIR="${BLITZ_BACKEND_DIR:-${DEFAULT_BACKEND_DIR}}"
+    BLITZ_BIN_DIR="${BLITZ_BIN_DIR:-${DEFAULT_BIN_DIR}}"
     BLITZ_DEPLOY_SCRIPT="${BLITZ_DEPLOY_SCRIPT:-${DEFAULT_DEPLOY_SCRIPT}}"
-    BLITZ_GRADLE_TASK="${BLITZ_GRADLE_TASK:-${DEFAULT_GRADLE_TASK}}"
 
     if DISCOVERED_WPILIB_PROJECT="$(discover_wpilib_project)"; then
         :
@@ -563,6 +439,10 @@ main() {
 
     validate_settings
     source_root="$(resolve_source_root)"
+    if [ "${source_root}" = "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}/B.L.I.T.Z" ]; then
+        CLONED_SOURCE_ROOT="${source_root}"
+        trap cleanup EXIT
+    fi
 
     info "Installing BLITZ deployment files..."
     install_files "${source_root}"

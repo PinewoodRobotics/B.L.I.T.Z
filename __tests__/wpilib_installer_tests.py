@@ -99,35 +99,20 @@ def test_rejects_explicit_non_wpilib_project(tmp_path: Path):
     assert "does not look like a Java WPILib project" in result.stderr
 
 
-def test_gradle_task_is_idempotent_and_deploy_py_is_preserved(tmp_path: Path):
+def test_rerun_refreshes_deployment_and_preserves_deploy_py(tmp_path: Path):
     project = make_wpilib_project(tmp_path)
 
-    first = run_installer(
-        project,
-        {
-            "BLITZ_GRADLE_INTEGRATION": "true",
-            "BLITZ_GRADLE_TASK": "deployBlitz",
-        },
-    )
+    first = run_installer(project)
     assert_success(first)
 
     deploy_py = project / "backend" / "deploy.py"
     deploy_py.write_text("# team customization\n")
 
-    second = run_installer(
-        project,
-        {
-            "BLITZ_GRADLE_INTEGRATION": "true",
-            "BLITZ_GRADLE_TASK": "deployBlitz",
-        },
-    )
+    second = run_installer(project)
     assert_success(second)
 
-    build_gradle = (project / "build.gradle").read_text()
-    assert build_gradle.count("// BEGIN BLITZ DEPLOY TASK") == 1
-    assert build_gradle.count("// END BLITZ DEPLOY TASK") == 1
-    assert "tasks.register('deployBlitz', Exec)" in build_gradle
-    assert "commandLine 'python3', 'backend/deploy.py'" in build_gradle
+    build_gradle = project / "build.gradle"
+    assert "// BEGIN BLITZ DEPLOY TASK" not in build_gradle.read_text()
     assert deploy_py.read_text() == "# team customization\n"
 
 
@@ -147,13 +132,30 @@ def test_installs_from_git_source_when_local_source_is_not_set(tmp_path: Path):
         project,
         {
             "GIT_URL": f"file://{REPO_ROOT}",
-            "BLITZ_SOURCE_URL": "https://invalid.example/blitz.tar.gz",
         },
         use_local_source=False,
     )
 
     assert_success(result)
     assert (project / "backend" / "deployment" / "deployer.py").is_file()
+    assert not (project / "bin" / "B.L.I.T.Z").exists()
+
+
+def test_install_preserves_existing_bin_contents(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+    keep_file = project / "bin" / "keep.txt"
+    keep_file.parent.mkdir()
+    keep_file.write_text("keep\n")
+
+    result = run_installer(
+        project,
+        {"GIT_URL": f"file://{REPO_ROOT}"},
+        use_local_source=False,
+    )
+
+    assert_success(result)
+    assert keep_file.read_text() == "keep\n"
+    assert not (project / "bin" / "B.L.I.T.Z").exists()
 
 
 def test_dropdown_down_arrow_selects_second_option():
