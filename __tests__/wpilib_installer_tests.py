@@ -295,9 +295,14 @@ def test_local_backend_script_creates_rust_module_and_root_cargo(tmp_path: Path)
 
     assert_success(result)
     assert (project / "backend" / "rust" / "pose" / "src" / "main.rs").is_file()
+    module_cargo = (project / "backend" / "rust" / "pose" / "Cargo.toml").read_text()
+    assert 'name = "pose"' in module_cargo
     cargo = (project / "Cargo.toml").read_text()
-    assert 'name = "pose"' in cargo
-    assert 'path = "backend/rust/pose/src/main.rs"' in cargo
+    assert "[workspace]" in cargo
+    assert 'members = ["backend/rust/*"]' in cargo
+    assert "[workspace.dependencies]" in cargo
+    assert 'rust-project = { path = "backend/rust" }' in cargo
+    assert "[[bin]]" not in cargo
 
 
 def test_local_backend_script_cpp_requires_docker(tmp_path: Path):

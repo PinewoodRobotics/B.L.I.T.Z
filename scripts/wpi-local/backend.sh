@@ -538,30 +538,67 @@ ensure_python_requirements() {
 
 ensure_root_cargo_manifest() {
     local cargo_path="${WPILIB_PROJECT}/Cargo.toml"
-    local module_name="$1"
-    local module_path="${BLITZ_BACKEND_DIR}/rust/${module_name}/src/main.rs"
+    local member_glob="${BLITZ_BACKEND_DIR}/rust/*"
 
-    if [ ! -f "${cargo_path}" ]; then
-        cat >"${cargo_path}" <<CARGO
+    if [ -f "${cargo_path}" ] && grep -q 'name = "blitz-backend"' "${cargo_path}" && grep -q '\[\[bin\]\]' "${cargo_path}"; then
+        rm -f "${cargo_path}"
+    fi
+
+    if [ -f "${cargo_path}" ] && grep -q '^\[workspace\]' "${cargo_path}"; then
+        if ! grep -Fq "${member_glob}" "${cargo_path}"; then
+            warn "Cargo.toml already exists but does not include ${member_glob} in its workspace members."
+        fi
+        return
+    fi
+
+    if [ -f "${cargo_path}" ]; then
+        warn "Cargo.toml already exists and is not a workspace manifest; leaving it unchanged."
+        return
+    fi
+
+    cat >"${cargo_path}" <<CARGO
+# This is the build file for Rust language. See .cargo/ for more specific configuration flags.
+# Read more about Cargo workspaces here: https://doc.rust-lang.org/cargo/reference/workspaces.html
+
+[workspace]
+members = ["${member_glob}"]
+resolver = "2"
+
+# Dependencies shared by Rust modules in this workspace.
+[workspace.dependencies]
+tokio = { version = "1.36", features = ["full"] }
+tokio-tungstenite = "0.26.2"
+futures-util = "0.3"
+prost = "0.13.5"
+nalgebra = "0.33.2"
+serde = { version = "1.0", features = ["derive"] }
+bytes = "1.5"
+serde_json = "1.0"
+url = "2.5"
+thrift = "0.17"
+base64 = "0.21"
+ordered-float = "4.0"
+prost-build = "0.13.5"
+
+[workspace.metadata]
+rust-project = { path = "${BLITZ_BACKEND_DIR}/rust" }
+CARGO
+}
+
+create_rust_manifest() {
+    local module_name="$1"
+    local manifest_path="$2"
+
+    if [ ! -f "${manifest_path}" ]; then
+        cat >"${manifest_path}" <<CARGO
 [package]
-name = "blitz-backend"
+name = "${module_name}"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 CARGO
     fi
-
-    if grep -Eq "^[[:space:]]*name[[:space:]]*=[[:space:]]*[\"']${module_name}[\"']" "${cargo_path}"; then
-        return
-    fi
-
-    cat >>"${cargo_path}" <<CARGO
-
-[[bin]]
-name = "${module_name}"
-path = "${module_path}"
-CARGO
 }
 
 create_python_module() {
@@ -617,6 +654,7 @@ create_rust_module() {
     local module_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/rust/${module_name}"
 
     mkdir -p "${module_path}/src"
+    create_rust_manifest "${module_name}" "${module_path}/Cargo.toml"
     if [ ! -f "${module_path}/src/main.rs" ]; then
         cat >"${module_path}/src/main.rs" <<RS
 fn main() {
