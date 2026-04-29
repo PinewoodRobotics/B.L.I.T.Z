@@ -301,6 +301,7 @@ def test_local_backend_script_creates_rust_module_and_root_cargo(tmp_path: Path)
     assert "[workspace]" in cargo
     assert 'members = ["backend/rust/*"]' in cargo
     assert "[workspace.dependencies]" in cargo
+    assert "tokio =" not in cargo
     assert 'rust-project = { path = "backend/rust" }' in cargo
     assert "[[bin]]" not in cargo
 

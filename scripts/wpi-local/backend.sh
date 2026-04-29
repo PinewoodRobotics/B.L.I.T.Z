@@ -564,21 +564,8 @@ ensure_root_cargo_manifest() {
 members = ["${member_glob}"]
 resolver = "2"
 
-# Dependencies shared by Rust modules in this workspace.
+# Add dependencies shared by Rust modules in this workspace.
 [workspace.dependencies]
-tokio = { version = "1.36", features = ["full"] }
-tokio-tungstenite = "0.26.2"
-futures-util = "0.3"
-prost = "0.13.5"
-nalgebra = "0.33.2"
-serde = { version = "1.0", features = ["derive"] }
-bytes = "1.5"
-serde_json = "1.0"
-url = "2.5"
-thrift = "0.17"
-base64 = "0.21"
-ordered-float = "4.0"
-prost-build = "0.13.5"
 
 [workspace.metadata]
 rust-project = { path = "${BLITZ_BACKEND_DIR}/rust" }
