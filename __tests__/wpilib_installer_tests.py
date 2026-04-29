@@ -250,6 +250,107 @@ def test_local_backend_script_changes_backend_folder_and_gradle_blocks(tmp_path:
     assert (project / "build.gradle").read_text().count("// BEGIN BLITZ BACKEND") == 1
 
 
+def test_local_backend_script_creates_python_module_and_requirements(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+
+    install = run_installer(project)
+    assert_success(install)
+
+    result = run_local_backend_script(
+        project / "scripts" / "backend.sh",
+        project,
+        {
+            "BLITZ_BACKEND_ACTION": "create-module",
+            "BLITZ_MODULE_LANGUAGE": "python",
+            "BLITZ_MODULE_NAME": "vision",
+        },
+    )
+
+    assert_success(result)
+    assert (project / "backend" / "python" / "vision" / "__main__.py").is_file()
+    assert (project / "requirements.txt").is_file()
+
+
+def test_local_backend_script_creates_rust_module_and_root_cargo(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    docker = fake_bin / "docker"
+    docker.write_text("#!/bin/sh\nexit 0\n")
+    docker.chmod(0o755)
+
+    install = run_installer(project)
+    assert_success(install)
+
+    result = run_local_backend_script(
+        project / "scripts" / "backend.sh",
+        project,
+        {
+            "BLITZ_BACKEND_ACTION": "create-module",
+            "BLITZ_MODULE_LANGUAGE": "rust",
+            "BLITZ_MODULE_NAME": "pose",
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        },
+    )
+
+    assert_success(result)
+    assert (project / "backend" / "rust" / "pose" / "src" / "main.rs").is_file()
+    cargo = (project / "Cargo.toml").read_text()
+    assert 'name = "pose"' in cargo
+    assert 'path = "backend/rust/pose/src/main.rs"' in cargo
+
+
+def test_local_backend_script_cpp_requires_docker(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+    empty_path = tmp_path / "empty-path"
+    empty_path.mkdir()
+
+    install = run_installer(project)
+    assert_success(install)
+
+    result = run_local_backend_script(
+        project / "scripts" / "backend.sh",
+        project,
+        {
+            "BLITZ_BACKEND_ACTION": "create-module",
+            "BLITZ_MODULE_LANGUAGE": "cpp",
+            "BLITZ_MODULE_NAME": "native",
+            "PATH": f"{empty_path}:/bin:/usr/bin",
+        },
+    )
+
+    assert result.returncode != 0
+    assert "Install Docker" in result.stderr
+    assert not (project / "backend" / "cpp" / "native").exists()
+
+
+def test_local_backend_script_creates_cpp_module_with_docker(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    docker = fake_bin / "docker"
+    docker.write_text("#!/bin/sh\nexit 0\n")
+    docker.chmod(0o755)
+
+    install = run_installer(project)
+    assert_success(install)
+
+    result = run_local_backend_script(
+        project / "scripts" / "backend.sh",
+        project,
+        {
+            "BLITZ_BACKEND_ACTION": "create-module",
+            "BLITZ_MODULE_LANGUAGE": "cpp",
+            "BLITZ_MODULE_NAME": "native",
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        },
+    )
+
+    assert_success(result)
+    assert (project / "backend" / "cpp" / "native" / "CMakeLists.txt").is_file()
+    assert (project / "backend" / "cpp" / "native" / "src" / "main.cpp").is_file()
+
+
 def test_update_only_requires_existing_install(tmp_path: Path):
     project = make_wpilib_project(tmp_path)
 

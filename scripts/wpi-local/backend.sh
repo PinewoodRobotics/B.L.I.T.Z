@@ -441,6 +441,31 @@ validate_backend_dir() {
     esac
 }
 
+validate_module_name() {
+    local module_name="$1"
+
+    case "${module_name}" in
+        "" | *[!A-Za-z0-9_-]* | -*)
+            error "Module name must use only letters, numbers, underscores, or dashes, and cannot start with a dash: ${module_name}"
+            exit 1
+            ;;
+    esac
+}
+
+require_docker_for_module() {
+    local language="$1"
+
+    case "${language}" in
+        cpp | rust)
+            if ! command -v docker >/dev/null 2>&1; then
+                error "${language} modules require Docker for cross-compilation."
+                printf '%s\n' "Install Docker, start it, then create this module again." >&2
+                exit 1
+            fi
+            ;;
+    esac
+}
+
 update_deploy_py_backend_path() {
     local deploy_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
     local new_backend_dir="$1"
@@ -503,6 +528,139 @@ change_backend_folder() {
     info "Updated Gradle backend integration."
 }
 
+ensure_python_requirements() {
+    local requirements_path="${WPILIB_PROJECT}/requirements.txt"
+
+    if [ ! -f "${requirements_path}" ]; then
+        printf '%s\n' "# Add Python dependencies for BLITZ modules here." >"${requirements_path}"
+    fi
+}
+
+ensure_root_cargo_manifest() {
+    local cargo_path="${WPILIB_PROJECT}/Cargo.toml"
+    local module_name="$1"
+    local module_path="${BLITZ_BACKEND_DIR}/rust/${module_name}/src/main.rs"
+
+    if [ ! -f "${cargo_path}" ]; then
+        cat >"${cargo_path}" <<CARGO
+[package]
+name = "blitz-backend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+CARGO
+    fi
+
+    if grep -Eq "^[[:space:]]*name[[:space:]]*=[[:space:]]*[\"']${module_name}[\"']" "${cargo_path}"; then
+        return
+    fi
+
+    cat >>"${cargo_path}" <<CARGO
+
+[[bin]]
+name = "${module_name}"
+path = "${module_path}"
+CARGO
+}
+
+create_python_module() {
+    local module_name="$1"
+    local module_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/python/${module_name}"
+
+    mkdir -p "${module_path}"
+    if [ ! -f "${module_path}/__main__.py" ]; then
+        cat >"${module_path}/__main__.py" <<PY
+def main() -> None:
+    print("Hello from ${module_name}")
+
+
+if __name__ == "__main__":
+    main()
+PY
+    fi
+
+    ensure_python_requirements
+}
+
+create_cpp_module() {
+    local module_name="$1"
+    local module_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/cpp/${module_name}"
+
+    mkdir -p "${module_path}/src"
+    if [ ! -f "${module_path}/CMakeLists.txt" ]; then
+        cat >"${module_path}/CMakeLists.txt" <<CMAKE
+cmake_minimum_required(VERSION 3.16)
+project(${module_name})
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_executable(${module_name} src/main.cpp)
+CMAKE
+    fi
+
+    if [ ! -f "${module_path}/src/main.cpp" ]; then
+        cat >"${module_path}/src/main.cpp" <<CPP
+#include <iostream>
+
+int main() {
+    std::cout << "Hello from ${module_name}" << std::endl;
+    return 0;
+}
+CPP
+    fi
+}
+
+create_rust_module() {
+    local module_name="$1"
+    local module_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/rust/${module_name}"
+
+    mkdir -p "${module_path}/src"
+    if [ ! -f "${module_path}/src/main.rs" ]; then
+        cat >"${module_path}/src/main.rs" <<RS
+fn main() {
+    println!("Hello from ${module_name}");
+}
+RS
+    fi
+
+    ensure_root_cargo_manifest "${module_name}"
+}
+
+create_module() {
+    local language="$1"
+    local module_name="$2"
+    local module_path
+
+    validate_module_name "${module_name}"
+    require_docker_for_module "${language}"
+
+    module_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/${language}/${module_name}"
+    if [ -e "${module_path}" ]; then
+        error "Module already exists: ${BLITZ_BACKEND_DIR}/${language}/${module_name}"
+        exit 1
+    fi
+
+    case "${language}" in
+        python)
+            create_python_module "${module_name}"
+            ;;
+        cpp)
+            create_cpp_module "${module_name}"
+            ;;
+        rust)
+            create_rust_module "${module_name}"
+            ;;
+        *)
+            error "Unsupported module language: ${language}"
+            exit 1
+            ;;
+    esac
+
+    info "Created ${BLITZ_BACKEND_DIR}/${language}/${module_name}"
+}
+
 fetch_update_script() {
     local script_path
 
@@ -552,12 +710,44 @@ settings_menu() {
     done
 }
 
+create_module_menu() {
+    local language
+    local module_name=""
+
+    select_menu \
+        "Module language" \
+        "Python" \
+        "C++" \
+        "Rust" \
+        "Cancel"
+
+    case "${selected_menu_index}" in
+        0)
+            language="python"
+            ;;
+        1)
+            language="cpp"
+            ;;
+        2)
+            language="rust"
+            ;;
+        *)
+            return
+            ;;
+    esac
+
+    prompt_text "New ${language} module" module_name "Module name" "${module_name}" true
+    create_module "${language}" "${module_name}"
+    pause
+}
+
 main_menu() {
     while true; do
         select_menu \
             "Detected BLITZ backend: ${BLITZ_BACKEND_DIR}" \
             "Check for updates" \
             "Settings" \
+            "Create module" \
             "Exit"
 
         case "${selected_menu_index}" in
@@ -568,6 +758,10 @@ main_menu() {
                 ;;
             1)
                 settings_menu
+                require_initialized_project
+                ;;
+            2)
+                create_module_menu
                 require_initialized_project
                 ;;
             *)
@@ -588,6 +782,13 @@ run_non_interactive_action() {
                 exit 1
             fi
             change_backend_folder "${BLITZ_BACKEND_DIR_VALUE}"
+            ;;
+        create-module)
+            if [ -z "${BLITZ_MODULE_LANGUAGE:-}" ] || [ -z "${BLITZ_MODULE_NAME:-}" ]; then
+                error "BLITZ_MODULE_LANGUAGE and BLITZ_MODULE_NAME are required for create-module."
+                exit 1
+            fi
+            create_module "${BLITZ_MODULE_LANGUAGE}" "${BLITZ_MODULE_NAME}"
             ;;
         "" | status)
             printf '%s\n' "WPILib project: ${WPILIB_PROJECT}"
