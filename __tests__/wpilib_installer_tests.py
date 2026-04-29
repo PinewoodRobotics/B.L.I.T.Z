@@ -27,14 +27,12 @@ def make_wpilib_project(root: Path) -> Path:
 def run_installer(
     cwd: Path,
     env: dict[str, str] | None = None,
+    use_local_source: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     merged_env = os.environ.copy()
-    merged_env.update(
-        {
-            "BLITZ_ASSUME_YES": "true",
-            "BLITZ_SOURCE_DIR": str(REPO_ROOT),
-        }
-    )
+    merged_env.update({"BLITZ_ASSUME_YES": "true"})
+    if use_local_source:
+        merged_env["BLITZ_SOURCE_DIR"] = str(REPO_ROOT)
     if env:
         merged_env.update(env)
 
@@ -140,3 +138,93 @@ def test_update_only_requires_existing_install(tmp_path: Path):
 
     assert result.returncode != 0
     assert "Update only was selected" in result.stderr
+
+
+def test_installs_from_git_source_when_local_source_is_not_set(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+
+    result = run_installer(
+        project,
+        {
+            "GIT_URL": f"file://{REPO_ROOT}",
+            "BLITZ_SOURCE_URL": "https://invalid.example/blitz.tar.gz",
+        },
+        use_local_source=False,
+    )
+
+    assert_success(result)
+    assert (project / "backend" / "deployment" / "deployer.py").is_file()
+
+
+def test_dropdown_down_arrow_selects_second_option():
+    result = run_dropdown_menu(INSTALLER, "\x1b[B\n")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.endswith("1")
+
+
+def test_dropdown_application_cursor_down_arrow_selects_second_option():
+    result = run_dropdown_menu(INSTALLER, "\x1bOB\n")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.endswith("1")
+
+
+def test_dropdown_up_arrow_wraps_to_last_option():
+    result = run_dropdown_menu(INSTALLER, "\x1b[A\n")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.endswith("2")
+
+
+def test_dropdown_application_cursor_up_arrow_wraps_to_last_option():
+    result = run_dropdown_menu(INSTALLER, "\x1bOA\n")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.endswith("2")
+
+
+def test_dropdown_enter_selects_current_option():
+    result = run_dropdown_menu(INSTALLER, "\n")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.endswith("0")
+
+
+def test_dropdown_q_selects_last_option():
+    result = run_dropdown_menu(INSTALLER, "q")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.endswith("2")
+
+
+def test_system_installer_dropdown_down_arrow_selects_second_option():
+    result = run_dropdown_menu(
+        REPO_ROOT / "scripts" / "ui" / "install_on_system.sh",
+        "\x1b[B\n",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.endswith("1")
+
+
+def run_dropdown_menu(script: Path, input_text: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            "bash",
+            "-lc",
+            (
+                "set -euo pipefail; "
+                f"source {script}; "
+                "select_menu 'Test menu' 'First' 'Second' 'Third'; "
+                "printf '%s' \"${selected_menu_index}\""
+            ),
+        ],
+        cwd=REPO_ROOT,
+        env={**os.environ, "BLITZ_UI_SOURCE_ONLY": "true", "TERM": "xterm-256color"},
+        input=input_text,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )

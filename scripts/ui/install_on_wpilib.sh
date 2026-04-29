@@ -2,58 +2,60 @@
 
 set -euo pipefail
 
+DEFAULT_GIT_URL="https://github.com/PinewoodRobotics/B.L.I.T.Z.git"
 DEFAULT_SOURCE_URL="https://github.com/PinewoodRobotics/B.L.I.T.Z/archive/HEAD.tar.gz"
+DEFAULT_UI_LIB_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/common/terminal_ui.sh"
 DEFAULT_BACKEND_DIR="backend"
 DEFAULT_DEPLOY_SCRIPT="deploy.py"
 DEFAULT_GRADLE_TASK="deployBlitz"
 TEMP_DIR=""
+UI_LIB_TEMP_DIR=""
 
-if [ -t 1 ]; then
-    BOLD="$(printf '\033[1m')"
-    DIM="$(printf '\033[2m')"
-    GREEN="$(printf '\033[32m')"
-    YELLOW="$(printf '\033[33m')"
-    BLUE="$(printf '\033[34m')"
-    RED="$(printf '\033[31m')"
-    RESET="$(printf '\033[0m')"
-else
-    BOLD=""
-    DIM=""
-    GREEN=""
-    YELLOW=""
-    BLUE=""
-    RED=""
-    RESET=""
-fi
+source_terminal_ui() {
+    local source_path="${BASH_SOURCE[0]:-}"
+    local script_dir
+    local ui_lib_path
 
-clear_screen() {
-    if command -v clear >/dev/null 2>&1; then
-        clear
-    else
-        printf '\033[2J\033[H'
+    if [ -n "${source_path}" ] && [ -f "${source_path}" ]; then
+        script_dir="$(cd "$(dirname "${source_path}")" && pwd)"
+        ui_lib_path="${script_dir}/common/terminal_ui.sh"
+        if [ -f "${ui_lib_path}" ]; then
+            # shellcheck source=/dev/null
+            . "${ui_lib_path}"
+            return
+        fi
     fi
+
+    UI_LIB_TEMP_DIR="$(mktemp -d)"
+    ui_lib_path="${UI_LIB_TEMP_DIR}/terminal_ui.sh"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "${BLITZ_UI_LIB_URL:-${DEFAULT_UI_LIB_URL}}" -o "${ui_lib_path}"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO "${ui_lib_path}" "${BLITZ_UI_LIB_URL:-${DEFAULT_UI_LIB_URL}}"
+    else
+        printf '%s\n' "Error: Install curl or wget, then run this installer again." >&2
+        exit 1
+    fi
+
+    # shellcheck source=/dev/null
+    . "${ui_lib_path}"
+    rm -rf "${UI_LIB_TEMP_DIR}"
+    UI_LIB_TEMP_DIR=""
 }
+
+source_terminal_ui
 
 print_header() {
     printf '\n%s\n' "${BOLD}B.L.I.T.Z WPILib Installer${RESET}"
     printf '%s\n\n' "${DIM}This will add BLITZ deployment files to a Java WPILib robot project.${RESET}"
 }
 
-info() {
-    printf '%s\n' "${GREEN}==>${RESET} $*"
-}
-
-warn() {
-    printf '%s\n' "${YELLOW}Warning:${RESET} $*"
-}
-
-error() {
-    printf '%s\n' "${RED}Error:${RESET} $*" >&2
-}
-
 cleanup() {
     if [ -n "${TEMP_DIR}" ]; then
         rm -rf "${TEMP_DIR}"
+    fi
+    if [ -n "${UI_LIB_TEMP_DIR}" ]; then
+        rm -rf "${UI_LIB_TEMP_DIR}"
     fi
 }
 
@@ -78,112 +80,6 @@ download_file() {
         error "Install curl or wget, then run this installer again."
         exit 1
     fi
-}
-
-prompt_text() {
-    local title="$1"
-    local var_name="$2"
-    local label="$3"
-    local default_value="$4"
-    local required="${5:-false}"
-    local value
-    local current_value="${!var_name:-${default_value}}"
-
-    if [ ! -t 0 ]; then
-        if [ "${required}" = "true" ] && [ -z "${current_value}" ]; then
-            error "${var_name} is required in non-interactive mode."
-            exit 1
-        fi
-        printf -v "${var_name}" '%s' "${current_value}"
-        return
-    fi
-
-    while true; do
-        clear_screen
-        print_header
-        printf '%s\n' "${BOLD}${title}${RESET}"
-        printf '%s\n\n' "${DIM}Press Enter to accept the value in brackets.${RESET}"
-        read -r -p "${label} [${current_value}]: " value
-        value="${value:-${current_value}}"
-
-        if [ "${required}" = "true" ] && [ -z "${value}" ]; then
-            warn "This value is required."
-            read -r -p "Press Enter to try again..." _
-            continue
-        fi
-
-        printf -v "${var_name}" '%s' "${value}"
-        break
-    done
-}
-
-selected_menu_index=0
-
-read_menu_key() {
-    local key
-    local second
-    local third
-
-    IFS= read -rsn1 key || true
-    if [ "${key}" = $'\x1b' ]; then
-        IFS= read -rsn1 -t 0.5 second || true
-        IFS= read -rsn1 -t 0.5 third || true
-        key="${key}${second}${third}"
-    fi
-
-    printf '%s' "${key}"
-}
-
-select_menu() {
-    local title="$1"
-    shift
-    local options=("$@")
-    local selected=0
-    local key
-    local index
-
-    while true; do
-        clear_screen
-        print_header
-        printf '%s\n' "${BOLD}${title}${RESET}"
-        printf '%s\n\n' "${DIM}Use arrow keys or j/k to move, then press Enter.${RESET}"
-
-        for index in "${!options[@]}"; do
-            if [ "${index}" -eq "${selected}" ]; then
-                printf '  %s> %s%s\n' "${BLUE}${BOLD}" "${options[${index}]}" "${RESET}"
-            else
-                printf '    %s\n' "${options[${index}]}"
-            fi
-        done
-
-        key="$(read_menu_key)"
-        case "${key}" in
-            "")
-                selected_menu_index="${selected}"
-                return
-                ;;
-            $'\x1b[A' | $'\x1bOA' | k | K)
-                if [ "${selected}" -le 0 ]; then
-                    selected=$((${#options[@]} - 1))
-                else
-                    selected=$((selected - 1))
-                fi
-                ;;
-            $'\x1b[B' | $'\x1bOB' | j | J)
-                selected=$(((selected + 1) % ${#options[@]}))
-                ;;
-            q | Q)
-                selected_menu_index="$((${#options[@]} - 1))"
-                return
-                ;;
-            [1-9])
-                if [ "${key}" -le "${#options[@]}" ]; then
-                    selected_menu_index="$((key - 1))"
-                    return
-                fi
-                ;;
-        esac
-    done
 }
 
 absolute_path() {
@@ -273,6 +169,32 @@ download_source_root() {
     printf '%s\n' "${source_root}"
 }
 
+clone_source_root() {
+    local clone_temp
+    local source_root
+
+    command -v git >/dev/null 2>&1 || return 1
+
+    clone_temp="$(mktemp -d)"
+    source_root="${clone_temp}/B.L.I.T.Z"
+
+    info "Cloning BLITZ source..." >&2
+    if ! git clone --depth 1 --recurse-submodules "${GIT_URL}" "${source_root}" >&2; then
+        rm -rf "${clone_temp}"
+        return 1
+    fi
+
+    if [ ! -d "${source_root}/backend/deployment" ]; then
+        error "Cloned source does not contain backend/deployment."
+        rm -rf "${clone_temp}"
+        return 1
+    fi
+
+    TEMP_DIR="${clone_temp}"
+    trap cleanup EXIT
+    printf '%s\n' "${source_root}"
+}
+
 resolve_source_root() {
     if [ -n "${BLITZ_SOURCE_DIR:-}" ]; then
         if [ ! -d "${BLITZ_SOURCE_DIR}/backend/deployment" ]; then
@@ -287,6 +209,11 @@ resolve_source_root() {
         return
     fi
 
+    if clone_source_root; then
+        return
+    fi
+
+    warn "Git clone failed or git is unavailable; falling back to source archive."
     download_source_root
 }
 
@@ -378,25 +305,30 @@ configure_non_interactive_settings() {
     BLITZ_GRADLE_INTEGRATION="${BLITZ_GRADLE_INTEGRATION:-false}"
     BLITZ_GRADLE_TASK="${BLITZ_GRADLE_TASK:-${DEFAULT_GRADLE_TASK}}"
     BLITZ_UPDATE_ONLY="${BLITZ_UPDATE_ONLY:-false}"
+    GIT_URL="${GIT_URL:-${DEFAULT_GIT_URL}}"
 }
 
 advanced_settings_menu() {
     while true; do
         select_menu \
             "Advanced settings" \
-            "Edit BLITZ source URL" \
+            "Edit BLITZ Git URL" \
+            "Edit BLITZ archive URL" \
             "Edit backend folder" \
             "Edit deploy script" \
             "Back"
 
         case "${selected_menu_index}" in
             0)
-                prompt_text "Advanced: BLITZ source" BLITZ_SOURCE_URL "Source URL" "${BLITZ_SOURCE_URL}" false
+                prompt_text "Advanced: BLITZ Git source" GIT_URL "Git URL" "${GIT_URL}" false
                 ;;
             1)
-                prompt_text "Advanced: backend folder" BLITZ_BACKEND_DIR "Backend folder" "${BLITZ_BACKEND_DIR}" false
+                prompt_text "Advanced: BLITZ archive source" BLITZ_SOURCE_URL "Archive URL" "${BLITZ_SOURCE_URL}" false
                 ;;
             2)
+                prompt_text "Advanced: backend folder" BLITZ_BACKEND_DIR "Backend folder" "${BLITZ_BACKEND_DIR}" false
+                ;;
+            3)
                 prompt_text "Advanced: deploy script" BLITZ_DEPLOY_SCRIPT "Deploy script" "${BLITZ_DEPLOY_SCRIPT}" false
                 ;;
             *)
@@ -610,6 +542,7 @@ main() {
 
     print_header
 
+    GIT_URL="${GIT_URL:-${DEFAULT_GIT_URL}}"
     BLITZ_SOURCE_URL="${BLITZ_SOURCE_URL:-${DEFAULT_SOURCE_URL}}"
     BLITZ_BACKEND_DIR="${BLITZ_BACKEND_DIR:-${DEFAULT_BACKEND_DIR}}"
     BLITZ_DEPLOY_SCRIPT="${BLITZ_DEPLOY_SCRIPT:-${DEFAULT_DEPLOY_SCRIPT}}"
@@ -638,4 +571,6 @@ main() {
     printf '%s\n' "Edit ${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}, then run it from your robot project."
 }
 
-main "$@"
+if [ "${BLITZ_SOURCE_ONLY:-false}" != "true" ] && [ "${BLITZ_UI_SOURCE_ONLY:-false}" != "true" ]; then
+    main "$@"
+fi
