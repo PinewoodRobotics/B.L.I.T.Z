@@ -7,7 +7,7 @@ from zeroconf import ServiceInfo, Zeroconf
 
 from watchdog.util.logger import error, success
 from watchdog.util.system import (
-    RaspberryPiInfo,
+    RuntimePlatformInfo,
     get_local_hostname,
     get_primary_ipv4,
     get_system_name,
@@ -31,7 +31,7 @@ def construct_service_info():
     system_name = get_system_name()
     local_ip = get_primary_ipv4()
     system_config = load_basic_system_config()
-    raspberry_pi_info = RaspberryPiInfo.collect().to_dict()
+    runtime_platform_info = RuntimePlatformInfo.collect().to_dict()
     addresses = [socket.inet_aton(local_ip)]
     blitz_path = os.environ.get("BLITZ_PATH") or str(Path(__file__).resolve().parents[1])
     return ServiceInfo(
@@ -44,10 +44,10 @@ def construct_service_info():
             {
                 "hostname": hostname_local,
                 "system_name": system_name,
-                "watchdog_port": system_config.watchdog.port,
-                "autobahn_port": system_config.autobahn.port,
+                "watchdog_port": system_config.watchdog_api.api_port,
+                "autobahn_port": system_config.autobahn_connection.port,
                 "blitz_path": blitz_path,
-                **raspberry_pi_info,
+                **runtime_platform_info,
             }
         ),
     )

@@ -1,19 +1,19 @@
 {
-  "autobahn": {
+  "autobahn_connection": {
     "host": "localhost",
     "port": 8080
   },
   "logging": {
-    "global_log_pub_topic": "pi-technical-log",
-    "global_logging_publishing_enabled": true,
-    "global_logging_level": "DEBUG"
+    "log_publish_topic": "pi-technical-log",
+    "publish_logs_over_autobahn": true,
+    "default_log_level": "DEBUG"
   },
-  "watchdog": {
-    "host": "0.0.0.0",
-    "port": 5000,
-    "stats_pub_period_s": 0.5,
-    "send_stats": true,
-    "process_memory_file": "config/processes.json"
+  "watchdog_api": {
+    "api_host": "0.0.0.0",
+    "api_port": 5000,
+    "system_stats_publish_interval_seconds": 0.5,
+    "publish_system_stats": true,
+    "managed_process_state_file": "config/processes.json"
   },
-  "config_path": "config/config.b64"
+  "desired_config_base64_path": "config/config.b64"
 }

@@ -13,8 +13,8 @@ from backend.deployment.compilation.util.systems import SystemId
 from backend.deployment.module.supported import SupportedModules
 from backend.deployment.network_api.system_api import System
 from backend.deployment.network_api.zeroconf import (
-    CoprocessorInfo,
     DiscoveredNetworkSystem,
+    RuntimePlatformInfo,
 )
 from backend.deployment.processes import WeightedProcess
 from backend.deployment.rsyncer import Rsyncer
@@ -55,13 +55,13 @@ with open("/etc/os-release") as f:
             key, value = line.rstrip().split("=", 1)
             os_release[key] = value.strip(chr(34))
 print(json.dumps({
-    "platform_machine": platform.machine(),
-    "platform_platform": platform.platform(),
-    "python_version_major": sys.version_info.major,
-    "python_version_minor": sys.version_info.minor,
-    "os_release_id": os_release.get("ID"),
-    "os_release_id_like": os_release.get("ID_LIKE"),
-    "os_release_version_id": os_release.get("VERSION_ID"),
+    "machine_architecture": platform.machine(),
+    "platform_description": platform.platform(),
+    "python_major_version": sys.version_info.major,
+    "python_minor_version": sys.version_info.minor,
+    "os_distribution_id": os_release.get("ID"),
+    "os_distribution_family": os_release.get("ID_LIKE"),
+    "os_distribution_version_id": os_release.get("VERSION_ID"),
 }))'
         """,
     ).output.strip()
@@ -72,7 +72,7 @@ print(json.dumps({
         watchdog_port=5000,
         autobahn_port=8080,
         blitz_path=INSTALLED_REPO,
-        coprocessor_info=CoprocessorInfo(**info),
+        runtime_platform=RuntimePlatformInfo(**info),
     )
 
 

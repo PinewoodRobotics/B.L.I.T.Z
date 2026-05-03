@@ -15,11 +15,13 @@ def set_config():
             400,
         )
 
-    b64_config_file: str = cast(str, current_app.config.get("B64_CONFIG_FILE"))
+    desired_config_base64_file: str = cast(
+        str, current_app.config.get("DESIRED_CONFIG_BASE64_FILE")
+    )
 
     config_base64: str = cast(str, data.get("config_base64"))
     filtered = "".join(c for c in config_base64 if c.isalnum() or c in "+/=")
-    with open(b64_config_file, "w") as f:
+    with open(desired_config_base64_file, "w") as f:
         f.write(filtered)
 
     monitor = current_app.extensions.get("process_monitor")

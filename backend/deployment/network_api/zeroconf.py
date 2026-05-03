@@ -18,29 +18,51 @@ SERVICE = "_watchdog._udp.local."
 
 
 @dataclass
-class CoprocessorInfo:
-    platform_machine: str
-    platform_platform: str
-    python_version_major: int
-    python_version_minor: int
-    os_release_id: str | None = None
-    os_release_id_like: str | None = None
-    os_release_version_id: str | None = None
+class RuntimePlatformInfo:
+    machine_architecture: str
+    platform_description: str
+    python_major_version: int
+    python_minor_version: int
+    os_distribution_id: str | None = None
+    os_distribution_family: str | None = None
+    os_distribution_version_id: str | None = None
 
     @classmethod
-    def from_properties(cls, properties: Mapping[str, object]) -> "CoprocessorInfo":
+    def from_properties(cls, properties: Mapping[str, object]) -> "RuntimePlatformInfo":
         return cls(
-            platform_machine=_str_property(properties, "platform_machine"),
-            platform_platform=_str_property(properties, "platform_platform"),
-            python_version_major=_int_property(properties, "python_version_major"),
-            python_version_minor=_int_property(properties, "python_version_minor"),
-            os_release_id=_optional_str_property(properties, "os_release_id"),
-            os_release_id_like=_optional_str_property(
+            machine_architecture=_str_property_choice(
                 properties,
+                "machine_architecture",
+                "platform_machine",
+            ),
+            platform_description=_str_property_choice(
+                properties,
+                "platform_description",
+                "platform_platform",
+            ),
+            python_major_version=_int_property_choice(
+                properties,
+                "python_major_version",
+                "python_version_major",
+            ),
+            python_minor_version=_int_property_choice(
+                properties,
+                "python_minor_version",
+                "python_version_minor",
+            ),
+            os_distribution_id=_optional_str_property_choice(
+                properties,
+                "os_distribution_id",
+                "os_release_id",
+            ),
+            os_distribution_family=_optional_str_property_choice(
+                properties,
+                "os_distribution_family",
                 "os_release_id_like",
             ),
-            os_release_version_id=_optional_str_property(
+            os_distribution_version_id=_optional_str_property_choice(
                 properties,
+                "os_distribution_version_id",
                 "os_release_version_id",
             ),
         )
@@ -55,7 +77,7 @@ class DiscoveredNetworkSystem:
 
     blitz_path: str  # EG: "/opt/blitz/B.L.I.T.Z"
 
-    coprocessor_info: CoprocessorInfo
+    runtime_platform: RuntimePlatformInfo
 
     @classmethod
     def from_service_info(cls, info: ServiceInfo) -> "DiscoveredNetworkSystem":
@@ -67,14 +89,14 @@ class DiscoveredNetworkSystem:
             watchdog_port=_int_property(properties, "watchdog_port"),
             autobahn_port=_int_property(properties, "autobahn_port"),
             blitz_path=_str_property(properties, "blitz_path"),
-            coprocessor_info=CoprocessorInfo.from_properties(properties),
+            runtime_platform=RuntimePlatformInfo.from_properties(properties),
         )
 
     def __hash__(self) -> int:
         return hash(self.hostname)
 
     def system_id_diagnostics(self) -> dict[str, object]:
-        info = self.coprocessor_info
+        info = self.runtime_platform
         return {
             "hostname": self.hostname,
             "system_name": self.system_name,
@@ -82,22 +104,22 @@ class DiscoveredNetworkSystem:
             "autobahn_port": self.autobahn_port,
             "blitz_path": self.blitz_path,
             "platform_text": self._platform_text(),
-            "platform_machine": info.platform_machine,
-            "platform_platform": info.platform_platform,
-            "os_release_id": info.os_release_id,
-            "os_release_id_like": info.os_release_id_like,
-            "os_release_version_id": info.os_release_version_id,
+            "machine_architecture": info.machine_architecture,
+            "platform_description": info.platform_description,
+            "os_distribution_id": info.os_distribution_id,
+            "os_distribution_family": info.os_distribution_family,
+            "os_distribution_version_id": info.os_distribution_version_id,
         }
 
     def _platform_text(self) -> str:
-        info = self.coprocessor_info
+        info = self.runtime_platform
         return " ".join(
             value
             for value in [
-                info.platform_platform,
-                info.os_release_id,
-                info.os_release_id_like,
-                info.os_release_version_id,
+                info.platform_description,
+                info.os_distribution_id,
+                info.os_distribution_family,
+                info.os_distribution_version_id,
             ]
             if value
         ).lower()
@@ -109,7 +131,7 @@ class DiscoveredNetworkSystem:
         return ValueError(f"{message} for {self.hostname}. diagnostics: {diagnostics}")
 
     def to_system_id(self) -> SystemId:
-        info = self.coprocessor_info
+        info = self.runtime_platform
         platform_text = self._platform_text()
         glibc_match = re.search(r"glibc(?P<version>\d+(?:\.\d+)*)", platform_text)
         if glibc_match is None:
@@ -117,15 +139,15 @@ class DiscoveredNetworkSystem:
         glibc_version = glibc_match.group("version")
 
         try:
-            architecture = Architecture.from_machine(info.platform_machine)
+            architecture = Architecture.from_machine(info.machine_architecture)
         except ValueError as error:
             raise self._system_id_error(str(error)) from error
 
         try:
             linux_distro = LinuxDistro.from_os_release(
-                os_id=info.os_release_id,
-                os_id_like=info.os_release_id_like,
-                version_id=info.os_release_version_id,
+                os_id=info.os_distribution_id,
+                os_id_like=info.os_distribution_family,
+                version_id=info.os_distribution_version_id,
                 platform_text=platform_text,
             )
         except ValueError as error:
@@ -136,8 +158,8 @@ class DiscoveredNetworkSystem:
             linux_distro=linux_distro,
             architecture=architecture,
             python_version=PythonVersion(
-                major=info.python_version_major,
-                minor=info.python_version_minor,
+                major=info.python_major_version,
+                minor=info.python_minor_version,
             ),
         )
 
@@ -165,18 +187,49 @@ def _property(properties: Mapping[str, object], field_name: str) -> object:
     return value
 
 
+def _property_choice(
+    properties: Mapping[str, object], preferred_field_name: str, legacy_field_name: str
+) -> object:
+    value = properties.get(preferred_field_name, properties.get(legacy_field_name))
+    if value is None:
+        raise ValueError(
+            "Missing required service property: "
+            f"{preferred_field_name} (or legacy {legacy_field_name})"
+        )
+    return value
+
+
 def _str_property(properties: Mapping[str, object], field_name: str) -> str:
     return str(_property(properties, field_name))
+
+
+def _str_property_choice(
+    properties: Mapping[str, object], preferred_field_name: str, legacy_field_name: str
+) -> str:
+    return str(_property_choice(properties, preferred_field_name, legacy_field_name))
 
 
 def _int_property(properties: Mapping[str, object], field_name: str) -> int:
     return int(str(_property(properties, field_name)))
 
 
+def _int_property_choice(
+    properties: Mapping[str, object], preferred_field_name: str, legacy_field_name: str
+) -> int:
+    return int(str(_property_choice(properties, preferred_field_name, legacy_field_name)))
+
+
 def _optional_str_property(
     properties: Mapping[str, object], field_name: str
 ) -> str | None:
     value = properties.get(field_name)
+    return None if value is None else str(value)
+
+
+def _optional_str_property_choice(
+    properties: Mapping[str, object], preferred_field_name: str, legacy_field_name: str
+) -> str | None:
+    value = properties.get(preferred_field_name, properties.get(legacy_field_name))
     return None if value is None else str(value)
 
 

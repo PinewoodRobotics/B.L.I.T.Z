@@ -12,7 +12,7 @@ from watchdog.generated.PiStatus_pb2 import (
     StatusType,
 )
 from watchdog.util.system import (
-    BasicSystemConfig,
+    WatchdogSystemConfig,
     get_camera_video_ports,
     get_system_name,
     get_top_10_processes,
@@ -40,12 +40,12 @@ def _collect_system_stats():
     )
 
 
-async def process_watcher(config: BasicSystemConfig | None):
+async def process_watcher(config: WatchdogSystemConfig | None):
     print(
         f"[DEBUG] Process watcher running! autobahn_instance={logger_module.autobahn_instance is not None}, PREFIX={logger_module.PREFIX}"
     )
     while True:
-        if config and config.watchdog.send_stats:
+        if config and config.watchdog_api.publish_system_stats:
             (
                 cpu_per_core,
                 cpu_usage_total,
@@ -78,8 +78,8 @@ async def process_watcher(config: BasicSystemConfig | None):
             await stats(pi_status.SerializeToString())
 
         await asyncio.sleep(
-            config.watchdog.stats_pub_period_s
-            if config and config.watchdog.send_stats
+            config.watchdog_api.system_stats_publish_interval_seconds
+            if config and config.watchdog_api.publish_system_stats
             else 1
         )
 

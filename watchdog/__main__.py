@@ -10,9 +10,9 @@ from watchdog.util.logger import LogLevel, error, init_logging, success
 from autobahn_client.client import Autobahn
 from autobahn_client.util import Address
 from watchdog.util.system import (
-    BasicSystemConfig,
     get_system_name,
     load_basic_system_config,
+    WatchdogSystemConfig,
 )
 from watchdog.discovery import enable_discovery
 from watchdog.helper import process_watcher, setup_ping_pong
@@ -24,44 +24,46 @@ app.register_blueprint(SETTERS_BP)
 process_monitor: ProcessMonitor | None = None
 
 try:
-    BASIC_SYSTEM_CONFIG: BasicSystemConfig = load_basic_system_config()
+    SYSTEM_CONFIG: WatchdogSystemConfig = load_basic_system_config()
     SYSTEM_NAME: str = get_system_name()
 except FileNotFoundError:
     error("Basic system config or system name not found, exiting.")
     exit(1)
 
-PROCESS_MEMORY_FILE = BASIC_SYSTEM_CONFIG.watchdog.process_memory_file
-B64_CONFIG_FILE = BASIC_SYSTEM_CONFIG.config_path
+MANAGED_PROCESS_STATE_FILE = SYSTEM_CONFIG.watchdog_api.managed_process_state_file
+DESIRED_CONFIG_BASE64_FILE = SYSTEM_CONFIG.desired_config_base64_path
 app.config["SYSTEM_NAME"] = SYSTEM_NAME
-app.config["B64_CONFIG_FILE"] = B64_CONFIG_FILE
+app.config["DESIRED_CONFIG_BASE64_FILE"] = DESIRED_CONFIG_BASE64_FILE
 
 
 async def main():
-    global BASIC_SYSTEM_CONFIG, SYSTEM_NAME, PROCESS_MEMORY_FILE, B64_CONFIG_FILE
+    global SYSTEM_CONFIG, SYSTEM_NAME, MANAGED_PROCESS_STATE_FILE, DESIRED_CONFIG_BASE64_FILE
     global process_monitor
 
-    if not os.path.exists(B64_CONFIG_FILE):
-        os.makedirs(os.path.dirname(B64_CONFIG_FILE), exist_ok=True)
-        with open(B64_CONFIG_FILE, "w") as f:
+    if not os.path.exists(DESIRED_CONFIG_BASE64_FILE):
+        os.makedirs(os.path.dirname(DESIRED_CONFIG_BASE64_FILE), exist_ok=True)
+        with open(DESIRED_CONFIG_BASE64_FILE, "w") as f:
             _ = f.write("")
 
     autobahn_server = Autobahn(
         Address(
-            BASIC_SYSTEM_CONFIG.autobahn.host,
-            BASIC_SYSTEM_CONFIG.autobahn.port,
+            SYSTEM_CONFIG.autobahn_connection.host,
+            SYSTEM_CONFIG.autobahn_connection.port,
         )
     )
     _ = await autobahn_server.begin()
 
     process_monitor = ProcessMonitor(
-        PROCESS_MEMORY_FILE, B64_CONFIG_FILE, asyncio.get_running_loop()
+        MANAGED_PROCESS_STATE_FILE,
+        DESIRED_CONFIG_BASE64_FILE,
+        asyncio.get_running_loop(),
     )
     app.extensions["process_monitor"] = process_monitor
 
     init_logging(
         "WATCHDOG",
-        LogLevel(BASIC_SYSTEM_CONFIG.logging.global_logging_level),
-        system_pub_topic=BASIC_SYSTEM_CONFIG.logging.global_log_pub_topic,
+        LogLevel(SYSTEM_CONFIG.logging.default_log_level),
+        system_pub_topic=SYSTEM_CONFIG.logging.log_publish_topic,
         autobahn=autobahn_server,
         system_name=SYSTEM_NAME,
     )
@@ -70,7 +72,7 @@ async def main():
 
     await setup_ping_pong(autobahn_server, SYSTEM_NAME)
 
-    _ = asyncio.create_task(process_watcher(BASIC_SYSTEM_CONFIG))
+    _ = asyncio.create_task(process_watcher(SYSTEM_CONFIG))
     success("Process watcher started!")
 
     discovery_thread = threading.Thread(target=enable_discovery, daemon=True)
@@ -80,8 +82,8 @@ async def main():
     flask_thread = threading.Thread(
         target=app.run,
         kwargs={
-            "host": BASIC_SYSTEM_CONFIG.watchdog.host,
-            "port": BASIC_SYSTEM_CONFIG.watchdog.port,
+            "host": SYSTEM_CONFIG.watchdog_api.api_host,
+            "port": SYSTEM_CONFIG.watchdog_api.api_port,
             "debug": False,
         },
         daemon=True,
