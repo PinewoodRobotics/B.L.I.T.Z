@@ -266,6 +266,49 @@ read_build_version() {
     sed -n '1{s/[[:space:]]*$//;p;q;}' "${version_path}"
 }
 
+version_at_least() {
+    local current_version="$1"
+    local latest_version="$2"
+    local IFS=.
+    local -a current_parts
+    local -a latest_parts
+    local max_parts
+    local index
+    local current_part
+    local latest_part
+
+    read -r -a current_parts <<<"${current_version}"
+    read -r -a latest_parts <<<"${latest_version}"
+
+    max_parts="${#current_parts[@]}"
+    if [ "${#latest_parts[@]}" -gt "${max_parts}" ]; then
+        max_parts="${#latest_parts[@]}"
+    fi
+
+    for ((index = 0; index < max_parts; index++)); do
+        current_part="${current_parts[${index}]:-0}"
+        latest_part="${latest_parts[${index}]:-0}"
+
+        case "${current_part}:${latest_part}" in
+            *[!0-9:]* | :* | *:)
+                return 1
+                ;;
+        esac
+
+        current_part=$((10#${current_part}))
+        latest_part=$((10#${latest_part}))
+
+        if [ "${current_part}" -gt "${latest_part}" ]; then
+            return 0
+        fi
+        if [ "${current_part}" -lt "${latest_part}" ]; then
+            return 1
+        fi
+    done
+
+    return 0
+}
+
 fetch_url() {
     local url="$1"
 
@@ -486,7 +529,7 @@ main() {
     latest_version="$(fetch_latest_build_version)"
     commit_message="$(fetch_latest_commit_message)"
 
-    if [ "${local_version}" = "${latest_version}" ]; then
+    if version_at_least "${local_version}" "${latest_version}"; then
         printf '\n%s\n' "${GREEN}BLITZ WPILib deployment is already up to date (${local_version}).${RESET}"
         printf '%s\n' "Detected deployment folder: $(relative_to_project "${DEPLOYMENT_PATH}")"
         return

@@ -19,16 +19,12 @@ def make_wpilib_project(root: Path, *, kotlin_dsl: bool = False) -> Path:
     java_dir.mkdir(parents=True)
     if kotlin_dsl:
         (project / "build.gradle.kts").write_text(
-            "plugins {\n"
-            "    java\n"
-            "}\n",
+            "plugins {\n" "    java\n" "}\n",
         )
-        (project / "settings.gradle.kts").write_text("rootProject.name = \"robot\"\n")
+        (project / "settings.gradle.kts").write_text('rootProject.name = "robot"\n')
     else:
         (project / "build.gradle").write_text(
-            "plugins {\n"
-            "    id 'java'\n"
-            "}\n",
+            "plugins {\n" "    id 'java'\n" "}\n",
         )
         (project / "settings.gradle").write_text("rootProject.name = 'robot'\n")
     (java_dir / "Robot.java").write_text("package frc.robot;\n")
@@ -160,9 +156,15 @@ def test_installs_groovy_gradle_backend_task_blocks(tmp_path: Path):
     settings_gradle = (project / "settings.gradle").read_text()
     build_gradle = (project / "build.gradle").read_text()
     assert 'gradle.ext.backendPath = file("backend").absolutePath' in settings_gradle
-    assert 'apply from: "${gradle.ext.backendPath}/deployment/gradle/build.gradle"' in build_gradle
+    assert (
+        'apply from: "${gradle.ext.backendPath}/deployment/gradle/build.gradle"'
+        in build_gradle
+    )
     assert "B.L.I.T.Z backend integration." in build_gradle
-    assert "https://docs.gradle.org/current/userguide/plugins.html#sec:script_plugins" in build_gradle
+    assert (
+        "https://docs.gradle.org/current/userguide/plugins.html#sec:script_plugins"
+        in build_gradle
+    )
     assert settings_gradle.count("// BEGIN BLITZ BACKEND") == 1
     assert build_gradle.count("// BEGIN BLITZ BACKEND") == 1
 
@@ -175,12 +177,22 @@ def test_installs_kotlin_gradle_backend_task_blocks(tmp_path: Path):
     assert_success(result)
     settings_gradle = (project / "settings.gradle.kts").read_text()
     build_gradle = (project / "build.gradle.kts").read_text()
-    assert 'gradle.extra["backendPath"] = file("backend").absolutePath' in settings_gradle
-    assert 'apply(from = "${gradle.extra["backendPath"]}/deployment/gradle/build.gradle.kts")' in build_gradle
+    assert (
+        'gradle.extra["backendPath"] = file("backend").absolutePath' in settings_gradle
+    )
+    assert (
+        'apply(from = "${gradle.extra["backendPath"]}/deployment/gradle/build.gradle.kts")'
+        in build_gradle
+    )
     assert "B.L.I.T.Z backend integration." in build_gradle
-    assert "https://docs.gradle.org/current/userguide/plugins.html#sec:script_plugins" in build_gradle
+    assert (
+        "https://docs.gradle.org/current/userguide/plugins.html#sec:script_plugins"
+        in build_gradle
+    )
     assert (project / "backend" / "deployment" / "gradle" / "build.gradle").is_file()
-    assert (project / "backend" / "deployment" / "gradle" / "build.gradle.kts").is_file()
+    assert (
+        project / "backend" / "deployment" / "gradle" / "build.gradle.kts"
+    ).is_file()
 
 
 def run_local_backend_script(
@@ -210,7 +222,9 @@ def test_local_backend_script_detects_project_from_root_and_scripts_dir(tmp_path
     assert_success(install)
 
     root_result = run_local_backend_script(project / "scripts" / "backend.sh", project)
-    scripts_result = run_local_backend_script(project / "scripts" / "backend.sh", project / "scripts")
+    scripts_result = run_local_backend_script(
+        project / "scripts" / "backend.sh", project / "scripts"
+    )
 
     assert_success(root_result)
     assert_success(scripts_result)
@@ -239,14 +253,17 @@ def test_local_backend_script_changes_backend_folder_and_gradle_blocks(tmp_path:
     assert not (project / "backend").exists()
     assert (project / "robotBackend" / "deployment" / ".build-version").is_file()
     assert (project / "robotBackend" / "deploy.py").is_file()
-    assert 'gradle.ext.backendPath = file("robotBackend").absolutePath' in (
-        project / "settings.gradle"
-    ).read_text()
+    assert (
+        'gradle.ext.backendPath = file("robotBackend").absolutePath'
+        in (project / "settings.gradle").read_text()
+    )
     assert (
         '.set_local_backend_path("robotBackend")'
         in (project / "robotBackend" / "deploy.py").read_text()
     )
-    assert (project / "settings.gradle").read_text().count("// BEGIN BLITZ BACKEND") == 1
+    assert (project / "settings.gradle").read_text().count(
+        "// BEGIN BLITZ BACKEND"
+    ) == 1
     assert (project / "build.gradle").read_text().count("// BEGIN BLITZ BACKEND") == 1
 
 
@@ -409,6 +426,28 @@ def test_updater_reports_already_current(tmp_path: Path):
     assert "already up to date" in result.stdout
 
 
+def test_updater_treats_0_0_10_as_newer_than_0_0_9(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+
+    install = run_installer(project)
+    assert_success(install)
+    version_file = project / "backend" / "deployment" / ".build-version"
+    _ = version_file.write_text("0.0.10\n")
+
+    result = run_updater(
+        project,
+        {
+            "BLITZ_LATEST_BUILD_VERSION": "0.0.9",
+            "BLITZ_LATEST_COMMIT_MESSAGE": "older remote version",
+        },
+    )
+
+    assert_success(result)
+    assert "already up to date (0.0.10)" in result.stdout
+    assert "Latest version:              0.0.9" not in result.stdout
+    assert version_file.read_text() == "0.0.10\n"
+
+
 def test_updater_accepts_kotlin_gradle_wpilib_project(tmp_path: Path):
     project = make_wpilib_project(tmp_path, kotlin_dsl=True)
 
@@ -431,7 +470,9 @@ def test_updater_refreshes_deployment_and_preserves_deploy_py(tmp_path: Path):
     deploy_py = project / "backend" / "deploy.py"
     deploy_py.write_text("# team customization\n")
 
-    shutil.copytree(REPO_ROOT / "backend" / "deployment", source / "backend" / "deployment")
+    shutil.copytree(
+        REPO_ROOT / "backend" / "deployment", source / "backend" / "deployment"
+    )
     (source / "backend" / "deployment" / ".build-version").write_text("9.9.9\n")
     extra_file = source / "backend" / "deployment" / "new_file.py"
     extra_file.write_text("UPDATED = True\n")
@@ -448,8 +489,12 @@ def test_updater_refreshes_deployment_and_preserves_deploy_py(tmp_path: Path):
     )
 
     assert_success(result)
-    assert (project / "backend" / "deployment" / ".build-version").read_text() == "9.9.9\n"
-    assert (project / "backend" / "deployment" / "new_file.py").read_text() == "UPDATED = True\n"
+    assert (
+        project / "backend" / "deployment" / ".build-version"
+    ).read_text() == "9.9.9\n"
+    assert (
+        project / "backend" / "deployment" / "new_file.py"
+    ).read_text() == "UPDATED = True\n"
     assert deploy_py.read_text() == "# team customization\n"
     assert (project / "scripts" / "backend.sh").read_text() == (
         "#!/bin/bash\nprintf 'updated local backend script\\n'\n"
@@ -466,7 +511,9 @@ def test_updater_auto_detects_custom_backend_folder(tmp_path: Path):
     deploy_py = project / "robotBackend" / "deploy.py"
     deploy_py.write_text("# custom deploy\n")
 
-    shutil.copytree(REPO_ROOT / "backend" / "deployment", source / "backend" / "deployment")
+    shutil.copytree(
+        REPO_ROOT / "backend" / "deployment", source / "backend" / "deployment"
+    )
     (source / "backend" / "deployment" / ".build-version").write_text("9.9.9\n")
 
     result = run_updater(
@@ -478,7 +525,9 @@ def test_updater_auto_detects_custom_backend_folder(tmp_path: Path):
     )
 
     assert_success(result)
-    assert (project / "robotBackend" / "deployment" / ".build-version").read_text() == "9.9.9\n"
+    assert (
+        project / "robotBackend" / "deployment" / ".build-version"
+    ).read_text() == "9.9.9\n"
     assert deploy_py.read_text() == "# custom deploy\n"
     assert "Detected deployment folder: robotBackend/deployment" in result.stdout
 
@@ -588,7 +637,9 @@ def test_system_installer_dropdown_down_arrow_selects_second_option():
     assert result.stdout.endswith("1")
 
 
-def run_dropdown_menu(script: Path, input_text: str) -> subprocess.CompletedProcess[str]:
+def run_dropdown_menu(
+    script: Path, input_text: str
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
             "bash",
