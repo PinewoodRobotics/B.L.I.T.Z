@@ -22,6 +22,10 @@ sshpass -p "${SSH_PASS}" ssh ${SSH_OPTIONS} -p "${TARGET_PORT}" "${TARGET_USER}@
 
 printf '%s\n' "Rsyncing setup.sh to target..."
 sshpass -p "${SSH_PASS}" rsync -av --progress \
+    --omit-dir-times \
+    --no-perms \
+    --no-owner \
+    --no-group \
     -e "ssh ${SSH_OPTIONS} -p ${TARGET_PORT}" \
     "${BLITZ_PATH}/scripts/setup.sh" \
     "${TARGET_USER}@${UBUNTU_TARGET}:/tmp/setup.sh"

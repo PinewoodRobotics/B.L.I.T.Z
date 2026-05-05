@@ -20,6 +20,10 @@ fi
 
 printf '%s\n' "Syncing target..."
 sshpass -p "${SSH_PASS}" rsync -av --progress \
+    --omit-dir-times \
+    --no-perms \
+    --no-owner \
+    --no-group \
     --exclude-from=.gitignore \
     -e "ssh ${SSH_OPTIONS} -p ${TARGET_PORT}" \
     ./ "${TARGET_USER}@${UBUNTU_TARGET}:${TARGET_FOLDER}"
