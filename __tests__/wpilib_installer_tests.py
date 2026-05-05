@@ -257,8 +257,9 @@ def test_local_backend_script_deploy_runs_deploy_py_from_project_root(tmp_path: 
     assert_success(install)
 
     (project / "backend" / "deploy.py").write_text(
+        "from backend.deployment.processes import ProcessPlan\n"
         "from pathlib import Path\n"
-        "Path('deploy-ran.txt').write_text(str(Path.cwd()))\n"
+        "Path('deploy-ran.txt').write_text(f'{Path.cwd()}:{ProcessPlan.__name__}')\n"
     )
 
     result = run_local_backend_script(
@@ -268,7 +269,7 @@ def test_local_backend_script_deploy_runs_deploy_py_from_project_root(tmp_path: 
     )
 
     assert_success(result)
-    assert (project / "deploy-ran.txt").read_text() == str(project)
+    assert (project / "deploy-ran.txt").read_text() == f"{project}:ProcessPlan"
 
 
 def test_local_backend_script_creates_python_module_and_requirements(tmp_path: Path):

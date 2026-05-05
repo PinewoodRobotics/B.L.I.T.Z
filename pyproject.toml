@@ -28,6 +28,7 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["backend*", "watchdog*"]
+namespaces = true
 
 [tool.pytest.ini_options]
 testpaths = ["watchdog/", "backend/", "__tests__/"]

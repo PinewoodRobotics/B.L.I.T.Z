@@ -155,7 +155,9 @@ def test_rsyncer_deploys_backend_bundle_and_installs_python_dependencies(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    image_tag = docker_runner.build_image("docker/Dockerfile.dev.test", "blitz-backend-deploy-test")
+    image_tag = docker_runner.build_image(
+        "docker/Dockerfile.dev.test", "blitz-backend-deploy-test"
+    )
     target = docker_runner.start_container(
         image_tag,
         "backend-deploy-target",

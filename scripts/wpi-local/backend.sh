@@ -714,6 +714,7 @@ check_updates() {
 
 deploy_backend() {
     local deploy_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+    local python_path="${WPILIB_PROJECT}"
 
     if [ ! -f "${deploy_path}" ]; then
         error "Deploy script not found: ${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
@@ -722,7 +723,10 @@ deploy_backend() {
 
     (
         cd "${WPILIB_PROJECT}"
-        python3 "${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+        if [ -n "${PYTHONPATH:-}" ]; then
+            python_path="${python_path}:${PYTHONPATH}"
+        fi
+        PYTHONPATH="${python_path}" python3 "${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
     )
 }
 
