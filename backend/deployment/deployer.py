@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from enum import Enum
+import subprocess
 
 from backend.deployment.bundler import CodeBundler
 from backend.deployment.compilation.util.systems import SystemId
@@ -17,6 +19,20 @@ from backend.deployment.rsyncer import Rsyncer
 
 
 ProcessMapper = Callable[..., Mapping[str, Sequence[WeightedProcess]]]
+
+
+class PresetConfigSuppliers(Enum):
+    NPM_CONFIG_COMMAND = "npm run config --silent"
+
+    def create_supplier(self) -> Callable[[], str]:
+        if self is PresetConfigSuppliers.NPM_CONFIG_COMMAND:
+            return lambda: subprocess.check_output(
+                self.value,
+                shell=True,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+        raise ValueError(f"Unsupported config supplier preset: {self}")
 
 
 class BlitzNetworkDeployer:
@@ -160,6 +176,7 @@ class BlitzNetworkDeployer:
         host_to_pass_user_mapper: dict[str, tuple[str, str]] = field(
             default_factory=dict
         )
+        base64_supplier: Callable[[], str] = field(default_factory=lambda: lambda: "")
 
         def set_host_to_pass_user_mapper(
             self,
@@ -188,6 +205,16 @@ class BlitzNetworkDeployer:
             timeout: float,
         ) -> "BlitzNetworkDeployer.Options":
             self.discovery_timeout = timeout
+            return self
+
+        def set_config_supplier(
+            self,
+            base64_supplier: Callable[[], str] | PresetConfigSuppliers,
+        ) -> "BlitzNetworkDeployer.Options":
+            if isinstance(base64_supplier, PresetConfigSuppliers):
+                self.base64_supplier = base64_supplier.create_supplier()
+                return self
+            self.base64_supplier = base64_supplier
             return self
 
         def should_bundle_dependencies(

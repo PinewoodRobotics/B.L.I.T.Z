@@ -1,4 +1,4 @@
-from backend.deployment.deployer import BlitzNetworkDeployer
+from backend.deployment.deployer import BlitzNetworkDeployer, PresetConfigSuppliers
 from backend.deployment.misc import output
 from backend.deployment.processes import ProcessPlan, WeightedProcess
 from backend.deployment.module.supported import SupportedModules
@@ -28,6 +28,7 @@ if __name__ == "__main__":
         BlitzNetworkDeployer.Options()
         .should_bundle_dependencies(True)
         .set_discovery_timeout(2)
+        .set_config_supplier(PresetConfigSuppliers.NPM_CONFIG_COMMAND)
         .build()
     )
 
