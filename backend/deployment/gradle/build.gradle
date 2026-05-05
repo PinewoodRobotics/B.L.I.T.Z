@@ -1,11 +1,92 @@
 def backendPath = gradle.ext.backendPath
 
-tasks.register('deployBackend', Exec) {
-    workingDir = rootProject.projectDir
-    standardInput = System.in
-    standardOutput = System.out
-    errorOutput = System.err
-    environment 'PYTHONUNBUFFERED', '1'
-    environment 'TERM', System.getenv('TERM') ?: 'xterm-256color'
-    commandLine 'python3', "${backendPath}/deploy.py"
+def expectedNumOfPis = {
+    def expected = project.findProperty('EXPECTED_NUM_OF_PIS')
+    if (expected == null && gradle.ext.has('EXPECTED_NUM_OF_PIS')) {
+        expected = gradle.ext.EXPECTED_NUM_OF_PIS
+    }
+
+    if (expected == null) {
+        return null
+    }
+
+    try {
+        return expected.toString().toInteger()
+    } catch (NumberFormatException e) {
+        throw new RuntimeException("EXPECTED_NUM_OF_PIS must be an integer, got '${expected}'", e)
+    }
+}
+
+def deployedPiCount = { String output ->
+    def currentMatch = output =~ /found (\d+) systems?/
+    if (currentMatch.find()) {
+        return currentMatch.group(1).toInteger()
+    }
+
+    def legacyMatch = output =~ /Deployed on (\d+) Pis/
+    if (legacyMatch.find()) {
+        return legacyMatch.group(1).toInteger()
+    }
+
+    return null
+}
+
+tasks.register('deployBackend') {
+    doLast {
+        def expected = expectedNumOfPis()
+        if (expected == null) {
+            logger.warn("EXPECTED_NUM_OF_PIS is not set; skipping deployed Pi count validation.")
+        }
+
+        def stdout = new ByteArrayOutputStream()
+        def stderr = new ByteArrayOutputStream()
+        def result
+
+        try {
+            result = project.exec {
+                workingDir = rootProject.projectDir
+                standardInput = System.in
+                standardOutput = stdout
+                errorOutput = stderr
+                ignoreExitValue = true
+                environment 'PYTHONUNBUFFERED', '1'
+                environment 'TERM', System.getenv('TERM') ?: 'xterm-256color'
+                environment 'BLITZ_LOGGER_MODE', 'plain'
+                commandLine 'python3', "${backendPath}/deploy.py"
+            }
+        } catch (Exception e) {
+            print stdout.toString()
+            System.err.print stderr.toString()
+            throw new RuntimeException("Failed to apply backend: ${e.message}", e)
+        }
+
+        print stdout.toString()
+        System.err.print stderr.toString()
+
+        if (result.exitValue != 0) {
+            throw new RuntimeException("Failed to apply backend because deploy.py exited with status ${result.exitValue}")
+        }
+
+        if (expected == null) {
+            return
+        }
+
+        def output = "${stdout}\n${stderr}"
+        def deployed = deployedPiCount(output)
+        if (deployed == null) {
+            throw new RuntimeException("Failed to apply backend because the deployed Pi count could not be determined")
+        }
+
+        if (deployed != expected) {
+            println ""
+            println "============================================================="
+            println "Failed to apply backend because it was not deployed on the expected number of Pis. Please set the expected number of Pis in the build.gradle file and try again (check 'EXPECTED_NUM_OF_PIS' variable)."
+            println "Expected number of Pis: ${expected}"
+            println "Deployed number of Pis: ${deployed}"
+            println "============================================================="
+            println ""
+
+            throw new RuntimeException("Failed to apply backend because it was not deployed on the expected number of Pis (expected ${expected} Pis, deployed ${deployed} Pis)")
+        }
+    }
 }
