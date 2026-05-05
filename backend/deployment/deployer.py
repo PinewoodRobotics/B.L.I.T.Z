@@ -110,6 +110,14 @@ class BlitzNetworkDeployer:
                 raise RuntimeError(
                     f"Failed to set processes on {system.general_info.hostname}"
                 )
+
+            successfully_set_config = system.set_config(config.base64_supplier())
+            if not successfully_set_config:
+                output.process_assignment_failure(system_label)
+                raise RuntimeError(
+                    f"Failed to set config on {system.general_info.hostname}"
+                )
+
             output.process_assignment_success(system_label)
 
         output.finish_process_assignment()
