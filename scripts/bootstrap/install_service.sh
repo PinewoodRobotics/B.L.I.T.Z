@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-: "${SERVICE_NAME:=startup}"
+: "${SERVICE_NAME:=blitz-startup}"
 : "${SERVICE_UNIT_SOURCE:?SERVICE_UNIT_SOURCE is required}"
 : "${SERVICE_UNIT_PATH:=/etc/systemd/system/${SERVICE_NAME}.service}"
 

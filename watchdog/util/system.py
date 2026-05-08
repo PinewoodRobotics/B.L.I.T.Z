@@ -222,7 +222,12 @@ def read_os_release() -> dict[str, str]:
 
 
 @dataclass
-class RuntimePlatformInfo:
+class DiscoveredNetworkSystem:
+    hostname: str
+    system_name: str
+    watchdog_port: int
+    autobahn_port: int
+    blitz_path: str
     machine_architecture: str
     platform_description: str
     python_major_version: int
@@ -232,10 +237,19 @@ class RuntimePlatformInfo:
     os_distribution_version_id: str | None = None
 
     @classmethod
-    def collect(cls) -> "RuntimePlatformInfo":
+    def collect(cls) -> "DiscoveredNetworkSystem":
         os_release = read_os_release()
+        system_config = load_basic_system_config()
+        blitz_path = os.environ.get("BLITZ_PATH") or str(
+            Path(__file__).resolve().parents[2]
+        )
 
         return cls(
+            hostname=get_local_hostname(),
+            system_name=get_system_name(),
+            watchdog_port=system_config.watchdog_api.api_port,
+            autobahn_port=system_config.autobahn_connection.port,
+            blitz_path=blitz_path,
             machine_architecture=platform.machine(),
             platform_description=platform.platform(),
             python_major_version=sys.version_info.major,
@@ -245,80 +259,5 @@ class RuntimePlatformInfo:
             os_distribution_version_id=os_release.get("VERSION_ID"),
         )
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RuntimePlatformInfo":
-        return cls(
-            machine_architecture=str(
-                _required_value_from_mapping(
-                    data,
-                    "machine_architecture",
-                    "platform_machine",
-                )
-            ),
-            platform_description=str(
-                _required_value_from_mapping(
-                    data,
-                    "platform_description",
-                    "platform_platform",
-                )
-            ),
-            python_major_version=int(
-                _required_value_from_mapping(
-                    data,
-                    "python_major_version",
-                    "python_version_major",
-                )
-            ),
-            python_minor_version=int(
-                _required_value_from_mapping(
-                    data,
-                    "python_minor_version",
-                    "python_version_minor",
-                )
-            ),
-            os_distribution_id=_optional_str_from_mapping(
-                data,
-                "os_distribution_id",
-                "os_release_id",
-            ),
-            os_distribution_family=_optional_str_from_mapping(
-                data,
-                "os_distribution_family",
-                "os_release_id_like",
-            ),
-            os_distribution_version_id=_optional_str_from_mapping(
-                data,
-                "os_distribution_version_id",
-                "os_release_version_id",
-            ),
-        )
-
-    @classmethod
-    def from_json(cls, raw: str) -> "RuntimePlatformInfo":
-        return cls.from_dict(json.loads(raw))
-
-    @classmethod
-    def load(cls, path: str | Path) -> "RuntimePlatformInfo":
-        return cls.from_json(Path(path).read_text())
-
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
-    def to_json(self) -> str:
-        return json.dumps(self.to_dict(), indent=2, sort_keys=True)
-
-
-def _optional_str_from_mapping(
-    data: dict[str, Any], preferred_key: str, legacy_key: str
-) -> str | None:
-    value = data.get(preferred_key, data.get(legacy_key))
-    return None if value is None else str(value)
-
-
-def _required_value_from_mapping(
-    data: dict[str, Any], preferred_key: str, legacy_key: str
-) -> Any:
-    value = data.get(preferred_key, data.get(legacy_key))
-    if value is None:
-        raise KeyError(f"Missing required key {preferred_key!r} (or legacy {legacy_key!r})")
-    return value

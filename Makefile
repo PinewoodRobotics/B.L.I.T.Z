@@ -16,7 +16,7 @@ TARGET_PORT ?= 22
 TARGET_NAME ?= agathaking
 TARGET_FOLDER ?= /opt/blitz/
 
-SERVICE_NAME ?= startup
+SERVICE_NAME ?= blitz-startup
 SERVICE_UNIT_SOURCE := $(BLITZ_PATH)/ops/systemd/watchdog.service
 SERVICE_UNIT_PATH ?= /etc/systemd/system/$(SERVICE_NAME).service
 

@@ -1,8 +1,11 @@
 import json
 import asyncio
 import pathlib
-from watchdog.process_starter import OpenedProcess, RunnableModules
-from watchdog.util.logger import info, warning
+from watchdog.constants import BASIC_SYSTEM_CONFIG_PATH, BLITZ_PATH, BUNDLE_FOLDER_PATH
+from watchdog.ext.expected_deployment_struct import RunnableModule, get_modules
+from watchdog.process_starter import OpenedProcess
+from watchdog.util.lazy_importer import LazyImportError
+from watchdog.util.logger import debug, error, info, warning
 import os
 
 
@@ -33,6 +36,13 @@ class ProcessesMemory(list[str]):
         if process_type in self:
             super().remove(process_type)
             self.save()
+
+    def replace(self, processes: list[str]):
+        super().clear()
+        for process_type in processes:
+            if process_type not in self:
+                super().append(process_type)
+        self.save()
 
     @staticmethod
     def __verify_non_empty(file_path: str):
@@ -66,7 +76,6 @@ class ProcessMonitor:
             and pathlib.Path(config_path).is_file()
             and os.path.getsize(config_path) > 0
         )
-        self.runnable_modules: RunnableModules = RunnableModules()
 
     def set_processes(self, new_processes: list[str]):
         current_active = set(self.get_active_processes())
@@ -78,6 +87,8 @@ class ProcessMonitor:
         for process_type in to_stop:
             self.stop_process(process_type)
 
+        self.process_mem.replace(new_processes)
+
         for process_type in to_start:
             self.start_and_monitor_process(process_type)
 
@@ -85,12 +96,12 @@ class ProcessMonitor:
         if not self.is_config_exists:
             warning(f"Config not set! Cannot start process {process_type}.")
             return
-
         if process_type in self.get_active_processes():
             info(f"Process {process_type} already running, skipping...")
             return
 
-        process = self.runnable_modules.start_process(process_type, self.config_path)
+        debug(f"Starting process {process_type}")
+        process = self.start_process(process_type)
         if process is None:
             warning(f"Failed to start process {process_type}, skipping...")
             return
@@ -119,7 +130,12 @@ class ProcessMonitor:
         return list(self.processes.keys())
 
     def get_possible_processes(self) -> list[str]:
-        return self.runnable_modules.get_possible_processes()
+        possible_processes: list[str] = []
+        for module in get_modules():
+            if isinstance(module, RunnableModule):
+                possible_processes.append(module.equivalent_run_definition.get_name())
+
+        return possible_processes
 
     def ping_processes_and_get_alive(self) -> list[str]:
         return [
@@ -130,12 +146,15 @@ class ProcessMonitor:
 
     def stop_process(self, process_type: str):
         self.process_mem.remove(process_type)
-        self.processes.pop(process_type).stop()
+        process = self.processes.pop(process_type, None)
+        if process is not None:
+            process.stop()
 
     def abort_all_processes(self):
         info("Start Abort!")
         for process_type in list(self.processes.keys()):
             self.stop_process(process_type)
+        self.process_mem.replace([])
 
         info("Aborted Successfully!")
 
@@ -158,6 +177,35 @@ class ProcessMonitor:
 
         info("Rebooted Successfully!")
 
+    def start_process(self, process_type: str) -> OpenedProcess | None:
+        module = next(
+            (module for module in get_modules() if module.name == process_type),
+            None,
+        )
+
+        if module is None or not isinstance(module, RunnableModule):
+            debug(f"Process {process_type} is not a valid RunnableModule, skipping...")
+            return None
+
+        try:
+            process = OpenedProcess.start_module(
+                module,
+                BUNDLE_FOLDER_PATH,
+                {
+                    "config-path": self.config_path,
+                    "basic-system-config-path": BASIC_SYSTEM_CONFIG_PATH,
+                    "blitz-path": BLITZ_PATH,
+                    "bundle-folder-path": BUNDLE_FOLDER_PATH,
+                },
+            )
+        except LazyImportError as e:
+            error(f"Failed to start process {process_type}: {e}")
+            return
+        except Exception as e:
+            error(f"Failed to start process {process_type}: {e}")
+            return
+        return process
+
     async def monitor_process(self, process_type: str):
         timer = 0
         while True:
@@ -174,17 +222,22 @@ class ProcessMonitor:
             process = self.processes.get(process_type, None)
             timer = 0
 
-            if process is None or process.poll() is not None:
+            if process is None or not process.is_alive():
+                return_code = process.poll() if process is not None else None
+                warning(
+                    f"Process {process_type} exited with code {return_code}; restarting..."
+                )
                 if process is not None:
                     process.stop()
-                process = self.runnable_modules.start_process(
-                    process_type, self.config_path
-                )
+
+                process = self.start_process(process_type)
                 if process is None:
                     warning(f"Failed to restart process {process_type}, retrying...")
                     continue
+
                 self.processes[process_type] = process
                 self.process_mem.append(process_type)
+                info(f"Restarted process {process_type}")
 
     def set_event_loop(self, loop: asyncio.AbstractEventLoop):
         self._loop = loop

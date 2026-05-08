@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import platform
+import subprocess
 import zipfile
 import ast
 from pathlib import Path
@@ -12,9 +13,9 @@ from backend.deployment.bundler import CodeBundler
 from backend.deployment.compilation.util.systems import SystemId
 from backend.deployment.module.supported import SupportedModules
 from backend.deployment.network_api.system_api import System
+from backend.deployment.network_api.utils import FolderPath
 from backend.deployment.network_api.zeroconf import (
     DiscoveredNetworkSystem,
-    RuntimePlatformInfo,
 )
 from backend.deployment.processes import WeightedProcess
 from backend.deployment.rsyncer import Rsyncer
@@ -71,8 +72,8 @@ print(json.dumps({
         system_name="test",
         watchdog_port=5000,
         autobahn_port=8080,
-        blitz_path=INSTALLED_REPO,
-        runtime_platform=RuntimePlatformInfo(**info),
+        blitz_path=FolderPath(INSTALLED_REPO),
+        **info,
     )
 
 
@@ -89,7 +90,7 @@ def build_sample_python_module(tmp_path: Path) -> SupportedModules.PythonModule:
         name="sample_deployment_module",
         extra_run_args=[],
         equivalent_run_definition=DeploymentTestProcess.SAMPLE,
-        module_folder_path=str(module_root),
+        module_folder_path=FolderPath(str(module_root)),
     )
 
 
@@ -118,6 +119,50 @@ def prepare_existing_repo_ssh_target(docker_runner: DockerTestRunner, target) ->
     )
 
 
+def test_system_run_command_retries_transient_ssh_auth_failure(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    discovered_system = DiscoveredNetworkSystem(
+        hostname="tripoli.local.",
+        system_name="tripoli",
+        watchdog_port=5000,
+        autobahn_port=8080,
+        blitz_path=FolderPath("/opt/blitz/B.L.I.T.Z"),
+        machine_architecture="aarch64",
+        platform_description="Linux-with-glibc2.36",
+        python_major_version=3,
+        python_minor_version=11,
+        os_distribution_id="debian",
+        os_distribution_version_id="12",
+    )
+    system = System(general_info=discovered_system)
+    calls: list[list[str]] = []
+
+    def fake_run(
+        command: list[str],
+        *,
+        stdout: int,
+        stderr: int,
+        text: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        if len(calls) == 1:
+            return subprocess.CompletedProcess(
+                command,
+                255,
+                stdout="Permission denied, please try again.\n",
+            )
+        return subprocess.CompletedProcess(command, 0, stdout="ok\n")
+
+    monkeypatch.setattr("backend.deployment.network_api.system_api.subprocess.run", fake_run)
+    monkeypatch.setattr("backend.deployment.network_api.system_api.time.sleep", lambda _seconds: None)
+
+    assert system.run_command("mkdir -p /tmp/blitz")
+    assert len(calls) == 2
+    assert calls[0][:3] == ["sshpass", "-p", "ubuntu"]
+    assert "NumberOfPasswordPrompts=1" in calls[0]
+
+
 def test_backend_deploy_py_is_valid_and_bundled(tmp_path: Path):
     deploy_py = REPO_ROOT / "backend" / "deploy.py"
     deploy_source = deploy_py.read_text()
@@ -135,9 +180,9 @@ def test_backend_deploy_py_is_valid_and_bundled(tmp_path: Path):
     )
     archive_path = CodeBundler(
         modules=[],
-        backend_local_path="backend",
-        build_folder_path=str(tmp_path / "build"),
-        output_folder_path=str(tmp_path / "output"),
+        backend_local_path=FolderPath("backend"),
+        build_folder_path=FolderPath(str(tmp_path / "build")),
+        output_folder_path=FolderPath(str(tmp_path / "output")),
         system_id=system_id,
     ).bundle()
 
@@ -174,9 +219,9 @@ def test_rsyncer_deploys_backend_bundle_and_installs_python_dependencies(
 
     archive_path = CodeBundler(
         modules=[module],
-        backend_local_path=str(REPO_ROOT / "backend"),
-        build_folder_path=str(tmp_path / "build"),
-        output_folder_path=str(tmp_path / "output"),
+        backend_local_path=FolderPath(str(REPO_ROOT / "backend")),
+        build_folder_path=FolderPath(str(tmp_path / "build")),
+        output_folder_path=FolderPath(str(tmp_path / "output")),
         system_id=system_id,
         bundle_dependencies=True,
     ).bundle()

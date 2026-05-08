@@ -1,19 +1,29 @@
 from __future__ import annotations
 
 import dataclasses
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from collections.abc import Iterable
-import os
 import posixpath
 import shlex
 import subprocess
-from typing import override
+import time
 
-from backend.deployment.misc import output
+from backend.deployment.network_api.utils import FilePath, FolderPath
 from backend.deployment.network_api.zeroconf import (
     DiscoveredNetworkSystem,
 )
 from backend.deployment.processes import Process
+
+
+SSH_OPTIONS = (
+    "-o StrictHostKeyChecking=no "
+    "-o UserKnownHostsFile=/dev/null "
+    "-o GlobalKnownHostsFile=/dev/null "
+    "-o NumberOfPasswordPrompts=1"
+)
+
+SSH_RETRY_ATTEMPTS = 3
+SSH_RETRY_DELAY_SECONDS = 0.5
 
 
 @dataclass(slots=True)
@@ -32,15 +42,10 @@ class System:
     password: str = dataclasses.field(default="ubuntu")
     user: str = dataclasses.field(default="ubuntu")
     ssh_port: int = dataclasses.field(default=22)
+    remote_host: str = dataclasses.field(init=False)
 
-    last_deploy_file_diagnostics: dict[str, object] = field(
-        default_factory=dict,
-        init=False,
-    )
-    last_run_command_diagnostics: dict[str, object] = field(
-        default_factory=dict,
-        init=False,
-    )
+    def __post_init__(self) -> None:
+        self.remote_host = f"{self.user}@{self.general_info.hostname}"
 
     def watchdog_url(self) -> str:
         return f"http://{self.general_info.hostname}:{self.general_info.watchdog_port}/"
@@ -78,6 +83,7 @@ class System:
             f"{self.watchdog_url()}/set/processes", json=payload, timeout=timeout_s
         )
         if r.status_code != 200:
+            print(r.text)
             return False
 
         return True
@@ -94,129 +100,91 @@ class System:
 
         return self.set_processes(new_processes_to_run, timeout_s=timeout_s)
 
-    def deploy_file(self, file_path: str, remote_file_path: str) -> bool:
-        remote_host = f"{self.user}@{self.general_info.hostname}"
-        remote_destination = (
-            remote_file_path
-            if remote_file_path.startswith("/")
-            else posixpath.join(self.general_info.blitz_path, remote_file_path)
+    def to_blitz_relative_path(self, path: FilePath) -> FilePath:
+        return FilePath(posixpath.join(self.general_info.blitz_path, path))
+
+    def _clean_path(self, path: FilePath) -> tuple[FilePath, FolderPath]:
+        if path.startswith("/"):
+            return path, FolderPath(posixpath.dirname(path))
+
+        return self.to_blitz_relative_path(path), FolderPath(posixpath.dirname(path))
+
+    def deploy_file(
+        self, local_file_path: FilePath, remote_file_path: FilePath
+    ) -> bool:
+        remote_file, remote_dir = self._clean_path(remote_file_path)
+
+        if not self.run_command(f"mkdir -p {shlex.quote(remote_dir)}"):
+            return False
+
+        rsync_proc = self._run_with_retries(
+            [
+                *self._sshpass_command_prefix(),
+                "rsync",
+                "-av",
+                "--progress",
+                "-e",
+                f"ssh -p {self.ssh_port} {SSH_OPTIONS}",
+                str(local_file_path),
+                f"{self.remote_host}:{shlex.quote(remote_file)}",
+            ],
+            "rsync bundle",
         )
-        remote_target_dir = posixpath.dirname(remote_destination)
+        return rsync_proc.returncode == 0
 
-        rsync_cmd = [
-            "sshpass",
-            "-p",
-            self.password,
-            "rsync",
-            "-av",
-            "--progress",
-            f"--rsync-path=mkdir -p {shlex.quote(remote_target_dir)} && rsync",
-            "-e",
-            f"ssh -p {self.ssh_port} -o StrictHostKeyChecking=no",
-            file_path,
-            f"{remote_host}:{shlex.quote(remote_destination)}",
-        ]
-        redacted_rsync_cmd = [*rsync_cmd]
-        redacted_rsync_cmd[2] = "<redacted>"
-        self.last_deploy_file_diagnostics = {
-            "local_file": file_path,
-            "local_file_exists": os.path.exists(file_path),
-            "local_file_size": (
-                os.path.getsize(file_path) if os.path.exists(file_path) else None
-            ),
-            "remote_host": remote_host,
-            "remote_destination": remote_destination,
-            "remote_target_dir": remote_target_dir,
-            "ssh_port": self.ssh_port,
-            "ssh_user": self.user,
-            "watchdog_url": self.watchdog_url(),
-            "command": shlex.join(redacted_rsync_cmd),
-        }
+    def run_command(self, command: str) -> bool:
+        ssh_proc = self._run_with_retries(
+            [
+                *self._sshpass_command_prefix(),
+                "ssh",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "UserKnownHostsFile=/dev/null",
+                "-o",
+                "GlobalKnownHostsFile=/dev/null",
+                "-o",
+                "NumberOfPasswordPrompts=1",
+                "-p",
+                str(self.ssh_port),
+                self.remote_host,
+                command,
+            ],
+            f"ssh {command}",
+        )
+        return ssh_proc.returncode == 0
 
-        try:
-            rsync_proc = subprocess.run(
-                rsync_cmd,
+    def _sshpass_command_prefix(self) -> list[str]:
+        return ["sshpass", "-p", self.password]
+
+    def _run_with_retries(
+        self,
+        command: list[str],
+        label: str,
+        *,
+        attempts: int = SSH_RETRY_ATTEMPTS,
+    ) -> subprocess.CompletedProcess[str]:
+        last_proc: subprocess.CompletedProcess[str] | None = None
+        for attempt in range(1, attempts + 1):
+            proc = subprocess.run(
+                command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
             )
-        except Exception as error:
-            self.last_deploy_file_diagnostics.update(
-                {
-                    "exception_type": type(error).__name__,
-                    "exception": str(error),
-                }
-            )
-            output.command_failure(
-                f"rsync {self.general_info.hostname}",
-                [f"{type(error).__name__}: {error}"],
-            )
-            return False
+            last_proc = proc
+            print(proc.stdout)
+            if proc.returncode == 0:
+                return proc
 
-        stdout_lines = rsync_proc.stdout.splitlines() if rsync_proc.stdout else []
-        self.last_deploy_file_diagnostics.update(
-            {
-                "returncode": rsync_proc.returncode,
-                "output_line_count": len(stdout_lines),
-                "output_tail": stdout_lines[-25:],
-            }
-        )
-        if rsync_proc.stdout:
-            output.command_output(rsync_proc.stdout)
-        if rsync_proc.returncode != 0:
-            output.command_failure(
-                f"rsync {self.general_info.hostname}",
-                rsync_proc.stdout.splitlines()[-25:] if rsync_proc.stdout else [],
-            )
-        return rsync_proc.returncode == 0
+            if attempt < attempts:
+                print(
+                    f"{label} failed on attempt {attempt}/{attempts}; retrying..."
+                )
+                time.sleep(SSH_RETRY_DELAY_SECONDS)
 
-    def run_command(self, command: str) -> bool:
-        ssh_cmd = [
-            "sshpass",
-            "-p",
-            self.password,
-            "ssh",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-p",
-            str(self.ssh_port),
-            f"{self.user}@{self.general_info.hostname}",
-            command,
-        ]
-        redacted_ssh_cmd = [*ssh_cmd]
-        redacted_ssh_cmd[2] = "<redacted>"
-        self.last_run_command_diagnostics = {
-            "transport": "ssh",
-            "remote_host": f"{self.user}@{self.general_info.hostname}",
-            "ssh_port": self.ssh_port,
-            "watchdog_url": self.watchdog_url(),
-            "command": command,
-            "exec_command": shlex.join(redacted_ssh_cmd),
-        }
+        assert last_proc is not None
+        return last_proc
 
-        ssh_proc = subprocess.run(
-            ssh_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        stdout_lines = ssh_proc.stdout.splitlines() if ssh_proc.stdout else []
-        self.last_run_command_diagnostics.update(
-            {
-                "returncode": ssh_proc.returncode,
-                "output_line_count": len(stdout_lines),
-                "output_tail": stdout_lines[-25:],
-            }
-        )
-        if ssh_proc.stdout:
-            output.command_output(ssh_proc.stdout)
-        if ssh_proc.returncode != 0:
-            output.command_failure(
-                f"ssh {self.general_info.hostname}",
-                ssh_proc.stdout.splitlines()[-25:] if ssh_proc.stdout else [],
-            )
-        return ssh_proc.returncode == 0
-
-    @override
     def __hash__(self) -> int:
         return hash(self.general_info.hostname)

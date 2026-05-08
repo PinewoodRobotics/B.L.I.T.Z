@@ -19,9 +19,9 @@ from backend.deployment.module.base import (
     RunnableModule,
     VerificationResult,
 )
-from backend.deployment.misc import output
+from backend.deployment.network_api.utils import FilePath, FolderPath
 
-VENV_PATH = ".venv/bin/python"
+VENV_PATH = FilePath(".venv/bin/python")
 
 
 @dataclass
@@ -48,7 +48,7 @@ class CPPLibraryModule(CompilableModule):
 
         return VerificationResult.SUCCESS, ""
 
-    def assemble(self, result_path: str, system_id: SystemId):
+    def assemble(self, result_path: FolderPath, system_id: SystemId):
         release_path = CPlusPlus.compile(
             self.name,
             system_id,
@@ -63,8 +63,8 @@ class GeneratedModule(CompilableModule):
     def get_language_name(self) -> str:
         return "generated"
 
-    def assemble(self, result_path: str, system_id: SystemId):
-        parent_dir = os.path.dirname(result_path)
+    def assemble(self, result_path: FolderPath, system_id: SystemId):
+        parent_dir = FolderPath(os.path.dirname(result_path))
         shutil.copytree(self.project_root_folder_path, parent_dir, dirs_exist_ok=True)
 
 
@@ -93,7 +93,7 @@ class CPPRunnableModule(CompilableModule, RunnableModule):
 
         return VerificationResult.SUCCESS, ""
 
-    def assemble(self, result_path: str, system_id: SystemId):
+    def assemble(self, result_path: FolderPath, system_id: SystemId):
         release_path = CPlusPlus.compile(
             self.name,
             system_id,
@@ -102,7 +102,7 @@ class CPPRunnableModule(CompilableModule, RunnableModule):
         )
         _ = shutil.copytree(release_path, result_path, dirs_exist_ok=True)
 
-    def get_run_command(self, bundle_path: str) -> str:
+    def get_run_command(self, bundle_path: FolderPath) -> str:
         extra_run_args = self.get_extra_run_args()
         return (
             f"{self.get_project_path(bundle_path)}/{self.runnable_name} {extra_run_args}"
@@ -125,28 +125,30 @@ class RustModule(CompilableModule, RunnableModule):
 
         return VerificationResult.SUCCESS, ""
 
-    def assemble(self, result_path: str, system_id: SystemId):
+    def assemble(self, result_path: FolderPath, system_id: SystemId):
         release_path = Rust.compile(self.name, system_id)
-        bin_path = os.path.join(release_path, self.name)
+        bin_path = FilePath(os.path.join(release_path, self.name))
         shutil.copy(bin_path, result_path)
 
-    def get_run_command(self, bundle_path: str) -> str:
+    def get_run_command(self, bundle_path: FolderPath) -> str:
         extra_run_args = self.get_extra_run_args()
-        return f"{self.get_project_path(bundle_path)}/{self.runnable_name} {extra_run_args}".strip()
+        return (
+            f"{self.get_project_path(bundle_path)}/{self.runnable_name} {extra_run_args}"
+        ).strip()
 
 
 @dataclass
 class PythonModule(RunnableModule, DependencyInstallation):
-    module_folder_path: str
+    module_folder_path: FolderPath
 
     def get_language_name(self) -> str:
         return "python"
 
-    def assemble(self, result_path: str, system_id: SystemId):
+    def assemble(self, result_path: FolderPath, system_id: SystemId):
         shutil.copytree(self.module_folder_path, result_path, dirs_exist_ok=True)
 
     def verify_dependencies(
-        self, requirements_path: str = "requirements.txt"
+        self, requirements_path: FilePath = FilePath("requirements.txt")
     ) -> tuple[VerificationResult, str]:
         if not os.path.exists(requirements_path):
             return (
@@ -158,9 +160,9 @@ class PythonModule(RunnableModule, DependencyInstallation):
 
     def assemble_dependencies(
         self,
-        result_path: str,
+        result_path: FolderPath,
         system_id: SystemId,
-        requirements_path: str = "requirements.txt",
+        requirements_path: FilePath = FilePath("requirements.txt"),
     ) -> None:
         python_version = system_id.python_version
         py_tag = f"{python_version.major}{python_version.minor}"
@@ -195,12 +197,10 @@ class PythonModule(RunnableModule, DependencyInstallation):
         _ = run_command(
             cmd,
             "Download Python dependencies",
-            on_output=output.command_output,
-            on_failure=output.command_failure,
         )
 
     def get_dependency_installation_command(
-        self, blitz_path: str, bundle_path: str
+        self, blitz_path: FolderPath, bundle_path: FolderPath
     ) -> str:
         venv_python = shlex.quote(posixpath.join(blitz_path, VENV_PATH))
         wheel_dir = shlex.quote(
@@ -215,9 +215,12 @@ class PythonModule(RunnableModule, DependencyInstallation):
             f"{wheel_dir}/*.whl"
         )
 
-    def get_run_command(self, bundle_path: str) -> str:
+    def get_run_command(self, bundle_path: FolderPath) -> str:
         extra_run_args = self.get_extra_run_args()
-        return f"{VENV_PATH} -u {self.get_project_path(bundle_path)}/__main__.py {extra_run_args}"
+        return (
+            f"{VENV_PATH} -u "
+            f"{self.get_project_path(bundle_path)}/__main__.py {extra_run_args}"
+        )
 
     def verify(self) -> tuple[VerificationResult, str]:
         if not os.path.exists(self.module_folder_path):
@@ -242,4 +245,4 @@ class SupportedModules:
     RustModule = RustModule
     GeneratedModule = GeneratedModule
 
-    Generic = Module
+    _Generic = Module

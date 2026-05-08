@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 import re
 import time
 
@@ -11,6 +10,12 @@ from backend.deployment.compilation.util.systems import (
     PythonVersion,
     SystemId,
 )
+from backend.deployment.network_api.utils import (
+    FolderPath,
+    ZeroconfPropertySchema,
+    decode_zeroconf_hostname,
+    decode_zeroconf_properties,
+)
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
 
@@ -18,7 +23,14 @@ SERVICE = "_watchdog._udp.local."
 
 
 @dataclass
-class RuntimePlatformInfo:
+class DiscoveredNetworkSystem(ZeroconfPropertySchema):
+    hostname: str  # EG: "nathan-hale.local"
+    system_name: str  # EG: "nathan-hale"
+    watchdog_port: int  # EG: 9999
+    autobahn_port: int  # EG: 9999
+
+    blitz_path: FolderPath  # EG: "/opt/blitz/B.L.I.T.Z"
+
     machine_architecture: str
     platform_description: str
     python_major_version: int
@@ -28,215 +40,71 @@ class RuntimePlatformInfo:
     os_distribution_version_id: str | None = None
 
     @classmethod
-    def from_properties(cls, properties: Mapping[str, object]) -> "RuntimePlatformInfo":
-        return cls(
-            machine_architecture=_str_property_choice(
-                properties,
-                "machine_architecture",
-                "platform_machine",
-            ),
-            platform_description=_str_property_choice(
-                properties,
-                "platform_description",
-                "platform_platform",
-            ),
-            python_major_version=_int_property_choice(
-                properties,
-                "python_major_version",
-                "python_version_major",
-            ),
-            python_minor_version=_int_property_choice(
-                properties,
-                "python_minor_version",
-                "python_version_minor",
-            ),
-            os_distribution_id=_optional_str_property_choice(
-                properties,
-                "os_distribution_id",
-                "os_release_id",
-            ),
-            os_distribution_family=_optional_str_property_choice(
-                properties,
-                "os_distribution_family",
-                "os_release_id_like",
-            ),
-            os_distribution_version_id=_optional_str_property_choice(
-                properties,
-                "os_distribution_version_id",
-                "os_release_version_id",
-            ),
-        )
-
-
-@dataclass
-class DiscoveredNetworkSystem:
-    hostname: str  # EG: "nathan-hale.local"
-    system_name: str  # EG: "nathan-hale"
-    watchdog_port: int  # EG: 9999
-    autobahn_port: int  # EG: 9999
-
-    blitz_path: str  # EG: "/opt/blitz/B.L.I.T.Z"
-
-    runtime_platform: RuntimePlatformInfo
-
-    @classmethod
     def from_service_info(cls, info: ServiceInfo) -> "DiscoveredNetworkSystem":
-        properties = _decode_properties(info.properties) if info.properties else {}
-
-        return cls(
-            hostname=_decode_hostname(info),
-            system_name=_str_property(properties, "system_name"),
-            watchdog_port=_int_property(properties, "watchdog_port"),
-            autobahn_port=_int_property(properties, "autobahn_port"),
-            blitz_path=_str_property(properties, "blitz_path"),
-            runtime_platform=RuntimePlatformInfo.from_properties(properties),
+        return cls.from_zeroconf_properties(
+            decode_zeroconf_properties(info.properties),
+            hostname=decode_zeroconf_hostname(info),
         )
-
-    def __hash__(self) -> int:
-        return hash(self.hostname)
-
-    def system_id_diagnostics(self) -> dict[str, object]:
-        info = self.runtime_platform
-        return {
-            "hostname": self.hostname,
-            "system_name": self.system_name,
-            "watchdog_port": self.watchdog_port,
-            "autobahn_port": self.autobahn_port,
-            "blitz_path": self.blitz_path,
-            "platform_text": self._platform_text(),
-            "machine_architecture": info.machine_architecture,
-            "platform_description": info.platform_description,
-            "os_distribution_id": info.os_distribution_id,
-            "os_distribution_family": info.os_distribution_family,
-            "os_distribution_version_id": info.os_distribution_version_id,
-        }
 
     def _platform_text(self) -> str:
-        info = self.runtime_platform
         return " ".join(
             value
             for value in [
-                info.platform_description,
-                info.os_distribution_id,
-                info.os_distribution_family,
-                info.os_distribution_version_id,
+                self.platform_description,
+                self.os_distribution_id,
+                self.os_distribution_family,
+                self.os_distribution_version_id,
             ]
             if value
         ).lower()
 
-    def _system_id_error(self, message: str) -> ValueError:
-        diagnostics = "; ".join(
-            f"{key}={value!r}" for key, value in self.system_id_diagnostics().items()
-        )
-        return ValueError(f"{message} for {self.hostname}. diagnostics: {diagnostics}")
-
     def to_system_id(self) -> SystemId:
-        info = self.runtime_platform
         platform_text = self._platform_text()
         glibc_match = re.search(r"glibc(?P<version>\d+(?:\.\d+)*)", platform_text)
         if glibc_match is None:
-            raise self._system_id_error("Could not infer glibc version")
+            raise ValueError("Could not infer glibc version: " + str(self))
+
         glibc_version = glibc_match.group("version")
 
         try:
-            architecture = Architecture.from_machine(info.machine_architecture)
+            architecture = Architecture.from_machine(self.machine_architecture)
         except ValueError as error:
-            raise self._system_id_error(str(error)) from error
+            raise ValueError(str(error) + " for " + str(self)) from error
 
         try:
             linux_distro = LinuxDistro.from_os_release(
-                os_id=info.os_distribution_id,
-                os_id_like=info.os_distribution_family,
-                version_id=info.os_distribution_version_id,
+                os_id=self.os_distribution_id,
+                os_id_like=self.os_distribution_family,
+                version_id=self.os_distribution_version_id,
                 platform_text=platform_text,
             )
         except ValueError as error:
-            raise self._system_id_error(str(error)) from error
+            raise ValueError(str(error) + " for " + str(self)) from error
 
         return SystemId(
             c_lib_version=glibc_version,
             linux_distro=linux_distro,
             architecture=architecture,
             python_version=PythonVersion(
-                major=info.python_major_version,
-                minor=info.python_minor_version,
+                major=self.python_major_version,
+                minor=self.python_minor_version,
             ),
         )
 
+    def __str__(self) -> str:
+        lines: list[str] = []
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if value is not None:
+                lines.append(f"{field.name}: {value}")
+        return "\n".join(lines)
 
-def _decode_properties(properties: Mapping[bytes, bytes | None]) -> dict[str, object]:
-    return {key.decode("utf-8"): _decode(value) for key, value in properties.items()}
-
-
-def _decode(value: bytes | None) -> str | None:
-    return value.decode("utf-8") if value is not None else None
-
-
-def _decode_hostname(info: ServiceInfo) -> str:
-    if info.server is None:
-        raise ValueError("Missing service server hostname")
-    if isinstance(info.server, bytes):
-        return info.server.decode("utf-8")
-    return info.server
-
-
-def _property(properties: Mapping[str, object], field_name: str) -> object:
-    value = properties.get(field_name)
-    if value is None:
-        raise ValueError(f"Missing required service property: {field_name}")
-    return value
-
-
-def _property_choice(
-    properties: Mapping[str, object], preferred_field_name: str, legacy_field_name: str
-) -> object:
-    value = properties.get(preferred_field_name, properties.get(legacy_field_name))
-    if value is None:
-        raise ValueError(
-            "Missing required service property: "
-            f"{preferred_field_name} (or legacy {legacy_field_name})"
-        )
-    return value
-
-
-def _str_property(properties: Mapping[str, object], field_name: str) -> str:
-    return str(_property(properties, field_name))
-
-
-def _str_property_choice(
-    properties: Mapping[str, object], preferred_field_name: str, legacy_field_name: str
-) -> str:
-    return str(_property_choice(properties, preferred_field_name, legacy_field_name))
-
-
-def _int_property(properties: Mapping[str, object], field_name: str) -> int:
-    return int(str(_property(properties, field_name)))
-
-
-def _int_property_choice(
-    properties: Mapping[str, object], preferred_field_name: str, legacy_field_name: str
-) -> int:
-    return int(str(_property_choice(properties, preferred_field_name, legacy_field_name)))
-
-
-def _optional_str_property(
-    properties: Mapping[str, object], field_name: str
-) -> str | None:
-    value = properties.get(field_name)
-    return None if value is None else str(value)
-
-
-def _optional_str_property_choice(
-    properties: Mapping[str, object], preferred_field_name: str, legacy_field_name: str
-) -> str | None:
-    value = properties.get(preferred_field_name, properties.get(legacy_field_name))
-    return None if value is None else str(value)
+    def __hash__(self) -> int:
+        return hash(self.hostname)
 
 
 def discover_all_on_network(
     timeout_seconds: float = 5.0,
-    on_discovered: Callable[[DiscoveredNetworkSystem], None] | None = None,
-    on_tick: Callable[[float], None] | None = None,
 ) -> set[DiscoveredNetworkSystem]:
     discovered_zerocofs: set[DiscoveredNetworkSystem] = set()
     zc = Zeroconf()
@@ -251,10 +119,7 @@ def discover_all_on_network(
                 return
             try:
                 discovered = DiscoveredNetworkSystem.from_service_info(info)
-                already_discovered = discovered in self.out
                 self.out.add(discovered)
-                if on_discovered is not None and not already_discovered:
-                    on_discovered(discovered)
             except Exception:
                 pass
 
@@ -265,14 +130,7 @@ def discover_all_on_network(
             return
 
     _ = ServiceBrowser(zc, SERVICE, listener=_Listener(discovered_zerocofs))
-    end_time = time.monotonic() + timeout_seconds
-    while True:
-        remaining_seconds = max(0.0, end_time - time.monotonic())
-        if on_tick is not None:
-            on_tick(remaining_seconds)
-        if remaining_seconds <= 0:
-            break
-        time.sleep(min(0.2, remaining_seconds))
-
+    time.sleep(timeout_seconds)
     zc.close()
+
     return discovered_zerocofs

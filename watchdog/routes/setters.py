@@ -8,6 +8,7 @@ SETTERS_BP = Blueprint("setter_routes", __name__)
 
 @SETTERS_BP.route("/set/config", methods=["POST"])
 def set_config():
+    print("set_config")
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or not isinstance(data.get("config_base64"), str):
         return (
@@ -37,6 +38,7 @@ def set_config():
 
 @SETTERS_BP.route("/start/process", methods=["POST"])
 def start_process():
+    print("start_process")
     data = request.get_json(silent=True)
     process_types = data.get("process_types") if isinstance(data, dict) else None
     if not isinstance(process_types, list) or not all(
@@ -73,6 +75,7 @@ def start_process():
 
 @SETTERS_BP.route("/stop/all/processes", methods=["POST"])
 def stop_all_processes():
+    print("stop_all_processes")
     process_monitor = current_app.extensions.get("process_monitor", None)
     if not isinstance(process_monitor, ProcessMonitor):
         return (
@@ -86,6 +89,7 @@ def stop_all_processes():
 
 @SETTERS_BP.route("/stop/process", methods=["POST"])
 def stop_process():
+    print("stop_process")
     data_raw = request.get_json(silent=True)
     if not isinstance(data_raw, dict):
         return (
@@ -126,6 +130,7 @@ def stop_process():
 
 @SETTERS_BP.route("/set/processes", methods=["POST"])
 def set_processes():
+    print("set_processes")
     data = request.get_json(silent=True)
     process_types = data.get("process_types") if isinstance(data, dict) else None
     if not isinstance(process_types, list) or not all(
@@ -143,7 +148,7 @@ def set_processes():
             500,
         )
 
-    if not monitor.is_config_exists:
+    if not monitor.is_config_exists and process_types:
         return (
             jsonify(
                 {

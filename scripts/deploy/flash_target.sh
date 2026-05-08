@@ -12,7 +12,7 @@ set -euo pipefail
 : "${TARGET_PORT:=22}"
 
 : "${TARGET_FOLDER:=/opt/blitz/}"
-: "${SERVICE_NAME:=startup}"
+: "${SERVICE_NAME:=blitz-startup}"
 
 SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
@@ -32,5 +32,5 @@ sshpass -p "${SSH_PASS}" rsync -av --progress \
 
 printf '%s\n' "Running setup.sh on target..."
 sshpass -p "${SSH_PASS}" ssh ${SSH_OPTIONS} -p "${TARGET_PORT}" "${TARGET_USER}@${UBUNTU_TARGET}" \
-    "TARGET_NAME=\"${TARGET_NAME}\" TARGET_FOLDER=\"${TARGET_FOLDER}\" SERVICE_NAME=\"${SERVICE_NAME}\" bash /tmp/setup.sh"
+    "printf '%s\n' \"${SSH_PASS}\" | sudo -S -p '' -v && TARGET_NAME=\"${TARGET_NAME}\" TARGET_FOLDER=\"${TARGET_FOLDER}\" SERVICE_NAME=\"${SERVICE_NAME}\" bash /tmp/setup.sh"
 printf '%s\n' "Setup.sh completed..."

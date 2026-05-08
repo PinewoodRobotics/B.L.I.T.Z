@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
 
+from backend.deployment.network_api.utils import FolderPath
+
 
 class CPPBuildOptions(Enum):
     INSTALL = "install"
@@ -38,7 +40,7 @@ class CPPBuildConfig:
     @classmethod
     def with_cmake(
         cls,
-        cmake_lists_path: str = ".",
+        cmake_lists_path: FolderPath = FolderPath("."),
         cmake_args: list[str] | None = None,
         compiler_cmd: str = "make",
         compiler_args: (  # pyright: ignore[reportRedeclaration]
@@ -76,7 +78,7 @@ class CPPBuildConfig:
     @classmethod
     def with_ninja(
         cls,
-        cmake_lists_path: str = "../",
+        cmake_lists_path: FolderPath = FolderPath("../"),
         cmake_args: list[str] | None = None,
         ninja_cmd: str = "ninja",
         ninja_args: list[str | CPPBuildOptions] | None = None,

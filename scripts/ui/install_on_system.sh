@@ -6,7 +6,7 @@ DEFAULT_GIT_URL="https://github.com/PinewoodRobotics/B.L.I.T.Z.git"
 DEFAULT_SETUP_SCRIPT_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/setup.sh"
 DEFAULT_UI_LIB_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/common/terminal_ui.sh"
 DEFAULT_TARGET_FOLDER="/opt/blitz/"
-DEFAULT_SERVICE_NAME="startup"
+DEFAULT_SERVICE_NAME="blitz-startup"
 TEMP_DIR=""
 UI_LIB_TEMP_DIR=""
 

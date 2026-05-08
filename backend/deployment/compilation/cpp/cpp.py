@@ -6,7 +6,6 @@ if __name__ == "__main__" and __package__ is None:
 
 import os
 
-from backend.deployment.misc import output
 from backend.deployment.compilation.util.cpp_build import (
     CPPBuildConfig,
     CPPBuildOptions,
@@ -19,10 +18,11 @@ from backend.deployment.compilation.util.systems import (
     PythonVersion,
     SystemId,
 )
+from backend.deployment.network_api.utils import FilePath, FolderPath
 
 
 class CPlusPlus:
-    _built_modules: dict[str, str] = {}
+    _built_modules: dict[str, FolderPath] = {}
 
     @classmethod
     def compile(
@@ -30,8 +30,8 @@ class CPlusPlus:
         module_name: str,
         system_id: SystemId,
         build_config: CPPBuildConfig,
-        local_project_path: str,
-    ) -> str:
+        local_project_path: FolderPath,
+    ) -> FolderPath:
         """
         Compile a C++ module for a given system ID.
 
@@ -48,10 +48,6 @@ class CPlusPlus:
         build_key = f"{system_id.to_build_key()}-{module_name}-{local_project_path}"
         built_path = cls._built_modules.get(build_key)
         if built_path is not None:
-            output.step(
-                f"Skip C++ build for {module_name}; already built for {build_key}"
-            )
-            output.detail("result path", built_path)
             return built_path
 
         release_path = cls.generic_compile(
@@ -70,23 +66,19 @@ class CPlusPlus:
         module_name: str,
         system_id: SystemId,
         build_config: CPPBuildConfig,
-        local_project_path: str,
-    ) -> str:
-        output.step(f"Compile C++ module {module_name}")
-        output.detail("docker platform", system_id.docker_image)
-        output.detail("linux distro", system_id.linux_distro.value)
-        output.detail("architecture", system_id.architecture.value)
-        output.detail("project path", local_project_path)
-
-        current_file_path = os.path.dirname(os.path.abspath(__file__))
-        dockerfile_path = os.path.join(
-            current_file_path,
-            "Dockerfile",
+        local_project_path: FolderPath,
+    ) -> FolderPath:
+        current_file_path = FolderPath(os.path.dirname(os.path.abspath(__file__)))
+        dockerfile_path = FilePath(
+            os.path.join(
+                current_file_path,
+                "Dockerfile",
+            )
         )
-        compile_bash_path = os.path.join(current_file_path, "compile.bash")
+        compile_bash_path = FilePath(os.path.join(current_file_path, "compile.bash"))
         os.chmod(compile_bash_path, 0o755)
 
-        root_path = os.getcwd()
+        root_path = FolderPath(os.getcwd())
         compile_bash_mount_path = os.path.relpath(compile_bash_path, root_path)
 
         image_name = f"cpp-{system_id.to_build_key()}-{module_name}"
@@ -114,8 +106,6 @@ class CPlusPlus:
         _ = run_command(
             docker_build_cmd,
             f"Prepare C++ build environment for {module_name}",
-            on_output=output.command_output,
-            on_failure=output.command_failure,
         )
 
         docker_run_cmd = [
@@ -141,8 +131,6 @@ class CPlusPlus:
         result_stdout = run_command(
             docker_run_cmd,
             f"Compile C++ module {module_name}",
-            on_output=output.command_output,
-            on_failure=output.command_failure,
         )
 
         flags = parse_output_flags(
@@ -150,8 +138,7 @@ class CPlusPlus:
             ["LINUX_DISTRO", "C_LIB_VERSION", "RESULT_PATH"],
         )
 
-        output.detail("result path", flags["RESULT_PATH"])
-        return flags["RESULT_PATH"]
+        return FolderPath(flags["RESULT_PATH"])
 
 
 if __name__ == "__main__":
@@ -170,7 +157,7 @@ if __name__ == "__main__":
             libs=[],
             extra_docker_commands=[],
         ),
-        "backend/cpp/test",
+        FolderPath("backend/cpp/test"),
     )
 
     print(release_path)

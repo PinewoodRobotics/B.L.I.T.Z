@@ -6,7 +6,6 @@ if __name__ == "__main__" and __package__ is None:
 
 import os
 
-from backend.deployment.misc import output
 from backend.deployment.compilation.util.commands import run_command
 from backend.deployment.compilation.util.parsing import parse_output_flags
 from backend.deployment.compilation.util.systems import (
@@ -15,17 +14,18 @@ from backend.deployment.compilation.util.systems import (
     PythonVersion,
     SystemId,
 )
+from backend.deployment.network_api.utils import FilePath, FolderPath
 
 
 class Rust:
-    _built_modules: dict[str, str] = {}
+    _built_modules: dict[str, FolderPath] = {}
 
     @classmethod
     def compile(
         cls,
         module_name: str,
         system_id: SystemId,
-    ) -> str:
+    ) -> FolderPath:
         """
         Compile a Rust module for a given system ID.
 
@@ -40,10 +40,6 @@ class Rust:
         build_key = f"{system_id.to_build_key()}-{module_name}"
         built_path = cls._built_modules.get(build_key)
         if built_path is not None:
-            output.step(
-                f"Skip Rust build for {module_name}; already built for {system_id.to_build_key()}"
-            )
-            output.detail("result path", built_path)
             return built_path
 
         release_path = cls.generic_compile(module_name, system_id)
@@ -55,21 +51,18 @@ class Rust:
         cls,
         module_name: str,
         system_id: SystemId,
-    ) -> str:
-        output.step(f"Compile Rust module {module_name}")
-        output.detail("docker platform", system_id.docker_image)
-        output.detail("linux distro", system_id.linux_distro.value)
-        output.detail("architecture", system_id.architecture.value)
-
-        current_file_path = os.path.dirname(os.path.abspath(__file__))
-        dockerfile_path = os.path.join(
-            current_file_path,
-            "Dockerfile",
+    ) -> FolderPath:
+        current_file_path = FolderPath(os.path.dirname(os.path.abspath(__file__)))
+        dockerfile_path = FilePath(
+            os.path.join(
+                current_file_path,
+                "Dockerfile",
+            )
         )
-        compile_bash_path = os.path.join(current_file_path, "compile.bash")
+        compile_bash_path = FilePath(os.path.join(current_file_path, "compile.bash"))
         os.chmod(compile_bash_path, 0o755)
 
-        root_path = os.getcwd()
+        root_path = FolderPath(os.getcwd())
         compile_bash_mount_path = os.path.relpath(compile_bash_path, root_path)
 
         image_name = f"rust-{system_id.to_build_key()}-{module_name}"
@@ -94,8 +87,6 @@ class Rust:
         _ = run_command(
             docker_build_cmd,
             f"Prepare Rust build environment for {module_name}",
-            on_output=output.command_output,
-            on_failure=output.command_failure,
         )
 
         docker_run_cmd = [
@@ -117,8 +108,6 @@ class Rust:
         result_stdout = run_command(
             docker_run_cmd,
             f"Compile Rust module {module_name}",
-            on_output=output.command_output,
-            on_failure=output.command_failure,
         )
 
         flags = parse_output_flags(
@@ -126,8 +115,7 @@ class Rust:
             ["LINUX_DISTRO", "C_LIB_VERSION", "RESULT_PATH"],
         )
 
-        output.detail("result path", flags["RESULT_PATH"])
-        return flags["RESULT_PATH"]
+        return FolderPath(flags["RESULT_PATH"])
 
 
 if __name__ == "__main__":

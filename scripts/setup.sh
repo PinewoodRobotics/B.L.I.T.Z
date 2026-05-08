@@ -4,7 +4,7 @@ set -euo pipefail
 
 : "${TARGET_FOLDER:=$(pwd)}"
 : "${GIT_URL:=https://github.com/PinewoodRobotics/B.L.I.T.Z.git}"
-: "${SERVICE_NAME:=startup}"
+: "${SERVICE_NAME:=blitz-startup}"
 : "${DEV_LOCAL_OVERRIDE:="false"}"
 
 : "${TARGET_NAME:?TARGET_NAME is required}"

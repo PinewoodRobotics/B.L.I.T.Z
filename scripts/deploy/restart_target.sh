@@ -6,7 +6,7 @@ set -euo pipefail
 : "${TARGET_USER:=ubuntu}"
 : "${SSH_PASS:?SSH_PASS is required}"
 : "${TARGET_PORT:=22}"
-: "${SERVICE_NAME:=startup}"
+: "${SERVICE_NAME:=blitz-startup}"
 
 SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 

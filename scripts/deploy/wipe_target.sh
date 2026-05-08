@@ -7,9 +7,9 @@ set -euo pipefail
 
 : "${TARGET_USER:=ubuntu}"
 : "${TARGET_PORT:=22}"
-: "${SERVICE_NAME:=startup}"
+: "${SERVICE_NAME:=blitz-startup}"
 
 SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 sshpass -p "${SSH_PASS}" ssh ${SSH_OPTIONS} -p "${TARGET_PORT}" "${TARGET_USER}@${UBUNTU_TARGET}" \
-    "if [ -r /etc/default/blitz ]; then set -a; . /etc/default/blitz; set +a; fi; SERVICE_NAME=\"${SERVICE_NAME}\" bash \"\${BLITZ_PATH:?BLITZ_PATH is required}/scripts/wipe.sh\""
+    "printf '%s\n' \"${SSH_PASS}\" | sudo -S -p '' -v && if [ -r /etc/default/blitz ]; then set -a; . /etc/default/blitz; set +a; fi; SERVICE_NAME=\"${SERVICE_NAME}\" bash \"\${BLITZ_PATH:?BLITZ_PATH is required}/scripts/wipe.sh\""

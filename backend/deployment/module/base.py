@@ -4,6 +4,7 @@ import re
 import os
 
 from backend.deployment.compilation.util.systems import SystemId
+from backend.deployment.network_api.utils import FilePath, FolderPath
 from backend.deployment.processes import WeightedProcess
 
 
@@ -22,19 +23,21 @@ class Module:
             f"{type(self).__name__} should implement get_language_name()"
         )
 
-    def assemble(self, _result_path: str, _system_id: SystemId) -> None:
+    def assemble(self, _result_path: FolderPath, _system_id: SystemId) -> None:
         raise NotImplementedError(f"{type(self).__name__} should implement assemble()")
 
     def verify(self) -> tuple[VerificationResult, str]:
         return VerificationResult.SUCCESS, ""
 
-    def get_project_path(self, bundle_path: str) -> str:
-        return os.path.join(bundle_path, self.get_language_name(), self.name)
+    def get_project_path(self, bundle_path: FolderPath) -> FolderPath:
+        return FolderPath(
+            os.path.join(bundle_path, self.get_language_name(), self.name)
+        )
 
 
 @dataclass
 class CompilableModule(Module):
-    project_root_folder_path: str
+    project_root_folder_path: FolderPath
 
     def additional_link_file_extensions(self) -> list[str]:
         return []
@@ -53,9 +56,9 @@ class RunnableModule(Module):
     extra_run_args: list[tuple[str, str]]
     equivalent_run_definition: WeightedProcess
 
-    def get_run_command(self, _bundle_path: str) -> str:
+    def get_run_command(self, _bundle_path: FolderPath) -> str:
         raise NotImplementedError(
-            f"{type(self).__name__} should implement get_run_command(bundle_path: str)"
+            f"{type(self).__name__} should implement get_run_command(bundle_path)"
         )
 
     def get_extra_run_args(self) -> str:
@@ -72,23 +75,23 @@ class DependencyInstallation:
         return False
 
     def verify_dependencies(
-        self, requirements_path: str = "requirements.txt"
+        self, requirements_path: FilePath = FilePath("requirements.txt")
     ) -> tuple[VerificationResult, str]:
         return VerificationResult.SUCCESS, ""
 
     def assemble_dependencies(
         self,
-        result_path: str,
+        result_path: FolderPath,
         system_id: SystemId,
-        requirements_path: str = "requirements.txt",
+        requirements_path: FilePath = FilePath("requirements.txt"),
     ) -> None:
         raise NotImplementedError(
-            f"{type(self).__name__} should implement assemble_dependencies(result_path: str, system_id: SystemId, requirements_path: str = 'requirements.txt')"
+            f"{type(self).__name__} should implement assemble_dependencies()"
         )
 
     def get_dependency_installation_command(
-        self, blitz_path: str, bundle_path: str
+        self, blitz_path: FolderPath, bundle_path: FolderPath
     ) -> str:
         raise NotImplementedError(
-            f"{type(self).__name__} should implement get_dependency_installation_command(bundle_path: str)"
+            f"{type(self).__name__} should implement get_dependency_installation_command()"
         )

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-: "${SERVICE_NAME:=startup}"
+: "${SERVICE_NAME:=blitz-startup}"
 
 if [ -f /etc/default/blitz ]; then
     sudo rm -rf /etc/default/blitz

@@ -6,8 +6,11 @@ from typing import cast
 
 from pytest import MonkeyPatch
 
-from watchdog.process_starter import OpenedProcess, RunnableModules
+from backend.deployment.module.base import Module as BackendModule
+from backend.deployment.module.base import RunnableModule as BackendRunnableModule
+from watchdog.constants import BLITZ_PATH, BUNDLE_FOLDER_PATH
 from watchdog.monitor import ProcessMonitor, ProcessesMemory
+from watchdog.process_starter import OpenedProcess
 
 
 class FakeProcess:
@@ -26,21 +29,61 @@ class FakeProcess:
         self.alive = False
 
 
-class FakeRunnableModules:
+class FakeRunDefinition:
+    def __init__(self, name: str):
+        self.name = name
+
+    def get_name(self) -> str:
+        return self.name
+
+    def get_weight(self) -> float:
+        return 1.0
+
+
+class FakeRunnableModule(BackendRunnableModule):
+    def get_language_name(self) -> str:
+        return "fake"
+
+    def get_run_command(self, bundle_path: str) -> str:
+        return f"{bundle_path}/{self.name}"
+
+
+class FakeNonRunnableModule(BackendModule):
+    def get_language_name(self) -> str:
+        return "fake"
+
+
+def make_module(name: str) -> FakeRunnableModule:
+    return FakeRunnableModule(
+        name=name,
+        extra_run_args=[],
+        equivalent_run_definition=FakeRunDefinition(name),  # pyright: ignore[reportArgumentType]
+    )
+
+
+class FakeDeploymentModules:
     def __init__(self, starts: dict[str, list[FakeProcess | None]] | None = None):
         self.starts: dict[str, list[FakeProcess | None]] = starts or {}
-        self.started: list[tuple[str, str]] = []
-        self.possible_processes: list[str] = list(self.starts.keys())
+        self.started: list[tuple[str, str, dict[str, str]]] = []
+        self.modules: list[BackendModule] = [
+            make_module(process_type) for process_type in self.starts.keys()
+        ]
 
-    def start_process(self, process_type: str, config_path: str) -> FakeProcess | None:
-        self.started.append((process_type, config_path))
+    def start_module(
+        self,
+        module: BackendRunnableModule,
+        bundle_path: str,
+        flags: dict[str, str],
+    ) -> FakeProcess | None:
+        self.started.append((module.name, bundle_path, flags))
+        process_type = module.name
         queued_starts = self.starts.setdefault(process_type, [])
         if not queued_starts:
             return None
         return queued_starts.pop(0)
 
-    def get_possible_processes(self) -> list[str]:
-        return self.possible_processes
+    def get_modules(self) -> list[BackendModule]:
+        return self.modules
 
 
 class FakeLoop:
@@ -70,24 +113,23 @@ def as_loop(fake_loop: FakeLoop) -> asyncio.AbstractEventLoop:
     return cast(asyncio.AbstractEventLoop, cast(object, fake_loop))
 
 
-def as_runnable_modules(fake_modules: FakeRunnableModules) -> RunnableModules:
-    return cast(RunnableModules, cast(object, fake_modules))
-
-
 def as_opened_process(fake_process: FakeProcess) -> OpenedProcess:
     return cast(OpenedProcess, cast(object, fake_process))
 
 
 def make_monitor(
-    tmp_path: Path, runnable_modules: FakeRunnableModules
+    tmp_path: Path, deployment_modules: FakeDeploymentModules, monkeypatch: MonkeyPatch
 ) -> tuple[ProcessMonitor, FakeLoop]:
+    monkeypatch.setattr("watchdog.monitor.get_modules", deployment_modules.get_modules)
+    monkeypatch.setattr(
+        OpenedProcess, "start_module", staticmethod(deployment_modules.start_module)
+    )
     fake_loop = FakeLoop()
     process_monitor = ProcessMonitor(
         str(tmp_path / "memory.json"),
         write_config(tmp_path),
         as_loop(fake_loop),
     )
-    process_monitor.runnable_modules = as_runnable_modules(runnable_modules)
     return process_monitor, fake_loop
 
 
@@ -113,54 +155,82 @@ def test_processes_memory_persists_unique_appends_and_removes(tmp_path: Path):
     assert read_memory(memory_file) == ["localization"]
 
 
-def test_start_and_monitor_process_tracks_process_and_schedules_monitor(tmp_path: Path):
+def test_processes_memory_replace_persists_unique_requested_order(tmp_path: Path):
+    memory_file = tmp_path / "memory.json"
+    memory = ProcessesMemory.from_file(str(memory_file))
+    memory.append("stale")
+
+    memory.replace(["camera", "camera", "localization"])
+
+    assert memory == ["camera", "localization"]
+    assert read_memory(memory_file) == ["camera", "localization"]
+
+
+def test_start_and_monitor_process_tracks_process_and_schedules_monitor(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+):
     process = FakeProcess()
-    process_monitor, fake_loop = make_monitor(
-        tmp_path, FakeRunnableModules({"camera": [process]})
-    )
+    deployment_modules = FakeDeploymentModules({"camera": [process]})
+    process_monitor, fake_loop = make_monitor(tmp_path, deployment_modules, monkeypatch)
 
     process_monitor.start_and_monitor_process("camera")
 
     assert process_monitor.processes == {"camera": as_opened_process(process)}
     assert process_monitor.process_mem == ["camera"]
     assert read_memory(tmp_path / "memory.json") == ["camera"]
+    assert deployment_modules.started[0][1] == BUNDLE_FOLDER_PATH
     assert fake_loop.scheduled_count == 1
 
 
-def test_start_and_monitor_process_ignores_missing_config(tmp_path: Path):
+def test_watchdog_runtime_bundle_path_matches_installed_backend_path():
+    assert BUNDLE_FOLDER_PATH == str(Path(BLITZ_PATH) / "backend")
+
+
+def test_start_and_monitor_process_ignores_missing_config(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+):
     fake_loop = FakeLoop()
     process_monitor = ProcessMonitor(
         str(tmp_path / "memory.json"),
         str(tmp_path / "missing-config.json"),
         as_loop(fake_loop),
     )
-    runnable_modules = FakeRunnableModules({"camera": [FakeProcess()]})
-    process_monitor.runnable_modules = as_runnable_modules(runnable_modules)
+    deployment_modules = FakeDeploymentModules({"camera": [FakeProcess()]})
+    monkeypatch.setattr("watchdog.monitor.get_modules", deployment_modules.get_modules)
+    monkeypatch.setattr(
+        OpenedProcess, "start_module", staticmethod(deployment_modules.start_module)
+    )
 
     process_monitor.start_and_monitor_process("camera")
 
     assert process_monitor.processes == {}
     assert process_monitor.process_mem == []
-    assert runnable_modules.started == []
+    assert deployment_modules.started == []
 
 
-def test_start_and_monitor_process_does_not_restart_active_process(tmp_path: Path):
+def test_start_and_monitor_process_does_not_restart_active_process(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+):
     original_process = FakeProcess()
-    runnable_modules = FakeRunnableModules({"camera": [FakeProcess()]})
-    process_monitor, _fake_loop = make_monitor(tmp_path, runnable_modules)
+    deployment_modules = FakeDeploymentModules({"camera": [FakeProcess()]})
+    process_monitor, _fake_loop = make_monitor(
+        tmp_path, deployment_modules, monkeypatch
+    )
     process_monitor.processes["camera"] = as_opened_process(original_process)
 
     process_monitor.start_and_monitor_process("camera")
 
     assert process_monitor.processes["camera"] is original_process
-    assert runnable_modules.started == []
+    assert deployment_modules.started == []
 
 
-def test_set_processes_starts_missing_and_stops_removed(tmp_path: Path):
+def test_set_processes_starts_missing_and_stops_removed(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+):
     removed_process = FakeProcess()
     added_process = FakeProcess()
     process_monitor, _fake_loop = make_monitor(
-        tmp_path, FakeRunnableModules({"new": [added_process]})
+        tmp_path, FakeDeploymentModules({"new": [added_process]}), monkeypatch
     )
     process_monitor.processes["old"] = as_opened_process(removed_process)
     process_monitor.process_mem.append("old")
@@ -173,18 +243,58 @@ def test_set_processes_starts_missing_and_stops_removed(tmp_path: Path):
     assert read_memory(tmp_path / "memory.json") == ["new"]
 
 
-def test_ping_processes_and_get_alive_filters_dead_processes(tmp_path: Path):
-    process_monitor, _fake_loop = make_monitor(tmp_path, FakeRunnableModules())
+def test_set_processes_clears_stale_remembered_processes_that_are_not_active(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+):
+    memory_file = tmp_path / "memory.json"
+    _ = memory_file.write_text('{"processes": ["test"]}')
+    process_monitor, _fake_loop = make_monitor(
+        tmp_path, FakeDeploymentModules(), monkeypatch
+    )
+    process_monitor.process_mem = ProcessesMemory.from_file(str(memory_file))
+
+    process_monitor.set_processes([])
+
+    assert process_monitor.processes == {}
+    assert process_monitor.process_mem == []
+    assert read_memory(memory_file) == []
+
+
+def test_stop_process_clears_stale_remembered_process_even_when_not_active(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+):
+    process_monitor, _fake_loop = make_monitor(
+        tmp_path, FakeDeploymentModules(), monkeypatch
+    )
+    process_monitor.process_mem.append("test")
+
+    process_monitor.stop_process("test")
+
+    assert process_monitor.processes == {}
+    assert process_monitor.process_mem == []
+    assert read_memory(tmp_path / "memory.json") == []
+
+
+def test_ping_processes_and_get_alive_filters_dead_processes(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+):
+    process_monitor, _fake_loop = make_monitor(
+        tmp_path, FakeDeploymentModules(), monkeypatch
+    )
     process_monitor.processes["alive"] = as_opened_process(FakeProcess(alive=True))
     process_monitor.processes["dead"] = as_opened_process(FakeProcess(alive=False))
 
     assert process_monitor.ping_processes_and_get_alive() == ["alive"]
 
 
-def test_abort_all_processes_stops_everything_and_clears_memory(tmp_path: Path):
+def test_abort_all_processes_stops_everything_and_clears_memory(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+):
     first_process = FakeProcess()
     second_process = FakeProcess()
-    process_monitor, _fake_loop = make_monitor(tmp_path, FakeRunnableModules())
+    process_monitor, _fake_loop = make_monitor(
+        tmp_path, FakeDeploymentModules(), monkeypatch
+    )
     process_monitor.processes["first"] = as_opened_process(first_process)
     process_monitor.processes["second"] = as_opened_process(second_process)
     process_monitor.process_mem.append("first")
@@ -199,11 +309,13 @@ def test_abort_all_processes_stops_everything_and_clears_memory(tmp_path: Path):
     assert read_memory(tmp_path / "memory.json") == []
 
 
-def test_reboot_processes_restarts_remembered_processes(tmp_path: Path):
+def test_reboot_processes_restarts_remembered_processes(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+):
     old_process = FakeProcess()
     new_process = FakeProcess()
     process_monitor, _fake_loop = make_monitor(
-        tmp_path, FakeRunnableModules({"camera": [new_process]})
+        tmp_path, FakeDeploymentModules({"camera": [new_process]}), monkeypatch
     )
     process_monitor.processes["camera"] = as_opened_process(old_process)
     process_monitor.process_mem.append("camera")
@@ -216,26 +328,38 @@ def test_reboot_processes_restarts_remembered_processes(tmp_path: Path):
     assert read_memory(tmp_path / "memory.json") == ["camera"]
 
 
-def test_get_possible_processes_delegates_to_runnable_modules(tmp_path: Path):
-    runnable_modules = FakeRunnableModules()
-    runnable_modules.possible_processes = ["camera", "localization"]
-    process_monitor, _fake_loop = make_monitor(tmp_path, runnable_modules)
+def test_get_possible_processes_delegates_to_deployment_modules(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+):
+    deployment_modules = FakeDeploymentModules()
+    deployment_modules.modules = [
+        make_module("camera"),
+        FakeNonRunnableModule(name="generated"),
+        make_module("localization"),
+    ]
+    process_monitor, _fake_loop = make_monitor(
+        tmp_path, deployment_modules, monkeypatch
+    )
 
     assert process_monitor.get_possible_processes() == ["camera", "localization"]
 
 
-def test_restore_processes_from_memory_starts_saved_processes(tmp_path: Path):
+def test_restore_processes_from_memory_starts_saved_processes(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+):
     camera_process = FakeProcess()
     memory_file = tmp_path / "memory.json"
     _ = memory_file.write_text('{"processes": ["camera"]}')
+    deployment_modules = FakeDeploymentModules({"camera": [camera_process]})
+    monkeypatch.setattr("watchdog.monitor.get_modules", deployment_modules.get_modules)
+    monkeypatch.setattr(
+        OpenedProcess, "start_module", staticmethod(deployment_modules.start_module)
+    )
     fake_loop = FakeLoop()
     process_monitor = ProcessMonitor(
         str(memory_file),
         write_config(tmp_path),
         as_loop(fake_loop),
-    )
-    process_monitor.runnable_modules = as_runnable_modules(
-        FakeRunnableModules({"camera": [camera_process]})
     )
 
     process_monitor._restore_processes_from_memory()  # pyright: ignore[reportPrivateUsage]
@@ -261,7 +385,9 @@ def test_monitor_process_retries_failed_restart_without_forgetting_process(
     old_process = FakeProcess(alive=False)
     replacement_process = FakeProcess(alive=True)
     process_monitor, _fake_loop = make_monitor(
-        tmp_path, FakeRunnableModules({"camera": [None, replacement_process]})
+        tmp_path,
+        FakeDeploymentModules({"camera": [None, replacement_process]}),
+        monkeypatch,
     )
     process_monitor.processes["camera"] = as_opened_process(old_process)
     process_monitor.process_mem.append("camera")

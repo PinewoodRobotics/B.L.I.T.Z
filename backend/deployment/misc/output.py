@@ -7,6 +7,8 @@ import time
 from collections.abc import Callable, Sequence
 from collections import deque
 
+from backend.deployment.network_api.utils import FilePath, FolderPath
+
 
 INDENT = "  "
 OUTPUT_INDENT = f"{INDENT}  "
@@ -294,7 +296,7 @@ class LiveBundleDisplay:
         self.archive_step = step_message
         self.render()
 
-    def finish(self, archive_path: str) -> None:
+    def finish(self, archive_path: FilePath) -> None:
         self.archive_state = "done"
         self.archive_step = archive_path
         self._finished = True
@@ -614,7 +616,7 @@ def set_archive_step(step_message: str) -> None:
     _active_display.set_archive_step(step_message)
 
 
-def finish_live_display(archive_path: str) -> None:
+def finish_live_display(archive_path: FilePath) -> None:
     if _active_display is None:
         return
 
@@ -632,7 +634,7 @@ def start_bundle(
     bundle_name: str,
     system_key: str,
     module_labels: Sequence[str],
-    build_path: str,
+    build_path: FolderPath,
 ) -> None:
     if silent_enabled():
         return
@@ -686,7 +688,7 @@ def complete_module(message: str = "assembled") -> None:
         print()
 
 
-def start_archive(archive_base_path: str) -> None:
+def start_archive(archive_base_path: FilePath) -> None:
     if silent_enabled():
         return
 
@@ -704,12 +706,12 @@ def start_archive(archive_base_path: str) -> None:
     detail("base path", archive_base_path)
 
 
-def finish_bundle(archive_path: str) -> None:
+def finish_bundle(archive_path: FilePath) -> None:
     if silent_enabled():
         return
 
     if live_enabled():
-        finish_live_display(os.path.relpath(archive_path))
+        finish_live_display(FilePath(os.path.relpath(archive_path)))
         refresh_deployment_display()
         return
 

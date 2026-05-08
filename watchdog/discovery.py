@@ -1,17 +1,12 @@
-import os
 import socket
 import time
-from pathlib import Path
 
 from zeroconf import ServiceInfo, Zeroconf
 
 from watchdog.util.logger import error, success
 from watchdog.util.system import (
-    RuntimePlatformInfo,
-    get_local_hostname,
+    DiscoveredNetworkSystem,
     get_primary_ipv4,
-    get_system_name,
-    load_basic_system_config,
 )
 
 
@@ -27,29 +22,16 @@ def _zeroconf_properties(properties: dict[str, object | None]) -> dict[str, obje
 
 def construct_service_info():
     hostname = socket.gethostname()
-    hostname_local = get_local_hostname()
-    system_name = get_system_name()
     local_ip = get_primary_ipv4()
-    system_config = load_basic_system_config()
-    runtime_platform_info = RuntimePlatformInfo.collect().to_dict()
+    discovered_system = DiscoveredNetworkSystem.collect()
     addresses = [socket.inet_aton(local_ip)]
-    blitz_path = os.environ.get("BLITZ_PATH") or str(Path(__file__).resolve().parents[1])
     return ServiceInfo(
         TYPE_,
         f"{hostname}.{TYPE_}",
         addresses=addresses,
         port=9999,
-        server=hostname_local,
-        properties=_zeroconf_properties(
-            {
-                "hostname": hostname_local,
-                "system_name": system_name,
-                "watchdog_port": system_config.watchdog_api.api_port,
-                "autobahn_port": system_config.autobahn_connection.port,
-                "blitz_path": blitz_path,
-                **runtime_platform_info,
-            }
-        ),
+        server=discovered_system.hostname,
+        properties=_zeroconf_properties(discovered_system.to_dict()),
     )
 
 
@@ -72,7 +54,7 @@ def enable_discovery():
             zeroconf.register_service(_service_info)
             success(f"Refreshed service discovery for {_service_info.server}")
         except Exception as e:
-            error(f"Error updating service discovery: {e}")
+            error(f"Error updating service discovery: {str(e)} {e.args}")
 
     if zeroconf is not None:
         try:

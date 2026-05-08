@@ -7,7 +7,7 @@ set -euo pipefail
 : "${SSH_PASS:?SSH_PASS is required}"
 : "${TARGET_PORT:=22}"
 : "${TARGET_NAME:?TARGET_NAME is required}"
-: "${SERVICE_NAME:=startup}"
+: "${SERVICE_NAME:=blitz-startup}"
 
 SSH_OPTIONS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
@@ -31,5 +31,5 @@ printf '%s\n' "Sync completed..."
 
 printf '%s\n' "Running setup.sh on target..."
 sshpass -p "${SSH_PASS}" ssh ${SSH_OPTIONS} -p "${TARGET_PORT}" "${TARGET_USER}@${UBUNTU_TARGET}" \
-    "TARGET_NAME=\"${TARGET_NAME}\" TARGET_FOLDER=\"$(dirname "${TARGET_FOLDER}")/\" SERVICE_NAME=\"${SERVICE_NAME}\" DEV_LOCAL_OVERRIDE=true bash \"${TARGET_FOLDER}/scripts/setup.sh\""
+    "printf '%s\n' \"${SSH_PASS}\" | sudo -S -p '' -v && TARGET_NAME=\"${TARGET_NAME}\" TARGET_FOLDER=\"$(dirname "${TARGET_FOLDER}")/\" SERVICE_NAME=\"${SERVICE_NAME}\" DEV_LOCAL_OVERRIDE=true bash \"${TARGET_FOLDER}/scripts/setup.sh\""
 printf '%s\n' "Setup.sh completed..."
