@@ -52,7 +52,9 @@ class WatchdogLoggingConfig(BaseModel):
 class WatchdogApiConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    api_host: str = Field(default="0.0.0.0", validation_alias=AliasChoices("api_host", "host"))
+    api_host: str = Field(
+        default="0.0.0.0", validation_alias=AliasChoices("api_host", "host")
+    )
     api_port: int = Field(validation_alias=AliasChoices("api_port", "port"))
     system_stats_publish_interval_seconds: float = Field(
         validation_alias=AliasChoices(

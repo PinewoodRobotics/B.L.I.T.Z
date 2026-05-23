@@ -1,7 +1,12 @@
 import json
 import asyncio
 import pathlib
-from watchdog.constants import BASIC_SYSTEM_CONFIG_PATH, BLITZ_PATH, BUNDLE_FOLDER_PATH
+from watchdog.constants import (
+    BASIC_SYSTEM_CONFIG_PATH,
+    BLITZ_PATH,
+    BUNDLE_FOLDER_PATH,
+    SYSTEM_NAME,
+)
 from watchdog.ext.expected_deployment_struct import RunnableModule, get_modules
 from watchdog.process_starter import OpenedProcess
 from watchdog.util.lazy_importer import LazyImportError
@@ -196,6 +201,7 @@ class ProcessMonitor:
                     "basic-system-config-path": BASIC_SYSTEM_CONFIG_PATH,
                     "blitz-path": BLITZ_PATH,
                     "bundle-folder-path": BUNDLE_FOLDER_PATH,
+                    "system-name": SYSTEM_NAME,
                 },
             )
         except LazyImportError as e:

@@ -4,6 +4,7 @@ import posixpath
 
 import shlex
 import shutil
+import subprocess
 from backend.deployment.compilation.cpp.cpp import CPlusPlus
 from backend.deployment.compilation.util.commands import run_command
 from backend.deployment.compilation.util.cpp_build import CPPBuildConfig
@@ -22,6 +23,7 @@ from backend.deployment.module.base import (
 from backend.deployment.network_api.utils import FilePath, FolderPath
 
 VENV_PATH = FilePath(".venv/bin/python")
+PYTHON_BUILD_REQUIREMENTS = ("setuptools", "wheel")
 
 
 @dataclass
@@ -194,25 +196,206 @@ class PythonModule(RunnableModule, DependencyInstallation):
         for platform in platforms:
             cmd.extend(["--platform", platform])
 
+        try:
+            _ = run_command(
+                cmd,
+                "Download Python binary dependencies",
+                on_failure=lambda _label, _tail: None,
+            )
+        except subprocess.CalledProcessError:
+            # Wheel-only cross-downloads fail when any requirement lacks a
+            # compatible target wheel. Classify requirements individually so
+            # source archives are fetched only for packages that must build on
+            # the target.
+            print(
+                "Some Python dependencies do not have target wheels; "
+                "checking requirements individually."
+            )
+            self._download_mixed_binary_and_source_dependencies(
+                result_path,
+                requirements_path,
+                platforms,
+                py_tag,
+                abi_tag,
+            )
+
+        self._download_build_requirements(result_path)
+        shutil.copy(requirements_path, os.path.join(result_path, "requirements.txt"))
+
+    def _download_mixed_binary_and_source_dependencies(
+        self,
+        result_path: FolderPath,
+        requirements_path: FilePath,
+        platforms: list[str],
+        py_tag: str,
+        abi_tag: str,
+    ) -> None:
+        # First try each top-level requirement as a target-compatible wheel. Only
+        # requirements that fail that probe are sent to the source download pass,
+        # preventing wheel-capable packages from being bundled for manual builds.
+        index_args, requirements = self._read_downloadable_requirements(
+            requirements_path
+        )
+        source_requirements: list[str] = []
+        for requirement in requirements:
+            if not self._download_binary_requirement(
+                result_path,
+                requirement,
+                index_args,
+                platforms,
+                py_tag,
+                abi_tag,
+            ):
+                print(
+                    f"No compatible target wheel for {requirement}; "
+                    "will bundle source archive."
+                )
+                source_requirements.append(requirement)
+            else:
+                print(f"Bundled target wheel for {requirement}.")
+
+        if source_requirements:
+            self._download_source_requirements(
+                result_path,
+                index_args,
+                source_requirements,
+            )
+
+    def _download_binary_requirement(
+        self,
+        result_path: FolderPath,
+        requirement: str,
+        index_args: list[str],
+        platforms: list[str],
+        py_tag: str,
+        abi_tag: str,
+    ) -> bool:
+        # This is the same target-wheel constraint as the original bulk command,
+        # but scoped to one top-level requirement so a single missing wheel does
+        # not force the whole requirements file down the source path.
+        cmd = [
+            "python",
+            "-m",
+            "pip",
+            "download",
+            *index_args,
+            requirement,
+            "--dest",
+            result_path,
+            "--only-binary=:all:",
+            "--implementation",
+            "cp",
+            "--python-version",
+            py_tag,
+            "--abi",
+            abi_tag,
+        ]
+        for platform in platforms:
+            cmd.extend(["--platform", platform])
+
+        return (
+            subprocess.run(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            ).returncode
+            == 0
+        )
+
+    def _download_source_requirements(
+        self,
+        result_path: FolderPath,
+        index_args: list[str],
+        requirements: list[str],
+    ) -> None:
+        # Download source distributions only for top-level requirements that did
+        # not have target wheels. --no-deps is deliberate: dependencies should
+        # come from the wheel pass or be listed explicitly in requirements.txt,
+        # instead of forcing local source metadata/build probes for transitive
+        # packages such as scipy.
+        for requirement in requirements:
+            print(f"Downloading source archive for {requirement}.")
+            _ = run_command(
+                [
+                    "python",
+                    "-m",
+                    "pip",
+                    "download",
+                    *index_args,
+                    requirement,
+                    "--dest",
+                    result_path,
+                    "--no-binary=:all:",
+                    "--no-deps",
+                ],
+                f"Download Python source dependency {requirement}",
+            )
+
+    def _read_downloadable_requirements(
+        self, requirements_path: FilePath
+    ) -> tuple[list[str], list[str]]:
+        # Extract package requirement lines for per-package wheel probes, while
+        # preserving simple index options such as --find-links so package-specific
+        # sources in requirements.txt are still considered.
+        index_args: list[str] = []
+        requirements: list[str] = []
+        with open(requirements_path) as requirements_file:
+            for raw_line in requirements_file:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith(("--find-links", "-f ")):
+                    index_args.extend(shlex.split(line))
+                    continue
+                if line.startswith(("--index-url", "-i ", "--extra-index-url")):
+                    index_args.extend(shlex.split(line))
+                    continue
+                if line.startswith("--trusted-host"):
+                    index_args.extend(shlex.split(line))
+                    continue
+                if line.startswith("-"):
+                    continue
+
+                requirement, _, _comment = line.partition(" #")
+                requirements.append(requirement.strip())
+
+        return index_args, requirements
+
+    def _download_build_requirements(self, result_path: FolderPath) -> None:
+        # Seed the offline directory with common PEP 517/build-backend tools so
+        # target-side source builds can create wheels without reaching PyPI.
         _ = run_command(
-            cmd,
-            "Download Python dependencies",
+            [
+                "python",
+                "-m",
+                "pip",
+                "download",
+                "--dest",
+                result_path,
+                "--only-binary=:all:",
+                *PYTHON_BUILD_REQUIREMENTS,
+            ],
+            "Download Python build requirements",
         )
 
     def get_dependency_installation_command(
         self, blitz_path: FolderPath, bundle_path: FolderPath
     ) -> str:
         venv_python = shlex.quote(posixpath.join(blitz_path, VENV_PATH))
-        wheel_dir = shlex.quote(
-            posixpath.join(bundle_path, "deps", self.get_language_name())
-        )
+        deps_dir = posixpath.join(bundle_path, "deps", self.get_language_name())
+        quoted_deps_dir = shlex.quote(deps_dir)
+        requirements_path = shlex.quote(posixpath.join(deps_dir, "requirements.txt"))
+        # Install from requirements.txt against the bundled find-links directory.
+        # This lets pip choose bundled wheels when present and build bundled
+        # source archives on the target when no wheel exists.
         return (
             f"cd {shlex.quote(blitz_path)} && "
             f"{venv_python} -m pip install "
             "--no-index "
             "--no-cache-dir "
-            f"--find-links {wheel_dir} "
-            f"{wheel_dir}/*.whl"
+            f"--find-links {quoted_deps_dir} "
+            f"--requirement {requirements_path}"
         )
 
     def get_run_command(self, bundle_path: FolderPath) -> str:
