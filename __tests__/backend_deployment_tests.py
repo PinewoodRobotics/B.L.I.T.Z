@@ -240,13 +240,18 @@ def test_rsyncer_deploys_backend_bundle_and_installs_python_dependencies(
     ).deploy()
 
     bundle_name = f"backend-bundle-{system_id.to_build_key()}.zip"
+    docker_runner.assert_files_exist(
+        target,
+        [
+            f"{INSTALLED_REPO}/{REMOTE_BUNDLE_PATH}/{bundle_name}",
+            f"{INSTALLED_REPO}/backend/deploy.py",
+            f"{INSTALLED_REPO}/backend/python/sample_deployment_module/__main__.py",
+        ],
+    )
     docker_runner.exec(
         target,
         f"""
         set -euo pipefail
-        test -f {INSTALLED_REPO}/{REMOTE_BUNDLE_PATH}/{bundle_name}
-        test -f {INSTALLED_REPO}/backend/deploy.py
-        test -f {INSTALLED_REPO}/backend/python/sample_deployment_module/__main__.py
         test -d {INSTALLED_REPO}/backend/deps/python
         ls {INSTALLED_REPO}/backend/deps/python/six-1.17.0-*.whl
         {INSTALLED_REPO}/.venv/bin/python -c 'import six; assert six.__version__ == "1.17.0"'

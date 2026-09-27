@@ -234,6 +234,110 @@ def test_local_backend_script_detects_project_from_root_and_scripts_dir(tmp_path
     assert "Deployment:     backend/deployment" in scripts_result.stdout
 
 
+def test_local_backend_script_check_updates_reports_current_build_version(
+    tmp_path: Path,
+) -> None:
+    project = make_wpilib_project(tmp_path)
+    assert_success(run_installer(project))
+    build_version = (REPO_ROOT / "backend" / "deployment" / ".blitz-build-version").read_text().strip()
+
+    result = run_local_backend_script(
+        project / "scripts" / "backend.sh",
+        project,
+        {
+            "BLITZ_BACKEND_ACTION": "check-updates",
+            "BLITZ_SOURCE_DIR": str(REPO_ROOT),
+            "BLITZ_UPDATE_SCRIPT_URL": f"file://{UPDATER}",
+            "BLITZ_UI_LIB_URL": f"file://{REPO_ROOT / 'scripts' / 'ui' / 'common' / 'terminal_ui.sh'}",
+        },
+    )
+
+    assert_success(result)
+    assert f"already up to date ({build_version})" in result.stdout
+    assert (
+        project / "backend" / "deployment" / ".blitz-build-version"
+    ).read_text().strip() == build_version
+
+
+def test_local_backend_script_check_updates_installs_newer_build_version(
+    tmp_path: Path,
+) -> None:
+    project = make_wpilib_project(tmp_path)
+    source = tmp_path / "newer-source"
+    assert_success(run_installer(project))
+    current_version = (
+        project / "backend" / "deployment" / ".blitz-build-version"
+    ).read_text().strip()
+    deploy_script = project / "backend" / "deploy.py"
+    deploy_script.write_text("# team customization\n")
+
+    shutil.copytree(
+        REPO_ROOT / "backend" / "deployment", source / "backend" / "deployment"
+    )
+    (source / "backend" / "deployment" / ".blitz-build-version").write_text("9.9.9\n")
+    (source / "backend" / "deployment" / "new_file.py").write_text("UPDATED = True\n")
+    local_script = source / "scripts" / "wpi-local" / "backend.sh"
+    local_script.parent.mkdir(parents=True)
+    shutil.copy2(LOCAL_BACKEND_SCRIPT, local_script)
+
+    update_env = {
+        "BLITZ_BACKEND_ACTION": "check-updates",
+        "BLITZ_ASSUME_YES": "true",
+        "BLITZ_SOURCE_DIR": str(source),
+        "BLITZ_UPDATE_SCRIPT_URL": f"file://{UPDATER}",
+        "BLITZ_UI_LIB_URL": f"file://{REPO_ROOT / 'scripts' / 'ui' / 'common' / 'terminal_ui.sh'}",
+        "BLITZ_LATEST_COMMIT_MESSAGE": "new deployment build",
+    }
+    result = run_local_backend_script(
+        project / "scripts" / "backend.sh", project, update_env
+    )
+
+    assert_success(result)
+    assert f"Current version:             {current_version}" in result.stdout
+    assert "Latest version:              9.9.9" in result.stdout
+    assert "updated to 9.9.9" in result.stdout
+    assert (project / "backend" / "deployment" / ".blitz-build-version").read_text() == "9.9.9\n"
+    assert (project / "backend" / "deployment" / "new_file.py").read_text() == "UPDATED = True\n"
+    assert deploy_script.read_text() == "# team customization\n"
+    assert (project / "scripts" / "backend.sh").read_text() == LOCAL_BACKEND_SCRIPT.read_text()
+
+    repeated_check = run_local_backend_script(
+        project / "scripts" / "backend.sh", project, update_env
+    )
+    assert_success(repeated_check)
+    assert "already up to date (9.9.9)" in repeated_check.stdout
+
+
+def test_local_backend_script_updates_legacy_build_version_file(
+    tmp_path: Path,
+) -> None:
+    project = make_wpilib_project(tmp_path)
+    assert_success(run_installer(project))
+    deployment = project / "backend" / "deployment"
+    (deployment / ".blitz-build-version").rename(deployment / ".build-version")
+    (deployment / ".build-version").write_text("0.0.0\n")
+
+    result = run_local_backend_script(
+        project / "scripts" / "backend.sh",
+        project,
+        {
+            "BLITZ_BACKEND_ACTION": "check-updates",
+            "BLITZ_ASSUME_YES": "true",
+            "BLITZ_SOURCE_DIR": str(REPO_ROOT),
+            "BLITZ_UPDATE_SCRIPT_URL": f"file://{UPDATER}",
+            "BLITZ_UI_LIB_URL": f"file://{REPO_ROOT / 'scripts' / 'ui' / 'common' / 'terminal_ui.sh'}",
+            "BLITZ_LATEST_COMMIT_MESSAGE": "new version marker",
+        },
+    )
+
+    assert_success(result)
+    assert "Current version:             0.0.0" in result.stdout
+    assert (deployment / ".blitz-build-version").read_text() == (
+        REPO_ROOT / "backend" / "deployment" / ".blitz-build-version"
+    ).read_text()
+    assert not (deployment / ".build-version").exists()
+
+
 def test_local_backend_script_changes_backend_folder_and_gradle_blocks(tmp_path: Path):
     project = make_wpilib_project(tmp_path)
 
@@ -251,7 +355,7 @@ def test_local_backend_script_changes_backend_folder_and_gradle_blocks(tmp_path:
 
     assert_success(result)
     assert not (project / "backend").exists()
-    assert (project / "robotBackend" / "deployment" / ".build-version").is_file()
+    assert (project / "robotBackend" / "deployment" / ".blitz-build-version").is_file()
     assert (project / "robotBackend" / "deploy.py").is_file()
     assert (
         'gradle.ext.backendPath = file("robotBackend").absolutePath'
@@ -431,7 +535,7 @@ def test_updater_treats_0_0_10_as_newer_than_0_0_9(tmp_path: Path):
 
     install = run_installer(project)
     assert_success(install)
-    version_file = project / "backend" / "deployment" / ".build-version"
+    version_file = project / "backend" / "deployment" / ".blitz-build-version"
     _ = version_file.write_text("0.0.10\n")
 
     result = run_updater(
@@ -473,7 +577,7 @@ def test_updater_refreshes_deployment_and_preserves_deploy_py(tmp_path: Path):
     shutil.copytree(
         REPO_ROOT / "backend" / "deployment", source / "backend" / "deployment"
     )
-    (source / "backend" / "deployment" / ".build-version").write_text("9.9.9\n")
+    (source / "backend" / "deployment" / ".blitz-build-version").write_text("9.9.9\n")
     extra_file = source / "backend" / "deployment" / "new_file.py"
     extra_file.write_text("UPDATED = True\n")
     local_script = source / "scripts" / "wpi-local" / "backend.sh"
@@ -490,7 +594,7 @@ def test_updater_refreshes_deployment_and_preserves_deploy_py(tmp_path: Path):
 
     assert_success(result)
     assert (
-        project / "backend" / "deployment" / ".build-version"
+        project / "backend" / "deployment" / ".blitz-build-version"
     ).read_text() == "9.9.9\n"
     assert (
         project / "backend" / "deployment" / "new_file.py"
@@ -514,7 +618,7 @@ def test_updater_auto_detects_custom_backend_folder(tmp_path: Path):
     shutil.copytree(
         REPO_ROOT / "backend" / "deployment", source / "backend" / "deployment"
     )
-    (source / "backend" / "deployment" / ".build-version").write_text("9.9.9\n")
+    (source / "backend" / "deployment" / ".blitz-build-version").write_text("9.9.9\n")
 
     result = run_updater(
         project,
@@ -526,7 +630,7 @@ def test_updater_auto_detects_custom_backend_folder(tmp_path: Path):
 
     assert_success(result)
     assert (
-        project / "robotBackend" / "deployment" / ".build-version"
+        project / "robotBackend" / "deployment" / ".blitz-build-version"
     ).read_text() == "9.9.9\n"
     assert deploy_py.read_text() == "# custom deploy\n"
     assert "Detected deployment folder: robotBackend/deployment" in result.stdout

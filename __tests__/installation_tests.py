@@ -37,20 +37,26 @@ def test_setup_and_wipe_scripts_in_docker_container(
     image_tag = docker_runner.build_image(dockerfile, tag_prefix)
     container = docker_runner.start_container(image_tag, container_suffix)
 
+    docker_runner.assert_files_exist(
+        container,
+        [
+            f"{INSTALLED_REPO}/Makefile",
+            "/etc/profile.d/blitz.sh",
+            f"/etc/systemd/system/{SERVICE_NAME}.service",
+            f"{INSTALLED_REPO}/watchdog/generated/PiStatus_pb2.py",
+            f"{INSTALLED_REPO}/watchdog/generated/PiStatus_pb2.pyi",
+            f"{INSTALLED_REPO}/watchdog/generated/StateLogging_pb2.py",
+            f"{INSTALLED_REPO}/watchdog/generated/StateLogging_pb2.pyi",
+        ],
+    )
+
     docker_runner.exec(
         container,
         f"""
         set -euo pipefail
-        test -f {INSTALLED_REPO}/Makefile
         test -x {INSTALLED_REPO}/.venv/bin/python
         grep -qx 'BLITZ_PATH={INSTALLED_REPO}' /etc/default/blitz
-        test -f /etc/profile.d/blitz.sh
-        test -f /etc/systemd/system/{SERVICE_NAME}.service
         test "$(cat {INSTALLED_REPO}/system_data/name.txt)" = "test"
-        test -f {INSTALLED_REPO}/watchdog/generated/PiStatus_pb2.py
-        test -f {INSTALLED_REPO}/watchdog/generated/PiStatus_pb2.pyi
-        test -f {INSTALLED_REPO}/watchdog/generated/StateLogging_pb2.py
-        test -f {INSTALLED_REPO}/watchdog/generated/StateLogging_pb2.pyi
         """,
     )
 

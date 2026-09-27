@@ -4,7 +4,7 @@ set -euo pipefail
 
 DEFAULT_GIT_URL="https://github.com/PinewoodRobotics/B.L.I.T.Z.git"
 DEFAULT_UI_LIB_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/common/terminal_ui.sh"
-DEFAULT_BUILD_VERSION_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/backend/deployment/.build-version"
+DEFAULT_BUILD_VERSION_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/backend/deployment/.blitz-build-version"
 DEFAULT_BIN_DIR="bin"
 DEFAULT_LOCAL_SCRIPT="backend.sh"
 UI_LIB_TEMP_DIR=""
@@ -201,7 +201,8 @@ detect_deployment_path() {
     local candidate_count=0
     local first_candidate=""
 
-    if [ -f "${preferred}/.build-version" ]; then
+    if [ -f "${preferred}/.blitz-build-version" ] ||
+        [ -f "${preferred}/.build-version" ]; then
         DEPLOYMENT_PATH="${preferred}"
         return
     fi
@@ -214,7 +215,8 @@ detect_deployment_path() {
     done < <(
         find "${WPILIB_PROJECT}" \
             -path "${WPILIB_PROJECT}/${BLITZ_BIN_DIR}" -prune -o \
-            -path "*/deployment/.build-version" -type f -print
+            \( -path "*/deployment/.blitz-build-version" -o \
+               -path "*/deployment/.build-version" \) -type f -print
     )
 
     if [ "${candidate_count}" -eq 0 ]; then
@@ -356,7 +358,7 @@ build_version_url() {
     fi
 
     if slug="$(github_slug_from_git_url "${GIT_URL}")"; then
-        printf 'https://raw.githubusercontent.com/%s/HEAD/backend/deployment/.build-version\n' "${slug}"
+        printf 'https://raw.githubusercontent.com/%s/HEAD/backend/deployment/.blitz-build-version\n' "${slug}"
         return
     fi
 
@@ -370,7 +372,7 @@ fetch_latest_build_version() {
     fi
 
     if [ -n "${BLITZ_SOURCE_DIR:-}" ]; then
-        read_build_version "${BLITZ_SOURCE_DIR}/backend/deployment/.build-version"
+        read_build_version "${BLITZ_SOURCE_DIR}/backend/deployment/.blitz-build-version"
         return
     fi
 
@@ -501,6 +503,7 @@ update_deployment_files() {
 main() {
     local source_root
     local local_version
+    local local_version_path
     local latest_version
     local commit_message
 
@@ -525,7 +528,12 @@ main() {
     detect_deployment_path
     detect_backend_and_deploy_script
 
-    local_version="$(read_build_version "${DEPLOYMENT_PATH}/.build-version")"
+    local_version_path="${DEPLOYMENT_PATH}/.blitz-build-version"
+    if [ ! -f "${local_version_path}" ] &&
+        [ -f "${DEPLOYMENT_PATH}/.build-version" ]; then
+        local_version_path="${DEPLOYMENT_PATH}/.build-version"
+    fi
+    local_version="$(read_build_version "${local_version_path}")"
     latest_version="$(fetch_latest_build_version)"
     commit_message="$(fetch_latest_commit_message)"
 

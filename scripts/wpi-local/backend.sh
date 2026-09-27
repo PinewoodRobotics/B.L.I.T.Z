@@ -277,7 +277,8 @@ detect_deployment_path() {
     local candidate_count=0
     local first_candidate=""
 
-    if [ -f "${preferred}/.build-version" ]; then
+    if [ -f "${preferred}/.blitz-build-version" ] ||
+        [ -f "${preferred}/.build-version" ]; then
         DEPLOYMENT_PATH="${preferred}"
         return
     fi
@@ -290,7 +291,8 @@ detect_deployment_path() {
     done < <(
         find "${WPILIB_PROJECT}" \
             -path "${WPILIB_PROJECT}/bin" -prune -o \
-            -path "*/deployment/.build-version" -type f -print
+            \( -path "*/deployment/.blitz-build-version" -o \
+               -path "*/deployment/.build-version" \) -type f -print
     )
 
     if [ "${candidate_count}" -eq 0 ]; then

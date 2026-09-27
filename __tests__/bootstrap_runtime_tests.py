@@ -71,11 +71,13 @@ def test_bootstrap_scripts_and_watchdog_service_registration(
         SERVICE_UNIT_SOURCE={INSTALLED_REPO}/ops/systemd/watchdog.service \\
         SERVICE_UNIT_PATH=/etc/systemd/system/{SERVICE_NAME}.service \\
         bash scripts/bootstrap/install_service.sh
-        test -f /etc/systemd/system/{SERVICE_NAME}.service
         test "$(stat -c '%a' /etc/systemd/system/{SERVICE_NAME}.service)" = "644"
         test -L /etc/systemd/system/multi-user.target.wants/{SERVICE_NAME}.service
         systemctl cat {SERVICE_NAME} | grep -F 'scripts/runtime/run_watchdog.sh'
         systemctl is-enabled {SERVICE_NAME}
         journalctl -u {SERVICE_NAME} --no-pager >/tmp/{SERVICE_NAME}.journal
         """,
+    )
+    docker_runner.assert_files_exist(
+        container, [f"/etc/systemd/system/{SERVICE_NAME}.service"]
     )

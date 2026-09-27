@@ -5,6 +5,8 @@ import time
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
+from collections.abc import Iterable
+import shlex
 
 import docker
 from docker.errors import APIError, DockerException, ImageNotFound, NotFound
@@ -141,6 +143,17 @@ class DockerTestRunner:
                 f"{exec_result.output}"
             )
         return exec_result
+
+    def assert_files_exist(
+        self, container: Container, paths: Iterable[str | Path]
+    ) -> None:
+        """Assert that each specified path is a regular file in the container."""
+        for path in paths:
+            quoted_path = shlex.quote(str(path))
+            try:
+                self.exec(container, f"test -f {quoted_path}")
+            except AssertionError as error:
+                raise AssertionError(f"Missing file in {container.name}: {path}") from error
 
     def cleanup(self) -> None:
         for container in reversed(self.containers):

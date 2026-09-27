@@ -46,20 +46,25 @@ def prepare_ssh_target(docker_runner: DockerTestRunner, target):
 
 
 def assert_installed_on_target(docker_runner: DockerTestRunner, target):
+    docker_runner.assert_files_exist(
+        target,
+        [
+            f"{INSTALLED_REPO}/Makefile",
+            "/etc/profile.d/blitz.sh",
+            f"/etc/systemd/system/{SERVICE_NAME}.service",
+            f"{INSTALLED_REPO}/watchdog/generated/PiStatus_pb2.py",
+            f"{INSTALLED_REPO}/watchdog/generated/PiStatus_pb2.pyi",
+            f"{INSTALLED_REPO}/watchdog/generated/StateLogging_pb2.py",
+            f"{INSTALLED_REPO}/watchdog/generated/StateLogging_pb2.pyi",
+        ],
+    )
     docker_runner.exec(
         target,
         f"""
         set -euo pipefail
-        test -f {INSTALLED_REPO}/Makefile
         test -x {INSTALLED_REPO}/.venv/bin/python
         grep -qx 'BLITZ_PATH={INSTALLED_REPO}' /etc/default/blitz
-        test -f /etc/profile.d/blitz.sh
-        test -f /etc/systemd/system/{SERVICE_NAME}.service
         test "$(cat {INSTALLED_REPO}/system_data/name.txt)" = "test"
-        test -f {INSTALLED_REPO}/watchdog/generated/PiStatus_pb2.py
-        test -f {INSTALLED_REPO}/watchdog/generated/PiStatus_pb2.pyi
-        test -f {INSTALLED_REPO}/watchdog/generated/StateLogging_pb2.py
-        test -f {INSTALLED_REPO}/watchdog/generated/StateLogging_pb2.pyi
         systemctl cat {SERVICE_NAME} | grep -F 'scripts/runtime/run_watchdog.sh'
         systemctl is-enabled {SERVICE_NAME}
         """,
@@ -142,5 +147,5 @@ def test_deploy_scripts_against_real_ssh_target(docker_runner: DockerTestRunner)
         {deploy_env()} bash scripts/deploy/flash_target.sh
         """,
     )
-    docker_runner.exec(target, "test -f /tmp/setup.sh")
+    docker_runner.assert_files_exist(target, ["/tmp/setup.sh"])
     assert_installed_on_target(docker_runner, target)
