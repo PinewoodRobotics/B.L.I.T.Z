@@ -1,4 +1,4 @@
-import { FileText, Folder } from "lucide-react";
+import { Bot, Braces, Command, FileText, Folder, Network } from "lucide-react";
 import Link from "next/link";
 
 const githubUrl = "https://github.com/PinewoodRobotics/B.L.I.T.Z";
@@ -283,9 +283,12 @@ export default function Home() {
           aria-label="Primary navigation"
           className="absolute top-[25px] left-1/2 flex -translate-x-1/2 gap-[42px] text-[17px] leading-none text-[#b1b1b1] max-sm:hidden"
         >
-          <a className="transition-colors hover:text-white" href="#docs">
+          <Link
+            className="transition-colors hover:text-white"
+            href="/documentation"
+          >
             Docs
-          </a>
+          </Link>
           <a
             className="transition-colors hover:text-white"
             href={githubUrl}
@@ -297,7 +300,7 @@ export default function Home() {
         </nav>
 
         <Link
-          href="/application"
+          href="#platform"
           className="mr-[11px] flex h-[40px] w-[139px] items-center justify-center rounded-[4px] bg-white text-[16px] font-medium text-black shadow-[0_0_18px_rgba(255,255,255,0.08)] transition-colors hover:bg-[#e8e8e8]"
         >
           Get started
@@ -321,24 +324,22 @@ export default function Home() {
 
           <div className="mt-[28px] flex -translate-x-[2px] translate-y-px justify-center gap-[23px] max-sm:translate-x-0 max-sm:flex-col max-sm:items-center">
             <Link
-              href="/application"
+              href="#platform"
               className="flex h-[42px] w-[153px] items-center justify-center rounded-[4px] bg-white text-[16px] font-medium text-black transition-colors hover:bg-[#e8e8e8]"
             >
               Start building
             </Link>
-            <a
-              href={githubUrl}
-              target="_blank"
-              rel="noreferrer"
+            <Link
+              href="/documentation"
               className="flex h-[42px] w-[170px] items-center justify-center rounded-[4px] border border-[#565656] bg-black text-[16px] font-medium text-white transition-colors hover:border-[#888] hover:bg-[#101010]"
             >
               Read the docs
-            </a>
+            </Link>
           </div>
 
           <WorkspacePreview />
 
-          <section id="docs" className="pt-[41px]">
+          <section id="platform" className="scroll-mt-8 pt-[41px] pb-24">
             <h2 className="-translate-x-[5px] text-[40px] leading-[44px] font-semibold tracking-[-0.03em] text-[#f2f2f2] max-sm:translate-x-0 max-sm:text-[30px]">
               Dashboards are overrated.
             </h2>
@@ -357,6 +358,140 @@ export default function Home() {
               <div className="absolute top-0 right-0 left-[calc(50%+14px)] h-px bg-[#343434]" />
               <div className="absolute top-[-10px] left-1/2 size-[20px] -translate-x-1/2 rotate-45 border-r border-b border-[#343434] bg-black" />
             </div>
+
+            <div className="mx-auto mt-[54px] grid w-full max-w-[1140px] grid-cols-[1.18fr_0.82fr] gap-4 text-left max-lg:grid-cols-1">
+              <article className="relative min-h-[435px] overflow-hidden rounded-[12px] border border-[#343434] bg-[#070707] p-9 max-sm:min-h-0 max-sm:p-6">
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgba(44,137,255,0.11),transparent_35%)]"
+                />
+                <div className="relative">
+                  <div className="flex size-10 items-center justify-center rounded-[8px] border border-[#353535] bg-[#101010] text-[#f0f0f0]">
+                    <Network className="size-[19px]" strokeWidth={1.7} />
+                  </div>
+                  <p className="mt-8 font-mono text-[12px] tracking-[0.18em] text-[#707070]">
+                    ONE CODEBASE · FULL CONTEXT
+                  </p>
+                  <h3 className="mt-3 max-w-[580px] text-[38px] leading-[1.08] font-semibold tracking-[-0.045em] text-[#f2f2f2] max-sm:text-[30px]">
+                    Your robot should be one project, not five tabs.
+                  </h3>
+                  <p className="mt-5 max-w-[620px] text-[18px] leading-7 text-[#999]">
+                    BLITZ puts the web app, processors, simulation, deployment,
+                    and agent instructions in one repository. Your team—and your
+                    agents—can reason about the entire system without losing
+                    context between codebases.
+                  </p>
+
+                  <div className="mt-9 grid grid-cols-3 gap-2.5 font-mono text-[13px] max-sm:grid-cols-1">
+                    {[
+                      ["frontend/", "Interface + controls"],
+                      ["simulation/", "Test before hardware"],
+                      ["backend/", "Processes + deploy"],
+                    ].map(([folder, description]) => (
+                      <div
+                        key={folder}
+                        className="rounded-[8px] border border-[#303030] bg-black/70 px-4 py-3.5"
+                      >
+                        <p className="text-[#3b9cff]">{folder}</p>
+                        <p className="mt-1.5 font-sans text-[12px] text-[#686868]">
+                          {description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </article>
+
+              <article className="flex min-h-[435px] flex-col rounded-[12px] border border-[#343434] bg-[#070707] p-9 max-sm:min-h-0 max-sm:p-6">
+                <div className="flex size-10 items-center justify-center rounded-[8px] border border-[#353535] bg-[#101010] text-[#f0f0f0]">
+                  <Command className="size-[19px]" strokeWidth={1.7} />
+                </div>
+                <p className="mt-8 font-mono text-[12px] tracking-[0.18em] text-[#707070]">
+                  ONE COMMAND
+                </p>
+                <h3 className="mt-3 text-[32px] leading-[1.1] font-semibold tracking-[-0.04em] text-[#f2f2f2]">
+                  Ship without babysitting infrastructure.
+                </h3>
+                <p className="mt-4 text-[17px] leading-7 text-[#929292]">
+                  No manual SSH, rsync rituals, deployment dashboard, or
+                  switches hidden in another tool.
+                </p>
+
+                <div className="mt-auto rounded-[9px] border border-[#363636] bg-black px-5 py-4 font-mono text-[14px] max-sm:mt-8">
+                  <p className="text-[#ececec]">
+                    <span className="mr-3 text-[#666]">$</span>
+                    uv run src/backend/deploy.py
+                  </p>
+                  <div className="mt-4 space-y-2 border-t border-[#292929] pt-4 text-[12px]">
+                    <p className="text-[#2788ff]">
+                      <span className="mr-2 text-[#00e83b]">✓</span>
+                      Discover target hardware
+                    </p>
+                    <p className="text-[#2788ff]">
+                      <span className="mr-2 text-[#00e83b]">✓</span>
+                      Build native bundles
+                    </p>
+                    <p className="text-[#2788ff]">
+                      <span className="mr-2 text-[#00e83b]">✓</span>
+                      Apply the process plan
+                    </p>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <div className="mx-auto mt-4 grid w-full max-w-[1140px] grid-cols-3 overflow-hidden rounded-[12px] border border-[#343434] bg-[#070707] text-left max-md:grid-cols-1">
+              {[
+                {
+                  icon: Braces,
+                  label: "Code, not config",
+                  body: "Define processes and hardware behavior with typed APIs your editor and your agents can understand.",
+                },
+                {
+                  icon: Bot,
+                  label: "Built for agents",
+                  body: "Models work best with inspectable code—not opaque dashboards they cannot debug or change.",
+                },
+                {
+                  icon: Network,
+                  label: "Native everywhere",
+                  body: "Run Python, C++, and Rust across real devices without splitting the project into separate worlds.",
+                },
+              ].map(({ icon: Icon, label, body }, index) => (
+                <article
+                  key={label}
+                  className={`p-7 ${
+                    index > 0
+                      ? "border-l border-[#303030] max-md:border-t max-md:border-l-0"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon
+                      className="size-[18px] text-[#bdbdbd]"
+                      strokeWidth={1.7}
+                    />
+                    <h3 className="text-[17px] font-semibold text-[#e7e7e7]">
+                      {label}
+                    </h3>
+                  </div>
+                  <p className="mt-3 text-[14px] leading-6 text-[#777]">
+                    {body}
+                  </p>
+                </article>
+              ))}
+            </div>
+
+            <blockquote className="mx-auto mt-16 max-w-[860px] text-center">
+              <p className="text-[32px] leading-[1.25] font-medium tracking-[-0.035em] text-[#d8d8d8] max-sm:text-[25px]">
+                “We just want to code natively for different devices, deploy in
+                one command, and manage everything with simple code—not configs
+                or switches.”
+              </p>
+              <p className="mt-5 font-mono text-[12px] tracking-[0.16em] text-[#5f5f5f]">
+                THE BLITZ PREMISE
+              </p>
+            </blockquote>
           </section>
         </section>
       </main>
