@@ -16,9 +16,7 @@ import Link from "next/link";
 
 const githubUrl = "https://github.com/PinewoodRobotics/B.L.I.T.Z";
 const installer =
-  '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install_on_system.sh)"';
-const wpilibInstaller =
-  '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install_on_wpilib.sh)"';
+  '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install.sh)"';
 
 const navigation = [
   { label: "Overview", href: "#overview" },
@@ -256,13 +254,28 @@ export default function DocumentationPage() {
             id="quickstart"
             className="scroll-mt-24 border-b border-[#222] py-20 max-sm:py-14"
           >
-            <SectionHeading eyebrow="01 · Quickstart" title="Install a target">
-              Run the installer on each native Linux computer that should join
-              your fleet. It names the target, installs dependencies, and
-              registers the watchdog as a system service.
+            <SectionHeading eyebrow="01 · Quickstart" title="Choose what to install">
+              Run the same installer on each machine. Choose Coprocessor for a
+              fleet target, or Development computer from your
+              project directory for the deployment backend.
             </SectionHeading>
 
-            <CodeBlock label="Linux target">{installer}</CodeBlock>
+            <CodeBlock label="BLITZ installer">{installer}</CodeBlock>
+
+            <div className="mt-8 rounded-lg border border-[#252525] bg-[#0b0b0b] p-6">
+              <h3 className="flex items-center gap-2.5 font-medium text-[#e7e7e7]">
+                <Code2 className="size-4 text-[#8299ff]" />
+                Set up your project backend
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-[#868686]">
+                Choose Development computer from any project directory to
+                install the Python deployment backend. The version stamp in
+                <code className="font-mono text-[#c9c9c9]">
+                  {" "}deployment/.blitz-build-version
+                </code>{" "}
+                identifies its location.
+              </p>
+            </div>
 
             <div className="mt-8 rounded-lg border border-[#252525] bg-[#0b0b0b] p-6">
               <h3 className="flex items-center gap-2.5 font-medium text-[#e7e7e7]">
@@ -270,14 +283,12 @@ export default function DocumentationPage() {
                 Using WPILib?
               </h3>
               <p className="mt-2 text-sm leading-6 text-[#868686]">
-                Run the project installer from your Java WPILib project. It adds
-                the Python deployment layer and a Gradle{" "}
-                <code className="font-mono text-[#c9c9c9]">deployBlitz</code>{" "}
+                Choose Development computer, then select WPILib integration
+                from your Java WPILib project. It adds the Python deployment
+                layer and a Gradle{" "}
+                <code className="font-mono text-[#c9c9c9]">deployBackend</code>{" "}
                 task while preserving your customized deployment file.
               </p>
-              <div className="mt-5">
-                <CodeBlock label="WPILib project">{wpilibInstaller}</CodeBlock>
-              </div>
             </div>
 
             <div className="mt-9">
@@ -472,14 +483,14 @@ def get_modules() -> list[SupportedModules._Generic]:
                 <p className="mb-2 text-sm font-medium text-[#bdbdbd]">
                   Standard project
                 </p>
-                <CodeBlock>make deploy</CodeBlock>
+                <CodeBlock>BLITZ_BACKEND_ACTION=deploy bash scripts/backend.sh</CodeBlock>
               </div>
               <div>
                 <p className="mb-2 text-sm font-medium text-[#bdbdbd]">
                   WPILib project
                 </p>
                 <CodeBlock>
-                  ./gradlew --console=plain --quiet deployBlitz
+                  ./gradlew --console=plain --quiet deployBackend
                 </CodeBlock>
               </div>
             </div>

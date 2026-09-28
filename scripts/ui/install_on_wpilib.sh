@@ -409,7 +409,7 @@ GRADLE
             append_marked_block "${build_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<KTS
 // B.L.I.T.Z backend integration.
 // This applies backend/deployment/gradle/${gradle_script}, which adds Gradle tasks
-// for the Python backend deployment workflow, including deployBlitz.
+// for the Python backend deployment workflow, including deployBackend.
 // Gradle script plugin docs: https://docs.gradle.org/current/userguide/plugins.html#sec:script_plugins
 apply(from = "\${gradle.extra["backendPath"]}/deployment/gradle/${gradle_script}")
 KTS
@@ -419,7 +419,7 @@ KTS
             append_marked_block "${build_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<GRADLE
 // B.L.I.T.Z backend integration.
 // This applies backend/deployment/gradle/${gradle_script}, which adds Gradle tasks
-// for the Python backend deployment workflow, including deployBlitz.
+// for the Python backend deployment workflow, including deployBackend.
 // Gradle script plugin docs: https://docs.gradle.org/current/userguide/plugins.html#sec:script_plugins
 apply from: "\${gradle.ext.backendPath}/deployment/gradle/${gradle_script}"
 GRADLE
@@ -454,7 +454,7 @@ def pi_name_to_process_types(pi_names: list[str]) -> dict[str, list[ProcessType]
     )
 
 
-def get_modules() -> list[SupportedModules.Generic]:
+def get_modules() -> list[SupportedModules._Generic]:
     return [
         # SupportedModules.PythonModule(
         #     name="example",
@@ -497,6 +497,18 @@ install_files() {
         exit 1
     fi
 
+    if [ "${BLITZ_BACKEND_DIR}" != "backend" ] &&
+        [ -e "${WPILIB_PROJECT}/backend" ] && [ ! -L "${WPILIB_PROJECT}/backend" ]; then
+        error "Cannot create Python import alias because backend already exists."
+        exit 1
+    fi
+    if [ "${BLITZ_BACKEND_DIR}" != "backend" ] &&
+        [ -L "${WPILIB_PROJECT}/backend" ] &&
+        [ "$(readlink "${WPILIB_PROJECT}/backend")" != "${BLITZ_BACKEND_DIR}" ]; then
+        error "Cannot replace an unrelated backend import alias."
+        exit 1
+    fi
+
     mkdir -p "${backend_path}"
     rm -rf "${deployment_path}"
     cp -R "${source_root}/backend/deployment" "${deployment_path}"
@@ -514,6 +526,10 @@ install_files() {
         cp "${source_root}/scripts/wpi-local/${DEFAULT_LOCAL_SCRIPT}" "${local_script_path}"
         chmod +x "${local_script_path}"
         info "Installed scripts/${DEFAULT_LOCAL_SCRIPT}"
+    fi
+
+    if [ "${BLITZ_BACKEND_DIR}" != "backend" ]; then
+        ln -sfn "${BLITZ_BACKEND_DIR}" "${WPILIB_PROJECT}/backend"
     fi
 
     install_gradle_integration

@@ -4,12 +4,14 @@ import ast
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = REPO_ROOT / "scripts" / "ui" / "install_on_wpilib.sh"
 UPDATER = REPO_ROOT / "scripts" / "ui" / "update_wpilib.sh"
+BACKEND_UPDATER = REPO_ROOT / "scripts" / "ui" / "update_backend.sh"
 LOCAL_BACKEND_SCRIPT = REPO_ROOT / "scripts" / "wpi-local" / "backend.sh"
 
 
@@ -95,6 +97,15 @@ def test_installs_into_discovered_wpilib_project_from_nested_directory(tmp_path:
     deploy_source = deploy_py.read_text()
     ast.parse(deploy_source)
     assert '.set_local_backend_path("backend")' in deploy_source
+
+    deploy_import = subprocess.run(
+        [sys.executable, "-c", "from backend.deploy import get_modules; assert get_modules() == []"],
+        cwd=project,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert_success(deploy_import)
 
     import_result = subprocess.run(
         [
@@ -228,9 +239,9 @@ def test_local_backend_script_detects_project_from_root_and_scripts_dir(tmp_path
 
     assert_success(root_result)
     assert_success(scripts_result)
-    assert f"WPILib project: {project}" in root_result.stdout
+    assert f"Project:        {project}" in root_result.stdout
     assert "Backend folder: backend" in root_result.stdout
-    assert f"WPILib project: {project}" in scripts_result.stdout
+    assert f"Project:        {project}" in scripts_result.stdout
     assert "Deployment:     backend/deployment" in scripts_result.stdout
 
 
@@ -247,7 +258,7 @@ def test_local_backend_script_check_updates_reports_current_build_version(
         {
             "BLITZ_BACKEND_ACTION": "check-updates",
             "BLITZ_SOURCE_DIR": str(REPO_ROOT),
-            "BLITZ_UPDATE_SCRIPT_URL": f"file://{UPDATER}",
+            "BLITZ_UPDATE_SCRIPT_URL": f"file://{BACKEND_UPDATER}",
             "BLITZ_UI_LIB_URL": f"file://{REPO_ROOT / 'scripts' / 'ui' / 'common' / 'terminal_ui.sh'}",
         },
     )
@@ -284,7 +295,7 @@ def test_local_backend_script_check_updates_installs_newer_build_version(
         "BLITZ_BACKEND_ACTION": "check-updates",
         "BLITZ_ASSUME_YES": "true",
         "BLITZ_SOURCE_DIR": str(source),
-        "BLITZ_UPDATE_SCRIPT_URL": f"file://{UPDATER}",
+        "BLITZ_UPDATE_SCRIPT_URL": f"file://{BACKEND_UPDATER}",
         "BLITZ_UI_LIB_URL": f"file://{REPO_ROOT / 'scripts' / 'ui' / 'common' / 'terminal_ui.sh'}",
         "BLITZ_LATEST_COMMIT_MESSAGE": "new deployment build",
     }
@@ -324,7 +335,7 @@ def test_local_backend_script_updates_legacy_build_version_file(
             "BLITZ_BACKEND_ACTION": "check-updates",
             "BLITZ_ASSUME_YES": "true",
             "BLITZ_SOURCE_DIR": str(REPO_ROOT),
-            "BLITZ_UPDATE_SCRIPT_URL": f"file://{UPDATER}",
+            "BLITZ_UPDATE_SCRIPT_URL": f"file://{BACKEND_UPDATER}",
             "BLITZ_UI_LIB_URL": f"file://{REPO_ROOT / 'scripts' / 'ui' / 'common' / 'terminal_ui.sh'}",
             "BLITZ_LATEST_COMMIT_MESSAGE": "new version marker",
         },
@@ -354,7 +365,7 @@ def test_local_backend_script_changes_backend_folder_and_gradle_blocks(tmp_path:
     )
 
     assert_success(result)
-    assert not (project / "backend").exists()
+    assert (project / "backend").is_symlink()
     assert (project / "robotBackend" / "deployment" / ".blitz-build-version").is_file()
     assert (project / "robotBackend" / "deploy.py").is_file()
     assert (
@@ -393,11 +404,9 @@ def test_local_backend_script_deploy_runs_deploy_py_from_project_root(tmp_path: 
     assert (project / "deploy-ran.txt").read_text() == f"{project}:ProcessPlan"
 
 
-def test_local_backend_script_creates_python_module_and_requirements(tmp_path: Path):
+def test_local_backend_script_no_longer_creates_modules(tmp_path: Path):
     project = make_wpilib_project(tmp_path)
-
-    install = run_installer(project)
-    assert_success(install)
+    assert_success(run_installer(project))
 
     result = run_local_backend_script(
         project / "scripts" / "backend.sh",
@@ -409,95 +418,9 @@ def test_local_backend_script_creates_python_module_and_requirements(tmp_path: P
         },
     )
 
-    assert_success(result)
-    assert (project / "backend" / "python" / "vision" / "__main__.py").is_file()
-    assert (project / "requirements.txt").is_file()
-
-
-def test_local_backend_script_creates_rust_module_and_root_cargo(tmp_path: Path):
-    project = make_wpilib_project(tmp_path)
-    fake_bin = tmp_path / "fake-bin"
-    fake_bin.mkdir()
-    docker = fake_bin / "docker"
-    docker.write_text("#!/bin/sh\nexit 0\n")
-    docker.chmod(0o755)
-
-    install = run_installer(project)
-    assert_success(install)
-
-    result = run_local_backend_script(
-        project / "scripts" / "backend.sh",
-        project,
-        {
-            "BLITZ_BACKEND_ACTION": "create-module",
-            "BLITZ_MODULE_LANGUAGE": "rust",
-            "BLITZ_MODULE_NAME": "pose",
-            "PATH": f"{fake_bin}:{os.environ['PATH']}",
-        },
-    )
-
-    assert_success(result)
-    assert (project / "backend" / "rust" / "pose" / "src" / "main.rs").is_file()
-    module_cargo = (project / "backend" / "rust" / "pose" / "Cargo.toml").read_text()
-    assert 'name = "pose"' in module_cargo
-    cargo = (project / "Cargo.toml").read_text()
-    assert "[workspace]" in cargo
-    assert 'members = ["backend/rust/*"]' in cargo
-    assert "[workspace.dependencies]" in cargo
-    assert "tokio =" not in cargo
-    assert 'rust-project = { path = "backend/rust" }' in cargo
-    assert "[[bin]]" not in cargo
-
-
-def test_local_backend_script_cpp_requires_docker(tmp_path: Path):
-    project = make_wpilib_project(tmp_path)
-    empty_path = tmp_path / "empty-path"
-    empty_path.mkdir()
-
-    install = run_installer(project)
-    assert_success(install)
-
-    result = run_local_backend_script(
-        project / "scripts" / "backend.sh",
-        project,
-        {
-            "BLITZ_BACKEND_ACTION": "create-module",
-            "BLITZ_MODULE_LANGUAGE": "cpp",
-            "BLITZ_MODULE_NAME": "native",
-            "PATH": f"{empty_path}:/bin:/usr/bin",
-        },
-    )
-
     assert result.returncode != 0
-    assert "Install Docker" in result.stderr
-    assert not (project / "backend" / "cpp" / "native").exists()
-
-
-def test_local_backend_script_creates_cpp_module_with_docker(tmp_path: Path):
-    project = make_wpilib_project(tmp_path)
-    fake_bin = tmp_path / "fake-bin"
-    fake_bin.mkdir()
-    docker = fake_bin / "docker"
-    docker.write_text("#!/bin/sh\nexit 0\n")
-    docker.chmod(0o755)
-
-    install = run_installer(project)
-    assert_success(install)
-
-    result = run_local_backend_script(
-        project / "scripts" / "backend.sh",
-        project,
-        {
-            "BLITZ_BACKEND_ACTION": "create-module",
-            "BLITZ_MODULE_LANGUAGE": "cpp",
-            "BLITZ_MODULE_NAME": "native",
-            "PATH": f"{fake_bin}:{os.environ['PATH']}",
-        },
-    )
-
-    assert_success(result)
-    assert (project / "backend" / "cpp" / "native" / "CMakeLists.txt").is_file()
-    assert (project / "backend" / "cpp" / "native" / "src" / "main.cpp").is_file()
+    assert "Unknown BLITZ_BACKEND_ACTION" in result.stderr
+    assert not (project / "backend" / "python" / "vision").exists()
 
 
 def test_update_only_requires_existing_install(tmp_path: Path):

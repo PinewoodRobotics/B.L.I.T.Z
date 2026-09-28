@@ -2,45 +2,56 @@
 
 Multi-process robotics stack with a Python watchdog, codegen, and deploy tooling.
 
-## Easy Setup
+## Install BLITZ
 
-Install BLITZ on a Raspberry Pi or Linux coprocessor:
+Run this command on the machine you want to set up:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install_on_system.sh)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install.sh)"
 ```
+
+Choose **Coprocessor** to install the target watchdog, or
+**Development computer** from a project directory to install the Python
+deployment backend. On the development computer, choose `wpilib` integration
+for a Java WPILib project; otherwise choose `none`.
+
+For automation, set `BLITZ_INSTALL_TARGET=coprocessor` or
+`BLITZ_INSTALL_TARGET=development`. The development installer also accepts
+`BLITZ_SETUP=wpilib` and `BLITZ_PROJECT=/path/to/project`.
+
+## Development backend
+
+This installs `backend/deployment`, `backend/deploy.py`, and
+`scripts/backend.sh`. The version stamp at
+`backend/deployment/.blitz-build-version` identifies the backend folder: the
+backend folder is the parent of `deployment/`. Reinstalling preserves your
+`deploy.py`. Run `scripts/backend.sh` to deploy, check updates, or see the
+detected backend location. The local tool no longer creates language modules.
+
+For a non-interactive installation into another project, set `BLITZ_PROJECT`
+to its root. Set `BLITZ_BACKEND_DIR` to choose a different backend folder; the
+installer adds a `backend` import alias because the Python API uses that package
+name.
 
 ## WPILib Java Project Setup
 
-From inside a Java WPILib robot project, run:
+Choose `wpilib` integration when installing the development backend in a Java
+WPILib project, or set `BLITZ_SETUP=wpilib` for automation.
 
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install_on_wpilib.sh)"
-```
-
-The installer discovers the current WPILib project, adds `backend/deployment`,
-and creates `backend/deploy.py` if it does not already exist. Re-running the
-installer refreshes BLITZ deployment files while preserving your customized
-`backend/deploy.py`. During installation, BLITZ is cloned into `bin/B.L.I.T.Z`
-inside the robot project and cleaned up after the needed files are copied.
-The installer also adds a Gradle `deployBlitz` task by setting `backendPath`
-in `settings.gradle` or `settings.gradle.kts` and applying the backend Gradle
-task script from `backend/deployment/gradle`.
+WPILib setup adds the Gradle `deployBackend` task by setting `backendPath` in
+`settings.gradle` or `settings.gradle.kts` and applying the task script in
+`backend/deployment/gradle`. An existing backend can add this integration with
+`BLITZ_BACKEND_ACTION=setup-wpilib bash scripts/backend.sh`.
 
 Run the Gradle task with Gradle's own console output muted so BLITZ can keep
 control of the terminal:
 
 ```bash
-./gradlew --console=plain --quiet deployBlitz
+./gradlew --console=plain --quiet deployBackend
 ```
 
-For non-interactive setup:
-
-```bash
-WPILIB_PROJECT=/path/to/robot \
-BLITZ_ASSUME_YES=true \
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/install_on_wpilib.sh)"
-```
+The previous `install_on_wpilib.sh` entry point remains available for existing
+WPILib installation workflows.
 
 ## Quickstart (local)
 

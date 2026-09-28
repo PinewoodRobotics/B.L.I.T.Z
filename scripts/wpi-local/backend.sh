@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-DEFAULT_UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/update_wpilib.sh"
+DEFAULT_UPDATE_SCRIPT_URL="https://raw.githubusercontent.com/PinewoodRobotics/B.L.I.T.Z/HEAD/scripts/ui/update_backend.sh"
 UPDATE_SCRIPT_TEMP_DIR=""
-WPILIB_PROJECT=""
+BLITZ_PROJECT="${BLITZ_PROJECT:-}"
 DEPLOYMENT_PATH=""
 BLITZ_BACKEND_DIR=""
 BLITZ_DEPLOY_SCRIPT=""
@@ -29,7 +29,7 @@ fi
 
 print_header() {
     printf '\n%s\n' "${BOLD}B.L.I.T.Z Backend${RESET}"
-    printf '%s\n\n' "${DIM}Manage BLITZ backend settings and updates for this WPILib project.${RESET}"
+    printf '%s\n\n' "${DIM}Manage BLITZ deployment for this project.${RESET}"
 }
 
 clear_screen() {
@@ -174,11 +174,11 @@ relative_to_project() {
     local path="$1"
 
     case "${path}" in
-        "${WPILIB_PROJECT}")
+        "${BLITZ_PROJECT}")
             printf '.\n'
             ;;
-        "${WPILIB_PROJECT}"/*)
-            printf '%s\n' "${path#"${WPILIB_PROJECT}/"}"
+        "${BLITZ_PROJECT}"/*)
+            printf '%s\n' "${path#"${BLITZ_PROJECT}/"}"
             ;;
         *)
             printf '%s\n' "${path}"
@@ -205,17 +205,31 @@ is_wpilib_java_project() {
         return 1
 }
 
-discover_wpilib_project_from() {
+find_version_stamps() {
+    local project_path="$1"
+
+    find "${project_path}" \
+        \( -name .git -o -name .venv -o -name node_modules -o \
+           -path "${project_path}/${BLITZ_BIN_DIR:-bin}/B.L.I.T.Z" \) -prune -o \
+        -type f \( -path '*/deployment/.blitz-build-version' -o \
+                    -path '*/deployment/.build-version' \) -print
+}
+
+discover_project_from() {
     local current="$1"
 
     current="$(absolute_path "${current}")"
     while true; do
-        if is_wpilib_java_project "${current}"; then
+        if [ "${current}" = "/" ]; then
+            return 1
+        fi
+        if [ -n "$(find_version_stamps "${current}")" ]; then
             printf '%s\n' "${current}"
             return 0
         fi
-
-        if [ "${current}" = "/" ]; then
+        if [ -f "${current}/build.gradle" ] || [ -f "${current}/build.gradle.kts" ] ||
+            [ -f "${current}/pyproject.toml" ] || [ -f "${current}/package.json" ] ||
+            [ -d "${current}/.git" ] || [ -f "${current}/scripts/backend.sh" ]; then
             return 1
         fi
         current="$(dirname "${current}")"
@@ -228,81 +242,71 @@ configure_project_path() {
     local script_project=""
     local cwd_project=""
 
-    if [ -n "${WPILIB_PROJECT:-}" ]; then
-        WPILIB_PROJECT="$(absolute_path "${WPILIB_PROJECT}")"
+    if [ -n "${BLITZ_PROJECT:-${WPILIB_PROJECT:-}}" ]; then
+        BLITZ_PROJECT="$(absolute_path "${BLITZ_PROJECT:-${WPILIB_PROJECT:-}}")"
         return
     fi
 
     if [ -n "${source_path}" ] && [ -f "${source_path}" ]; then
         script_dir="$(cd "$(dirname "${source_path}")" && pwd)"
         if [ "$(basename "${script_dir}")" = "scripts" ] &&
-            is_wpilib_java_project "$(dirname "${script_dir}")"; then
+            [ -n "$(find_version_stamps "$(dirname "${script_dir}")")" ]; then
             script_project="$(dirname "${script_dir}")"
-        elif script_project="$(discover_wpilib_project_from "${script_dir}")"; then
+        elif script_project="$(discover_project_from "${script_dir}")"; then
             :
         else
             script_project=""
         fi
     fi
 
-    if cwd_project="$(discover_wpilib_project_from "$(pwd)")"; then
+    if cwd_project="$(discover_project_from "$(pwd)")"; then
         :
     else
         cwd_project=""
     fi
 
-    WPILIB_PROJECT="${cwd_project:-${script_project}}"
-    if [ -z "${WPILIB_PROJECT}" ]; then
-        error "Could not find a Java WPILib project from this directory."
-        printf '%s\n' "Run this as scripts/backend.sh from the project root or backend.sh from the project scripts folder." >&2
+    BLITZ_PROJECT="${cwd_project:-${script_project}}"
+    if [ -z "${BLITZ_PROJECT}" ]; then
+        error "Could not find a BLITZ backend stamp from this directory."
+        printf '%s\n' "Run scripts/backend.sh from the project or set BLITZ_PROJECT explicitly." >&2
         exit 1
     fi
 }
 
 validate_project() {
-    if [ ! -d "${WPILIB_PROJECT}" ]; then
-        error "Project path does not exist: ${WPILIB_PROJECT}"
+    if [ ! -d "${BLITZ_PROJECT}" ]; then
+        error "Project path does not exist: ${BLITZ_PROJECT}"
         exit 1
     fi
 
-    if ! is_wpilib_java_project "${WPILIB_PROJECT}"; then
-        error "This does not look like a Java WPILib project: ${WPILIB_PROJECT}"
-        exit 1
-    fi
 }
 
 detect_deployment_path() {
-    local preferred="${WPILIB_PROJECT}/backend/deployment"
     local version_file
+    local candidate
     local candidate_count=0
     local first_candidate=""
 
-    if [ -f "${preferred}/.blitz-build-version" ] ||
-        [ -f "${preferred}/.build-version" ]; then
-        DEPLOYMENT_PATH="${preferred}"
-        return
-    fi
-
     while IFS= read -r version_file; do
+        candidate="$(dirname "${version_file}")"
+        if [ "${candidate}" = "${first_candidate}" ]; then
+            continue
+        fi
         candidate_count=$((candidate_count + 1))
         if [ -z "${first_candidate}" ]; then
-            first_candidate="$(dirname "${version_file}")"
+            first_candidate="${candidate}"
         fi
-    done < <(
-        find "${WPILIB_PROJECT}" \
-            -path "${WPILIB_PROJECT}/bin" -prune -o \
-            \( -path "*/deployment/.blitz-build-version" -o \
-               -path "*/deployment/.build-version" \) -type f -print
-    )
+    done < <(find_version_stamps "${BLITZ_PROJECT}")
 
     if [ "${candidate_count}" -eq 0 ]; then
         return 1
     fi
 
-    DEPLOYMENT_PATH="${first_candidate}"
     if [ "${candidate_count}" -gt 1 ]; then
-        warn "Found multiple BLITZ deployment folders; using $(relative_to_project "${DEPLOYMENT_PATH}")."
+        error "Found multiple BLITZ backend stamps in ${BLITZ_PROJECT}; set BLITZ_PROJECT to a single project."
+        return 1
     fi
+    DEPLOYMENT_PATH="${first_candidate}"
 }
 
 detect_backend_and_deploy_script() {
@@ -329,31 +333,31 @@ detect_backend_and_deploy_script() {
 
 require_initialized_project() {
     if ! detect_deployment_path; then
-        error "This WPILib project has not been initialized with BLITZ."
-        printf '%s\n' "Run the BLITZ WPILib installer first." >&2
+        error "This project has not been initialized with BLITZ."
+        printf '%s\n' "Run the BLITZ backend installer first." >&2
         exit 1
     fi
     detect_backend_and_deploy_script
 }
 
 gradle_settings_file() {
-    if [ -f "${WPILIB_PROJECT}/settings.gradle.kts" ]; then
-        printf '%s\n' "${WPILIB_PROJECT}/settings.gradle.kts"
-    elif [ -f "${WPILIB_PROJECT}/settings.gradle" ]; then
-        printf '%s\n' "${WPILIB_PROJECT}/settings.gradle"
+    if [ -f "${BLITZ_PROJECT}/settings.gradle.kts" ]; then
+        printf '%s\n' "${BLITZ_PROJECT}/settings.gradle.kts"
+    elif [ -f "${BLITZ_PROJECT}/settings.gradle" ]; then
+        printf '%s\n' "${BLITZ_PROJECT}/settings.gradle"
     else
-        error "Missing settings.gradle or settings.gradle.kts in ${WPILIB_PROJECT}"
+        error "Missing settings.gradle or settings.gradle.kts in ${BLITZ_PROJECT}"
         exit 1
     fi
 }
 
 gradle_build_file() {
-    if [ -f "${WPILIB_PROJECT}/build.gradle.kts" ]; then
-        printf '%s\n' "${WPILIB_PROJECT}/build.gradle.kts"
-    elif [ -f "${WPILIB_PROJECT}/build.gradle" ]; then
-        printf '%s\n' "${WPILIB_PROJECT}/build.gradle"
+    if [ -f "${BLITZ_PROJECT}/build.gradle.kts" ]; then
+        printf '%s\n' "${BLITZ_PROJECT}/build.gradle.kts"
+    elif [ -f "${BLITZ_PROJECT}/build.gradle" ]; then
+        printf '%s\n' "${BLITZ_PROJECT}/build.gradle"
     else
-        error "Missing build.gradle or build.gradle.kts in ${WPILIB_PROJECT}"
+        error "Missing build.gradle or build.gradle.kts in ${BLITZ_PROJECT}"
         exit 1
     fi
 }
@@ -414,7 +418,7 @@ GRADLE
             append_marked_block "${build_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<KTS
 // B.L.I.T.Z backend integration.
 // This applies backend/deployment/gradle/${gradle_script}, which adds Gradle tasks
-// for the Python backend deployment workflow, including deployBlitz.
+// for the Python backend deployment workflow, including deployBackend.
 // Gradle script plugin docs: https://docs.gradle.org/current/userguide/plugins.html#sec:script_plugins
 apply(from = "\${gradle.extra["backendPath"]}/deployment/gradle/${gradle_script}")
 KTS
@@ -424,12 +428,31 @@ KTS
             append_marked_block "${build_file}" "// BEGIN BLITZ BACKEND" "// END BLITZ BACKEND" <<GRADLE
 // B.L.I.T.Z backend integration.
 // This applies backend/deployment/gradle/${gradle_script}, which adds Gradle tasks
-// for the Python backend deployment workflow, including deployBlitz.
+// for the Python backend deployment workflow, including deployBackend.
 // Gradle script plugin docs: https://docs.gradle.org/current/userguide/plugins.html#sec:script_plugins
 apply from: "\${gradle.ext.backendPath}/deployment/gradle/${gradle_script}"
 GRADLE
             ;;
     esac
+}
+
+has_gradle_integration() {
+    local settings_file
+    local build_file
+
+    settings_file="$(gradle_settings_file 2>/dev/null)" || return 1
+    build_file="$(gradle_build_file 2>/dev/null)" || return 1
+    grep -Fq '// BEGIN BLITZ BACKEND' "${settings_file}" &&
+        grep -Fq '// BEGIN BLITZ BACKEND' "${build_file}"
+}
+
+setup_wpilib() {
+    if ! is_wpilib_java_project "${BLITZ_PROJECT}"; then
+        error "WPILib setup requires a Java WPILib project: ${BLITZ_PROJECT}"
+        exit 1
+    fi
+    install_gradle_integration
+    info "Configured WPILib Gradle deployment."
 }
 
 validate_backend_dir() {
@@ -443,33 +466,8 @@ validate_backend_dir() {
     esac
 }
 
-validate_module_name() {
-    local module_name="$1"
-
-    case "${module_name}" in
-        "" | *[!A-Za-z0-9_-]* | -*)
-            error "Module name must use only letters, numbers, underscores, or dashes, and cannot start with a dash: ${module_name}"
-            exit 1
-            ;;
-    esac
-}
-
-require_docker_for_module() {
-    local language="$1"
-
-    case "${language}" in
-        cpp | rust)
-            if ! command -v docker >/dev/null 2>&1; then
-                error "${language} modules require Docker for cross-compilation."
-                printf '%s\n' "Install Docker, start it, then create this module again." >&2
-                exit 1
-            fi
-            ;;
-    esac
-}
-
 update_deploy_py_backend_path() {
-    local deploy_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+    local deploy_path="${BLITZ_PROJECT}/${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
     local new_backend_dir="$1"
 
     if [ ! -f "${deploy_path}" ] || ! command -v python3 >/dev/null 2>&1; then
@@ -497,9 +495,9 @@ PY
 
 change_backend_folder() {
     local old_backend_dir="${BLITZ_BACKEND_DIR}"
-    local old_backend_path="${WPILIB_PROJECT}/${old_backend_dir}"
+    local old_backend_path="${BLITZ_PROJECT}/${old_backend_dir}"
     local new_backend_dir="$1"
-    local new_backend_path="${WPILIB_PROJECT}/${new_backend_dir}"
+    local new_backend_path="${BLITZ_PROJECT}/${new_backend_dir}"
 
     validate_backend_dir "${new_backend_dir}"
 
@@ -513,6 +511,24 @@ change_backend_folder() {
         exit 1
     fi
 
+    if [ "${new_backend_dir}" != "backend" ] &&
+        [ "${old_backend_dir}" != "backend" ] &&
+        [ -e "${BLITZ_PROJECT}/backend" ] &&
+        [ ! -L "${BLITZ_PROJECT}/backend" ]; then
+        error "Cannot create backend import alias; ${BLITZ_PROJECT}/backend already exists."
+        exit 1
+    fi
+    if [ "${new_backend_dir}" != "backend" ] &&
+        [ -L "${BLITZ_PROJECT}/backend" ] &&
+        [ "$(readlink "${BLITZ_PROJECT}/backend")" != "${old_backend_dir}" ]; then
+        error "Cannot replace an unrelated backend import alias."
+        exit 1
+    fi
+
+    if [ -L "${new_backend_path}" ] &&
+        [ "$(readlink "${new_backend_path}")" = "${old_backend_dir}" ]; then
+        rm "${new_backend_path}"
+    fi
     if [ -e "${new_backend_path}" ]; then
         error "Target backend folder already exists: ${new_backend_dir}"
         exit 1
@@ -524,175 +540,22 @@ change_backend_folder() {
     DEPLOYMENT_PATH="${new_backend_path}/deployment"
 
     update_deploy_py_backend_path "${new_backend_dir}"
-    install_gradle_integration
+    if [ "${new_backend_dir}" != "backend" ]; then
+        ln -sfn "${new_backend_dir}" "${BLITZ_PROJECT}/backend"
+    fi
+    if has_gradle_integration; then
+        install_gradle_integration
+        info "Updated WPILib Gradle backend path."
+    fi
 
     info "Backend folder moved from ${old_backend_dir} to ${new_backend_dir}."
-    info "Updated Gradle backend integration."
-}
-
-ensure_python_requirements() {
-    local requirements_path="${WPILIB_PROJECT}/requirements.txt"
-
-    if [ ! -f "${requirements_path}" ]; then
-        printf '%s\n' "# Add Python dependencies for BLITZ modules here." >"${requirements_path}"
-    fi
-}
-
-ensure_root_cargo_manifest() {
-    local cargo_path="${WPILIB_PROJECT}/Cargo.toml"
-    local member_glob="${BLITZ_BACKEND_DIR}/rust/*"
-
-    if [ -f "${cargo_path}" ] && grep -q 'name = "blitz-backend"' "${cargo_path}" && grep -q '\[\[bin\]\]' "${cargo_path}"; then
-        rm -f "${cargo_path}"
-    fi
-
-    if [ -f "${cargo_path}" ] && grep -q '^\[workspace\]' "${cargo_path}"; then
-        if ! grep -Fq "${member_glob}" "${cargo_path}"; then
-            warn "Cargo.toml already exists but does not include ${member_glob} in its workspace members."
-        fi
-        return
-    fi
-
-    if [ -f "${cargo_path}" ]; then
-        warn "Cargo.toml already exists and is not a workspace manifest; leaving it unchanged."
-        return
-    fi
-
-    cat >"${cargo_path}" <<CARGO
-# This is the build file for Rust language. See .cargo/ for more specific configuration flags.
-# Read more about Cargo workspaces here: https://doc.rust-lang.org/cargo/reference/workspaces.html
-
-[workspace]
-members = ["${member_glob}"]
-resolver = "2"
-
-# Add dependencies shared by Rust modules in this workspace.
-[workspace.dependencies]
-
-[workspace.metadata]
-rust-project = { path = "${BLITZ_BACKEND_DIR}/rust" }
-CARGO
-}
-
-create_rust_manifest() {
-    local module_name="$1"
-    local manifest_path="$2"
-
-    if [ ! -f "${manifest_path}" ]; then
-        cat >"${manifest_path}" <<CARGO
-[package]
-name = "${module_name}"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-CARGO
-    fi
-}
-
-create_python_module() {
-    local module_name="$1"
-    local module_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/python/${module_name}"
-
-    mkdir -p "${module_path}"
-    if [ ! -f "${module_path}/__main__.py" ]; then
-        cat >"${module_path}/__main__.py" <<PY
-def main() -> None:
-    print("Hello from ${module_name}")
-
-
-if __name__ == "__main__":
-    main()
-PY
-    fi
-
-    ensure_python_requirements
-}
-
-create_cpp_module() {
-    local module_name="$1"
-    local module_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/cpp/${module_name}"
-
-    mkdir -p "${module_path}/src"
-    if [ ! -f "${module_path}/CMakeLists.txt" ]; then
-        cat >"${module_path}/CMakeLists.txt" <<CMAKE
-cmake_minimum_required(VERSION 3.16)
-project(${module_name})
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-add_executable(${module_name} src/main.cpp)
-CMAKE
-    fi
-
-    if [ ! -f "${module_path}/src/main.cpp" ]; then
-        cat >"${module_path}/src/main.cpp" <<CPP
-#include <iostream>
-
-int main() {
-    std::cout << "Hello from ${module_name}" << std::endl;
-    return 0;
-}
-CPP
-    fi
-}
-
-create_rust_module() {
-    local module_name="$1"
-    local module_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/rust/${module_name}"
-
-    mkdir -p "${module_path}/src"
-    create_rust_manifest "${module_name}" "${module_path}/Cargo.toml"
-    if [ ! -f "${module_path}/src/main.rs" ]; then
-        cat >"${module_path}/src/main.rs" <<RS
-fn main() {
-    println!("Hello from ${module_name}");
-}
-RS
-    fi
-
-    ensure_root_cargo_manifest "${module_name}"
-}
-
-create_module() {
-    local language="$1"
-    local module_name="$2"
-    local module_path
-
-    validate_module_name "${module_name}"
-    require_docker_for_module "${language}"
-
-    module_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/${language}/${module_name}"
-    if [ -e "${module_path}" ]; then
-        error "Module already exists: ${BLITZ_BACKEND_DIR}/${language}/${module_name}"
-        exit 1
-    fi
-
-    case "${language}" in
-        python)
-            create_python_module "${module_name}"
-            ;;
-        cpp)
-            create_cpp_module "${module_name}"
-            ;;
-        rust)
-            create_rust_module "${module_name}"
-            ;;
-        *)
-            error "Unsupported module language: ${language}"
-            exit 1
-            ;;
-    esac
-
-    info "Created ${BLITZ_BACKEND_DIR}/${language}/${module_name}"
 }
 
 fetch_update_script() {
     local script_path
 
     UPDATE_SCRIPT_TEMP_DIR="$(mktemp -d)"
-    script_path="${UPDATE_SCRIPT_TEMP_DIR}/update_wpilib.sh"
+    script_path="${UPDATE_SCRIPT_TEMP_DIR}/update_backend.sh"
 
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL "${BLITZ_UPDATE_SCRIPT_URL:-${DEFAULT_UPDATE_SCRIPT_URL}}" -o "${script_path}"
@@ -710,21 +573,29 @@ check_updates() {
     local update_script
 
     update_script="$(fetch_update_script)"
-    WPILIB_PROJECT="${WPILIB_PROJECT}" bash "${update_script}"
+    BLITZ_PROJECT="${BLITZ_PROJECT}" bash "${update_script}"
     cleanup
 }
 
 deploy_backend() {
-    local deploy_path="${WPILIB_PROJECT}/${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
-    local python_path="${WPILIB_PROJECT}"
+    local deploy_path="${BLITZ_PROJECT}/${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+    local python_path="${BLITZ_PROJECT}"
+    local import_alias_dir=""
 
     if [ ! -f "${deploy_path}" ]; then
         error "Deploy script not found: ${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
         exit 1
     fi
 
+    update_deploy_py_backend_path "${BLITZ_BACKEND_DIR}"
     (
-        cd "${WPILIB_PROJECT}"
+        cd "${BLITZ_PROJECT}"
+        if [ "${BLITZ_BACKEND_DIR}" != "backend" ]; then
+            import_alias_dir="$(mktemp -d)"
+            trap 'rm -rf "${import_alias_dir}"' EXIT
+            ln -s "${BLITZ_PROJECT}/${BLITZ_BACKEND_DIR}" "${import_alias_dir}/backend"
+            python_path="${import_alias_dir}:${python_path}"
+        fi
         if [ -n "${PYTHONPATH:-}" ]; then
             python_path="${python_path}:${PYTHONPATH}"
         fi
@@ -755,35 +626,12 @@ settings_menu() {
     done
 }
 
-create_module_menu() {
-    local language
-    local module_name=""
-
-    select_menu \
-        "Module language" \
-        "Python" \
-        "C++" \
-        "Rust" \
-        "Cancel"
-
-    case "${selected_menu_index}" in
-        0)
-            language="python"
-            ;;
-        1)
-            language="cpp"
-            ;;
-        2)
-            language="rust"
-            ;;
-        *)
-            return
-            ;;
-    esac
-
-    prompt_text "New ${language} module" module_name "Module name" "${module_name}" true
-    create_module "${language}" "${module_name}"
-    pause
+setup_menu() {
+    select_menu "Setup integration" "WPILib (Gradle)" "Back"
+    if [ "${selected_menu_index}" -eq 0 ]; then
+        setup_wpilib
+        pause
+    fi
 }
 
 main_menu() {
@@ -793,7 +641,7 @@ main_menu() {
             "Deploy" \
             "Check for updates" \
             "Settings" \
-            "Create module" \
+            "Setup integration" \
             "Exit"
 
         case "${selected_menu_index}" in
@@ -812,8 +660,7 @@ main_menu() {
                 require_initialized_project
                 ;;
             3)
-                create_module_menu
-                require_initialized_project
+                setup_menu
                 ;;
             *)
                 return
@@ -837,15 +684,11 @@ run_non_interactive_action() {
             fi
             change_backend_folder "${BLITZ_BACKEND_DIR_VALUE}"
             ;;
-        create-module)
-            if [ -z "${BLITZ_MODULE_LANGUAGE:-}" ] || [ -z "${BLITZ_MODULE_NAME:-}" ]; then
-                error "BLITZ_MODULE_LANGUAGE and BLITZ_MODULE_NAME are required for create-module."
-                exit 1
-            fi
-            create_module "${BLITZ_MODULE_LANGUAGE}" "${BLITZ_MODULE_NAME}"
+        setup-wpilib)
+            setup_wpilib
             ;;
         "" | status)
-            printf '%s\n' "WPILib project: ${WPILIB_PROJECT}"
+            printf '%s\n' "Project:        ${BLITZ_PROJECT}"
             printf '%s\n' "Backend folder: ${BLITZ_BACKEND_DIR}"
             printf '%s\n' "Deployment:     $(relative_to_project "${DEPLOYMENT_PATH}")"
             printf '%s\n' "Deploy script:  ${BLITZ_DEPLOY_SCRIPT}"
