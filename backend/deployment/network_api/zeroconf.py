@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
+from collections.abc import Sequence
 import re
 import time
+from urllib.parse import urlsplit
+import warnings
+
+import requests
 
 from backend.deployment.compilation.util.systems import (
     Architecture,
@@ -103,6 +108,46 @@ class DiscoveredNetworkSystem(ZeroconfPropertySchema):
         return hash(self.hostname)
 
 
+def discover_at_addresses(addresses: Sequence[str]) -> set[DiscoveredNetworkSystem]:
+    """Query specific watchdogs directly when multicast discovery is unavailable."""
+    discovered: set[DiscoveredNetworkSystem] = set()
+    for address in addresses:
+        if "://" in address:
+            raise ValueError(f"Use HOST:PORT for --device, without a URL scheme: {address}")
+        parsed = urlsplit(f"//{address}")
+        try:
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError(f"Invalid --device address: {address}") from error
+        if (
+            not parsed.hostname or port is None or parsed.path or parsed.query
+            or parsed.fragment or parsed.username or parsed.password
+        ):
+            raise ValueError(f"Use HOST:PORT for --device: {address}")
+        try:
+            response = requests.get(
+                f"http://{address}/get/system/identity", timeout=5
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as error:
+            raise ValueError(f"Could not query watchdog at {address}: {error}") from error
+        except ValueError as error:
+            raise ValueError(f"Invalid watchdog identity from {address}") from error
+        if not isinstance(payload, dict):
+            raise ValueError(f"Invalid watchdog identity from {address}")
+        properties = {
+            str(key): str(value) if value is not None else None
+            for key, value in payload.items()
+        }
+        system = DiscoveredNetworkSystem.from_zeroconf_properties(
+            properties, hostname=parsed.hostname
+        )
+        system.watchdog_port = port
+        discovered.add(system)
+    return discovered
+
+
 def discover_all_on_network(
     timeout_seconds: float = 5.0,
 ) -> set[DiscoveredNetworkSystem]:
@@ -120,8 +165,12 @@ def discover_all_on_network(
             try:
                 discovered = DiscoveredNetworkSystem.from_service_info(info)
                 self.out.add(discovered)
-            except Exception:
-                pass
+            except Exception as error:
+                warnings.warn(
+                    f"Ignoring invalid watchdog service {name}: {error}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
 
         def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
             return

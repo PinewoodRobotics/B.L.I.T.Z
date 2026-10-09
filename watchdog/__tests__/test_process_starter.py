@@ -42,3 +42,19 @@ def test_start_module_leaves_stdout_and_stderr_attached_to_parent(capfd):
 
     assert "stdout line" in captured.out
     assert "stderr line" in captured.err
+
+
+def test_start_module_uses_bundled_native_libraries(monkeypatch, capfd):
+    class EnvironmentRunnableModule(FakeRunnableModule):
+        def get_run_command(self, _bundle_path: str) -> str:
+            code = "import os; print(os.environ['LD_LIBRARY_PATH'], flush=True)"
+            return f"{shlex.quote(sys.executable)} -c {shlex.quote(code)}"
+
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/system/libraries")
+    process = OpenedProcess.start_module(
+        EnvironmentRunnableModule("camera", [], FakeRunDefinition()),  # pyright: ignore[reportArgumentType]
+        "backend",
+        {},
+    )
+    assert process.wait(timeout=5) == 0
+    assert "backend/deps/native:/system/libraries" in capfd.readouterr().out

@@ -76,6 +76,28 @@ def test_config_endpoint_saves_config_and_rejects_invalid_payload(
     assert monitor.is_config_exists
 
 
+def test_system_identity_endpoint_exposes_discovery_profile(
+    watchdog_client: WatchdogClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, _, _, _ = watchdog_client
+    from watchdog.util.system import DiscoveredNetworkSystem
+
+    identity = DiscoveredNetworkSystem(
+        hostname="test-pi.local", system_name="test-pi", watchdog_port=5000,
+        autobahn_port=8080, blitz_path="/opt/blitz", machine_architecture="aarch64",
+        platform_description="Linux-with-glibc2.36", python_major_version=3,
+        python_minor_version=11, os_distribution_id="debian",
+        os_distribution_version_id="12",
+    )
+    monkeypatch.setattr(
+        "watchdog.routes.getters.DiscoveredNetworkSystem.collect", lambda: identity
+    )
+
+    response = client.get("/get/system/identity")
+    assert response.status_code == 200
+    assert response.json == identity.to_dict()
+
+
 def test_start_process_endpoint_requires_config_and_starts_process(
     watchdog_client: WatchdogClient,
 ) -> None:

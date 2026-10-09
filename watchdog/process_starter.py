@@ -1,5 +1,6 @@
 import subprocess
 import shlex
+import os
 
 import psutil
 
@@ -47,8 +48,11 @@ class OpenedProcess(subprocess.Popen[str]):
     ) -> "OpenedProcess":
         cmd = f"{module.get_run_command(bundle_path)} {OpenedProcess._format_flags(flags)}".strip()
         debug(f"Starting: {cmd}\n")
+        environment = os.environ.copy()
+        environment.update(module.get_run_environment(bundle_path))
         return cls(
             shlex.split(cmd),
+            env=environment,
             text=True,
             bufsize=1,
             universal_newlines=True,

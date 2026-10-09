@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from collections.abc import Mapping
 import re
 
 
@@ -119,10 +120,57 @@ class SystemId:
     architecture: Architecture
     python_version: PythonVersion
 
+    @classmethod
+    def from_plan_system(cls, values: Mapping[str, object]) -> "SystemId":
+        return cls(
+            c_lib_version=str(values["glibc"]),
+            linux_distro=LinuxDistro(str(values["distro"])),
+            architecture=Architecture(str(values["architecture"])),
+            python_version=PythonVersion(
+                major=int(values["python_major"]),
+                minor=int(values["python_minor"]),
+            ),
+        )
+
     @property
     def docker_image(self) -> str:
-        return f"linux/{self.architecture.value}"
+        return {
+            Architecture.AMD64: "linux/amd64",
+            Architecture.ARM64: "linux/arm64",
+            Architecture.AARCH64: "linux/arm64",
+            Architecture.ARM32: "linux/arm/v7",
+        }[self.architecture]
 
     def to_build_key(self) -> str:
         distro = re.sub(r"[^a-zA-Z0-9]+", "-", self.linux_distro.value).strip("-")
         return f"{self.c_lib_version}-{self.architecture.value}-{distro}-{str(self.python_version)}"
+
+    @classmethod
+    def from_build_key(cls, key: str) -> "SystemId":
+        """Recover a known target profile from an existing bundle name."""
+        match = re.fullmatch(
+            r"(?P<glibc>\d+\.\d+)-(?P<arch>amd64|arm64|arm32|aarch64)-"
+            r"(?P<distro>.+)-python(?P<major>\d+)-(?P<minor>\d+)",
+            key,
+        )
+        if match is None:
+            raise ValueError(f"Invalid system build key: {key}")
+        distro = next(
+            (
+                candidate for candidate in LinuxDistro
+                if re.sub(r"[^a-zA-Z0-9]+", "-", candidate.value).strip("-")
+                == match.group("distro")
+            ),
+            None,
+        )
+        if distro is None:
+            raise ValueError(f"Unsupported distro in system build key: {key}")
+        return cls(
+            c_lib_version=match.group("glibc"),
+            linux_distro=distro,
+            architecture=Architecture(match.group("arch")),
+            python_version=PythonVersion(
+                major=int(match.group("major")),
+                minor=int(match.group("minor")),
+            ),
+        )

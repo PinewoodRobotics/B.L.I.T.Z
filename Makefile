@@ -20,7 +20,7 @@ SERVICE_NAME ?= blitz-startup
 SERVICE_UNIT_SOURCE := $(BLITZ_PATH)/ops/systemd/watchdog.service
 SERVICE_UNIT_PATH ?= /etc/systemd/system/$(SERVICE_NAME).service
 
-.PHONY: help setup rebuild create-python-venv dependencies link wipe set-name ensure-name show-name generate codegen run test install-service deploy-sync deploy deploy-wipe deploy-flash send-to-target restart-service deploy-to-target wipe-target flash-target
+.PHONY: help setup rebuild create-python-venv dependencies link wipe set-name ensure-name show-name generate codegen run test install-service deploy-sync deploy deploy-wipe deploy-flash send-to-target restart-service deploy-to-target wipe-target flash-target deploy-bundles cache-bundles discover-bundles build-bundles distribute-bundles
 
 help:
 	@printf '%s\n' \
@@ -37,6 +37,11 @@ help:
 		'  make wipe                     Remove local system links and service' \
 		'  make deploy-sync              Rsync the repo to the target and run setup.sh' \
 		'  make deploy                   Sync and restart the target service' \
+		'  make deploy-bundles           Discover, build offline, and distribute bundles' \
+		'  make cache-bundles            Cache recorded system dependencies online' \
+		'  make discover-bundles         Generate Dockerfiles for discovered systems' \
+		'  make build-bundles            Build bundles from generated Dockerfiles' \
+		'  make distribute-bundles       Rediscover devices and send cached bundles' \
 		'  make deploy-wipe              Run scripts/deploy/wipe_target.sh on the target' \
 		'  make deploy-flash TARGET_NAME=x  Run scripts/deploy/flash_target.sh on the target' \
 
@@ -104,6 +109,21 @@ run: ensure-name
 	VENV_PYTHON="$(VENV_PYTHON)" \
 	BLITZ_PATH="$(BLITZ_PATH)" \
 	./scripts/runtime/run_watchdog.sh
+
+deploy-bundles:
+	$(VENV_PYTHON) backend/deploy.py
+
+cache-bundles:
+	$(VENV_PYTHON) backend/deploy.py cache
+
+discover-bundles:
+	$(VENV_PYTHON) backend/deploy.py discover
+
+build-bundles:
+	$(VENV_PYTHON) backend/deploy.py build
+
+distribute-bundles:
+	$(VENV_PYTHON) backend/deploy.py distribute
 
 test: create-python-venv
 	$(VENV_PYTHON) -m pip install -r requirements.txt.dev

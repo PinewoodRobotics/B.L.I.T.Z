@@ -34,6 +34,8 @@ class RunnableModule(Module):
 
     def get_run_command(self, bundle_path: Any) -> str: ...
 
+    def get_run_environment(self, bundle_path: Any) -> dict[str, str]: ...
+
 
 @lazy_import_class("backend.deployment.module.supported")
 class SupportedModules:

@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+import argparse
+from dataclasses import asdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+import json
 import subprocess
 
+from backend.deployment.bundle_index import save_bundle_index, verify_bundles
 from backend.deployment.bundler import CodeBundler
 from backend.deployment.compilation.util.systems import SystemId
-from backend.deployment.module.base import Module
+from backend.deployment.compilation.system_builder import SystemBuilder
+from backend.deployment.module.base import Module, matches_module_type
 from backend.deployment.network_api.system_api import System
 from backend.deployment.network_api.utils import FolderPath
 from backend.deployment.network_api.zeroconf import (
+    discover_at_addresses,
     discover_all_on_network,
 )
 from backend.deployment.processes import WeightedProcess, normalize_pi_name
@@ -19,6 +25,10 @@ from backend.deployment.rsyncer import Rsyncer
 
 
 ProcessMapper = Callable[..., Mapping[str, Sequence[WeightedProcess]]]
+
+
+class MissingDependencyCacheError(RuntimeError):
+    """A discovered target needs online dependency preparation."""
 
 
 class PresetConfigSuppliers(Enum):
@@ -37,45 +47,79 @@ class PresetConfigSuppliers(Enum):
 
 class BlitzNetworkDeployer:
     @staticmethod
-    def deploy(
+    def discover(
+        modules: list[Module], config: BlitzNetworkDeployer.Options | None = None
+    ) -> list[SystemId]:
+        if config is None:
+            config = BlitzNetworkDeployer.Options().build()
+        systems = BlitzNetworkDeployer._find_systems(config)
+        if not systems:
+            raise ValueError(
+                "No watchdog systems discovered via _watchdog._udp.local. "
+                "No Dockerfiles were generated. Connect to the device network "
+                "and confirm the watchdog is advertising its service, or pass "
+                "--device HOST:PORT."
+            )
+        system_ids = BlitzNetworkDeployer._unique_system_ids(systems)
+        BlitzNetworkDeployer._remember_systems(config, systems)
+        BlitzNetworkDeployer.prepare_systems(modules, system_ids, config)
+        print(f"found {len(systems)} systems")
+        return system_ids
+
+    @staticmethod
+    def prepare_systems(
+        modules: list[Module], system_ids: Sequence[SystemId],
+        config: BlitzNetworkDeployer.Options,
+    ) -> None:
+        """Generate Dockerfiles for known target profiles without contacting devices."""
+        if not system_ids:
+            raise ValueError("No system profiles provided")
+        system_ids = list({system_id.to_build_key(): system_id for system_id in system_ids}.values())
+        if not modules:
+            print("warning: get_modules() returned no modules; generated Dockerfiles will have no project builds")
+        for system_id in system_ids:
+            BlitzNetworkDeployer._bundler(modules, config, system_id).prepare()
+        build_root = Path(config.build_folder_path) / config.bundle_name / "contexts"
+        print(f"prepared {len(system_ids)} Dockerfiles:")
+        for system_id in system_ids:
+            context = build_root / system_id.to_build_key()
+            print(f"  {context / 'Dockerfile'}")
+
+    @staticmethod
+    def build_bundles(
+        modules: list[Module], config: BlitzNetworkDeployer.Options | None = None,
+        system_ids: Sequence[SystemId] | None = None,
+        dependency_images: Mapping[str, str] | None = None,
+    ) -> dict[str, Path]:
+        if config is None:
+            config = BlitzNetworkDeployer.Options().build()
+        bundles: dict[str, Path] = {}
+        for system_id in (system_ids if system_ids is not None else SystemBuilder.prepared_system_ids(
+            config.build_folder_path, config.bundle_name
+        )):
+            bundler = BlitzNetworkDeployer._bundler(modules, config, system_id)
+            image = (dependency_images or {}).get(system_id.to_build_key())
+            archive = bundler.bundle(prepared=True, dependency_image=image)
+            bundles[system_id.to_build_key()] = Path(archive)
+        save_bundle_index(BlitzNetworkDeployer._index_path(config), bundles)
+        print(f"built {len(bundles)} bundles in {config.output_folder_path}")
+        return bundles
+
+    @staticmethod
+    def distribute(
         modules: list[Module],
         mapper: ProcessMapper,
         config: BlitzNetworkDeployer.Options | None = None,
+        systems: set[System] | None = None,
     ) -> None:
         if config is None:
             config = BlitzNetworkDeployer.Options().build()
-
-        discovered_systems = discover_all_on_network(
-            timeout_seconds=config.discovery_timeout,
-        )
-
-        print("--------------------------------")
-        print("Discovered systems:")
-        for system in discovered_systems:
-            print(system)
-            print()
-
-        systems = {System(general_info=discovered) for discovered in discovered_systems}
-
-        system_ids = BlitzNetworkDeployer._unique_system_ids(systems)
-
-        print("--------------------------------")
-        print("System IDs:")
-        for system_id in system_ids:
-            print(system_id)
-            print()
-
-        for system_id in system_ids:
-            _ = CodeBundler(
-                modules=modules,
-                backend_local_path=config.local_backend_path,
-                build_folder_path=config.build_folder_path,
-                output_folder_path=config.output_folder_path,
-                system_id=system_id,
-                bundle_name=config.bundle_name,
-                bundle_dependencies=config.bundle_dependencies,
-                additional_files=[],
-            ).bundle()
+        if systems is None:
+            systems = BlitzNetworkDeployer._find_systems(config)
+        if not systems:
+            raise ValueError("No systems discovered")
+        bundle_paths = BlitzNetworkDeployer._bundle_paths(config, systems)
+        verify_bundles(BlitzNetworkDeployer._index_path(config), bundle_paths)
 
         Rsyncer(
             modules=modules,
@@ -108,6 +152,198 @@ class BlitzNetworkDeployer:
                 raise RuntimeError(
                     f"Failed to set processes on {system.general_info.hostname}"
                 )
+        print(f"Deployed on {len(systems)} Pis")
+
+    @staticmethod
+    def deploy(
+        modules: list[Module],
+        mapper: ProcessMapper,
+        config: BlitzNetworkDeployer.Options | None = None,
+    ) -> None:
+        if config is None:
+            config = BlitzNetworkDeployer.Options().build()
+        systems = BlitzNetworkDeployer._find_systems(config)
+        if not systems:
+            raise ValueError("No watchdog systems discovered; no bundles were built")
+        print(f"found {len(systems)} systems")
+        BlitzNetworkDeployer._remember_systems(config, systems)
+        system_ids = BlitzNetworkDeployer._unique_system_ids(systems)
+        BlitzNetworkDeployer.prepare_systems(modules, system_ids, config)
+        missing: list[str] = []
+        stale_images: dict[str, str] = {}
+        for system_id in system_ids:
+            key = system_id.to_build_key()
+            builder = BlitzNetworkDeployer._builder(config, system_id)
+            cached = builder.dependencies_cached()
+            print(f"Docker dependencies for {key}: {'cached' if cached else 'missing'}")
+            if not cached:
+                missing.append(key)
+                candidates = builder.stale_dependency_images()
+                if candidates:
+                    stale_images[key] = candidates[0]
+        cache_instruction = (
+            "Connect to the internet and run: python3 backend/deploy.py cache; "
+            "then rerun python3 backend/deploy.py on the device network."
+        )
+        unavailable = [key for key in missing if key not in stale_images]
+        if unavailable:
+            raise MissingDependencyCacheError(
+                "Docker dependencies are not cached for: " + ", ".join(unavailable)
+                + ". No older image for these system types is available. "
+                + cache_instruction
+            )
+        if missing:
+            print("WARNING: Matching Docker dependency images are missing; older images are cached.")
+            for key in missing:
+                print(f"  {key}: older cached image {stale_images[key]}")
+            print("Continuing may build or deploy with outdated dependencies, or fail compilation.")
+            try:
+                answer = input("Continue with these older images? [y/N]: ").strip().lower()
+            except (EOFError, OSError):
+                answer = ""
+            if answer not in ("y", "yes"):
+                raise MissingDependencyCacheError("Deployment cancelled. " + cache_instruction)
+            print("Continuing with older cached dependencies by user choice.")
+        BlitzNetworkDeployer.build_bundles(modules, config, system_ids, stale_images)
+        BlitzNetworkDeployer.distribute(modules, mapper, config, systems)
+
+    @staticmethod
+    def cache_dependencies(
+        modules: list[Module], config: BlitzNetworkDeployer.Options | None = None,
+    ) -> None:
+        """Prepare every recorded system type while internet access is available."""
+        if config is None:
+            config = BlitzNetworkDeployer.Options().build()
+        inventory = BlitzNetworkDeployer._read_inventory(config)
+        keys = inventory["system_ids"]
+        if not keys:
+            raise ValueError("No systems recorded. Run python backend/deploy.py on the device network first.")
+        system_ids = [SystemId.from_build_key(key) for key in keys]
+        BlitzNetworkDeployer.prepare_systems(modules, system_ids, config)
+        for system_id in system_ids:
+            builder = BlitzNetworkDeployer._builder(config, system_id)
+            if builder.dependencies_cached():
+                print(f"Docker dependencies for {system_id.to_build_key()}: cached")
+            else:
+                builder.cache_dependencies()
+        print(f"cached dependencies for {len(system_ids)} system types")
+
+    @staticmethod
+    def run_cli(
+        modules: list[Module],
+        mapper: ProcessMapper,
+        config: BlitzNetworkDeployer.Options | None = None,
+        argv: Sequence[str] | None = None,
+    ) -> None:
+        parser = argparse.ArgumentParser(description="Discover, build, and distribute BLITZ bundles")
+        parser.add_argument("phase", choices=("discover", "build", "distribute", "deploy", "cache"), nargs="?", default="deploy")
+        parser.add_argument("--output-dir", type=Path, help="Directory for built bundles")
+        parser.add_argument(
+            "--device", action="append", default=[], metavar="HOST:PORT",
+            help="Query this watchdog directly instead of using mDNS (repeatable)",
+        )
+        parser.add_argument(
+            "--system-id", action="append", default=[], metavar="BUILD_KEY",
+            help="Prepare a known system profile without contacting devices (repeatable)",
+        )
+        args = parser.parse_args(argv)
+        if args.system_id and (args.phase not in ("discover", "cache") or args.device):
+            parser.error("--system-id is only valid for discover/cache and cannot be combined with --device")
+        options = config or BlitzNetworkDeployer.Options().build()
+        if args.device:
+            options.set_pinned_devices(args.device)
+        if args.output_dir is not None:
+            options.set_output_folder_path(FolderPath(str(args.output_dir)))
+        if args.phase == "discover":
+            if args.system_id:
+                system_ids = [SystemId.from_build_key(key) for key in args.system_id]
+                BlitzNetworkDeployer._remember_system_ids(options, system_ids)
+                BlitzNetworkDeployer.prepare_systems(modules, system_ids, options)
+            else:
+                BlitzNetworkDeployer.discover(modules, options)
+        elif args.phase == "build":
+            BlitzNetworkDeployer.build_bundles(modules, options)
+        elif args.phase == "distribute":
+            BlitzNetworkDeployer.distribute(modules, mapper, options)
+        elif args.phase == "cache":
+            if args.system_id:
+                BlitzNetworkDeployer._remember_system_ids(
+                    options, [SystemId.from_build_key(key) for key in args.system_id]
+                )
+            BlitzNetworkDeployer.cache_dependencies(modules, options)
+        else:
+            BlitzNetworkDeployer.deploy(modules, mapper, options)
+
+    @staticmethod
+    def _index_path(config: BlitzNetworkDeployer.Options) -> Path:
+        return Path(config.output_folder_path) / "bundle-index.json"
+
+    @staticmethod
+    def _inventory_path(config: BlitzNetworkDeployer.Options) -> Path:
+        return Path(config.build_folder_path) / config.bundle_name / "systems.json"
+
+    @staticmethod
+    def _read_inventory(config: BlitzNetworkDeployer.Options) -> dict:
+        path = BlitzNetworkDeployer._inventory_path(config)
+        return json.loads(path.read_text()) if path.is_file() else {"system_ids": [], "devices": {}}
+
+    @staticmethod
+    def _remember_system_ids(config: BlitzNetworkDeployer.Options, system_ids: Sequence[SystemId]) -> None:
+        inventory = BlitzNetworkDeployer._read_inventory(config)
+        inventory["system_ids"] = sorted(set(inventory["system_ids"]) | {
+            system_id.to_build_key() for system_id in system_ids
+        })
+        path = BlitzNetworkDeployer._inventory_path(config)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(inventory, indent=2, sort_keys=True) + "\n")
+
+    @staticmethod
+    def _remember_systems(config: BlitzNetworkDeployer.Options, systems: set[System]) -> None:
+        BlitzNetworkDeployer._remember_system_ids(config, BlitzNetworkDeployer._unique_system_ids(systems))
+        inventory = BlitzNetworkDeployer._read_inventory(config)
+        for system in systems:
+            inventory["devices"][system.general_info.hostname] = asdict(system.general_info)
+        BlitzNetworkDeployer._inventory_path(config).write_text(
+            json.dumps(inventory, indent=2, sort_keys=True) + "\n"
+        )
+
+    @staticmethod
+    def _builder(config: BlitzNetworkDeployer.Options, system_id: SystemId) -> SystemBuilder:
+        bundler = BlitzNetworkDeployer._bundler([], config, system_id)
+        return SystemBuilder(system_id, bundler.build_path, bundler.context_path)
+
+    @staticmethod
+    def _find_systems(config: BlitzNetworkDeployer.Options) -> set[System]:
+        if config.pinned_devices:
+            discovered = discover_at_addresses(config.pinned_devices)
+        else:
+            discovered = discover_all_on_network(timeout_seconds=config.discovery_timeout)
+        return {System(general_info=system) for system in discovered}
+
+    @staticmethod
+    def _bundler(
+        modules: list[Module], config: BlitzNetworkDeployer.Options, system_id: SystemId
+    ) -> CodeBundler:
+        return CodeBundler(
+            modules=modules,
+            backend_local_path=config.local_backend_path,
+            build_folder_path=config.build_folder_path,
+            output_folder_path=config.output_folder_path,
+            system_id=system_id,
+            bundle_name=config.bundle_name,
+            bundle_dependencies=config.bundle_dependencies,
+            additional_files=[],
+        )
+
+    @staticmethod
+    def _bundle_paths(
+        config: BlitzNetworkDeployer.Options, systems: set[System]
+    ) -> dict[str, Path]:
+        return {
+            system_id.to_build_key(): Path(config.output_folder_path)
+            / f"{system_id.to_build_key()}.zip"
+            for system_id in BlitzNetworkDeployer._unique_system_ids(systems)
+        }
 
     @staticmethod
     def _unique_system_ids(systems: set[System]) -> list[SystemId]:
@@ -130,11 +366,12 @@ class BlitzNetworkDeployer:
             default_factory=lambda: FolderPath(str(Path(__file__).resolve().parents[1]))
         )
         build_folder_path: FolderPath = FolderPath("build/")
-        output_folder_path: FolderPath = FolderPath("build/bundle-outputs/")
+        output_folder_path: FolderPath = FolderPath("build/backend-bundle/outputs/")
         bundle_name: str = "backend-bundle"
         remote_bundle_path: FolderPath = FolderPath("bundles/")
-        discovery_timeout: float = 5.0
-        bundle_dependencies: bool = False
+        discovery_timeout: float = 10.0
+        pinned_devices: tuple[str, ...] = ()
+        bundle_dependencies: bool = True
         host_to_pass_user_mapper: dict[str, tuple[str, str]] = field(
             default_factory=dict
         )
@@ -167,6 +404,12 @@ class BlitzNetworkDeployer:
             timeout: float,
         ) -> "BlitzNetworkDeployer.Options":
             self.discovery_timeout = timeout
+            return self
+
+        def set_pinned_devices(
+            self, addresses: Sequence[str]
+        ) -> "BlitzNetworkDeployer.Options":
+            self.pinned_devices = tuple(addresses)
             return self
 
         def set_config_supplier(
@@ -231,7 +474,7 @@ def _verify_deploy_file():
     get_modules = all_functions["get_modules"]
     pi_name_to_process_types = all_functions.get("pi_name_to_process_types")
     modules = get_modules()
-    if not isinstance(modules, list) or not all(isinstance(m, Module) for m in modules):
+    if not isinstance(modules, list) or not all(matches_module_type(m, Module) for m in modules):
         raise Exception(
             f"get_modules() returned {type(modules)} with element types {[type(m) for m in modules] if isinstance(modules, list) else 'N/A'} instead of list[Module]"
         )

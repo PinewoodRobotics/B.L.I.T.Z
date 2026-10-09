@@ -100,7 +100,7 @@ if __name__ == "__main__":
         .should_bundle_dependencies(True)
         .build()
     )
-    BlitzNetworkDeployer.deploy(get_modules(), pi_name_to_process_types, options)
+    BlitzNetworkDeployer.run_cli(get_modules(), pi_name_to_process_types, options)
 PY
 }
 

@@ -476,7 +476,7 @@ if __name__ == "__main__":
         .build()
     )
 
-    BlitzNetworkDeployer.deploy(
+    BlitzNetworkDeployer.run_cli(
         get_modules(),
         pi_name_to_process_types,
         config=config,

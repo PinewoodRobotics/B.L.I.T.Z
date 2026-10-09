@@ -186,13 +186,15 @@ def test_backend_deploy_py_is_valid_and_bundled(tmp_path: Path):
         system_id=system_id,
     ).bundle()
 
-    bundle_root = f"backend-bundle-{system_id.to_build_key()}"
+    bundle_root = system_id.to_build_key()
     with zipfile.ZipFile(archive_path) as archive:
         names = set(archive.namelist())
         bundled_deploy_source = archive.read(f"{bundle_root}/deploy.py").decode()
+        build_plan = json.loads(archive.read(f"{bundle_root}/build-plan.json"))
 
     assert f"{bundle_root}/deploy.py" in names
     assert bundled_deploy_source == deploy_source
+    assert build_plan["steps"] == []
 
 
 def test_rsyncer_deploys_backend_bundle_and_installs_python_dependencies(
@@ -239,7 +241,7 @@ def test_rsyncer_deploys_backend_bundle_and_installs_python_dependencies(
         are_deps_bundled=True,
     ).deploy()
 
-    bundle_name = f"backend-bundle-{system_id.to_build_key()}.zip"
+    bundle_name = f"{system_id.to_build_key()}.zip"
     docker_runner.assert_files_exist(
         target,
         [

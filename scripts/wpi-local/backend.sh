@@ -578,6 +578,7 @@ check_updates() {
 }
 
 deploy_backend() {
+    local phase="${1:-}"
     local deploy_path="${BLITZ_PROJECT}/${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
     local python_path="${BLITZ_PROJECT}"
     local import_alias_dir=""
@@ -599,7 +600,11 @@ deploy_backend() {
         if [ -n "${PYTHONPATH:-}" ]; then
             python_path="${python_path}:${PYTHONPATH}"
         fi
-        PYTHONPATH="${python_path}" python3 "${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+        if [ -n "${phase}" ]; then
+            PYTHONPATH="${python_path}" python3 "${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}" "${phase}"
+        else
+            PYTHONPATH="${python_path}" python3 "${BLITZ_BACKEND_DIR}/${BLITZ_DEPLOY_SCRIPT}"
+        fi
     )
 }
 
@@ -639,6 +644,7 @@ main_menu() {
         select_menu \
             "Detected BLITZ backend: ${BLITZ_BACKEND_DIR}" \
             "Deploy" \
+            "Cache dependencies (internet required)" \
             "Check for updates" \
             "Settings" \
             "Setup integration" \
@@ -651,15 +657,19 @@ main_menu() {
                 require_initialized_project
                 ;;
             1)
+                deploy_backend cache
+                pause
+                ;;
+            2)
                 check_updates
                 pause
                 require_initialized_project
                 ;;
-            2)
+            3)
                 settings_menu
                 require_initialized_project
                 ;;
-            3)
+            4)
                 setup_menu
                 ;;
             *)
@@ -673,6 +683,9 @@ run_non_interactive_action() {
     case "${BLITZ_BACKEND_ACTION:-}" in
         deploy)
             deploy_backend
+            ;;
+        cache | discover | build | distribute)
+            deploy_backend "${BLITZ_BACKEND_ACTION}"
             ;;
         check-updates)
             check_updates

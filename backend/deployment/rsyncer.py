@@ -2,7 +2,7 @@ import os
 import posixpath
 import shlex
 
-from backend.deployment.module.base import DependencyInstallation, Module
+from backend.deployment.module.base import DependencyInstallation, Module, matches_module_type
 from backend.deployment.network_api.system_api import System
 from backend.deployment.network_api.utils import FilePath, FolderPath
 from backend.deployment.network_api.zeroconf import (
@@ -41,7 +41,7 @@ class Rsyncer:
     def install_dependencies(self, system: System) -> None:
         installed_deps_lang_names: set[str] = set()
         for module in self.modules:
-            if not isinstance(module, DependencyInstallation):
+            if not matches_module_type(module, DependencyInstallation):
                 continue
 
             if (
@@ -116,7 +116,7 @@ class Rsyncer:
             )
 
     def get_bundled_zip(self, system: DiscoveredNetworkSystem) -> tuple[str, FilePath]:
-        name = f"backend-bundle-{system.to_system_id().to_build_key()}.zip"
+        name = f"{system.to_system_id().to_build_key()}.zip"
         zip_path = FilePath(os.path.join(self.local_bundler_output_path, name))
         return name, zip_path
 

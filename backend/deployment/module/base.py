@@ -3,7 +3,6 @@ from enum import Enum
 import re
 import os
 
-from backend.deployment.compilation.util.systems import SystemId
 from backend.deployment.network_api.utils import FilePath, FolderPath
 from backend.deployment.processes import WeightedProcess
 
@@ -14,6 +13,15 @@ class VerificationResult(Enum):
     SUCCESS = "success"
 
 
+def matches_module_type(module: object, *module_types: type) -> bool:
+    """Recognize typed modules after watchdog lazy imports reload their classes."""
+    identities = {(candidate.__module__, candidate.__qualname__) for candidate in module_types}
+    return any(
+        (candidate.__module__, candidate.__qualname__) in identities
+        for candidate in type(module).__mro__
+    )
+
+
 @dataclass
 class Module:
     name: str
@@ -22,9 +30,6 @@ class Module:
         raise NotImplementedError(
             f"{type(self).__name__} should implement get_language_name()"
         )
-
-    def assemble(self, _result_path: FolderPath, _system_id: SystemId) -> None:
-        raise NotImplementedError(f"{type(self).__name__} should implement assemble()")
 
     def verify(self) -> tuple[VerificationResult, str]:
         return VerificationResult.SUCCESS, ""
@@ -61,6 +66,11 @@ class RunnableModule(Module):
             f"{type(self).__name__} should implement get_run_command(bundle_path)"
         )
 
+    def get_run_environment(self, bundle_path: FolderPath) -> dict[str, str]:
+        native_path = os.path.join(bundle_path, "deps", "native")
+        current = os.environ.get("LD_LIBRARY_PATH")
+        return {"LD_LIBRARY_PATH": os.pathsep.join(filter(None, (native_path, current)))}
+
     def get_extra_run_args(self) -> str:
         return (
             " ".join([f"--{arg[0]} {arg[1]}" for arg in self.extra_run_args])
@@ -78,16 +88,6 @@ class DependencyInstallation:
         self, requirements_path: FilePath = FilePath("requirements.txt")
     ) -> tuple[VerificationResult, str]:
         return VerificationResult.SUCCESS, ""
-
-    def assemble_dependencies(
-        self,
-        result_path: FolderPath,
-        system_id: SystemId,
-        requirements_path: FilePath = FilePath("requirements.txt"),
-    ) -> None:
-        raise NotImplementedError(
-            f"{type(self).__name__} should implement assemble_dependencies()"
-        )
 
     def get_dependency_installation_command(
         self, blitz_path: FolderPath, bundle_path: FolderPath

@@ -18,12 +18,12 @@ def expectedNumOfPis = {
 }
 
 def deployedPiCount = { String output ->
-    def currentMatch = output =~ /found (\d+) systems?/
+    def currentMatch = output =~ /Deployed on (\d+) Pis/
     if (currentMatch.find()) {
         return currentMatch.group(1).toInteger()
     }
 
-    def legacyMatch = output =~ /Deployed on (\d+) Pis/
+    def legacyMatch = output =~ /found (\d+) systems?/
     if (legacyMatch.find()) {
         return legacyMatch.group(1).toInteger()
     }
@@ -31,48 +31,49 @@ def deployedPiCount = { String output ->
     return null
 }
 
-tasks.register('deployBackend') {
+def stdout = new ByteArrayOutputStream()
+def liveOutput = new OutputStream() {
+    void write(int value) {
+        stdout.write(value)
+        System.out.write(value)
+    }
+
+    void write(byte[] bytes, int offset, int length) {
+        stdout.write(bytes, offset, length)
+        System.out.write(bytes, offset, length)
+    }
+
+    void flush() {
+        System.out.flush()
+    }
+}
+
+tasks.register('deployBackend', Exec) {
+    workingDir = rootProject.projectDir
+    standardInput = System.in
+    standardOutput = liveOutput
+    errorOutput = System.err
+    ignoreExitValue = true
+    environment 'PYTHONUNBUFFERED', '1'
+    environment 'TERM', System.getenv('TERM') ?: 'xterm-256color'
+    environment 'BLITZ_LOGGER_MODE', 'plain'
+    commandLine 'python3', "${backendPath}/deploy.py"
+
     doLast {
         def expected = expectedNumOfPis()
         if (expected == null) {
             logger.warn("EXPECTED_NUM_OF_PIS is not set; skipping deployed Pi count validation.")
         }
 
-        def stdout = new ByteArrayOutputStream()
-        def stderr = new ByteArrayOutputStream()
-        def result
-
-        try {
-            result = project.exec {
-                workingDir = rootProject.projectDir
-                standardInput = System.in
-                standardOutput = stdout
-                errorOutput = stderr
-                ignoreExitValue = true
-                environment 'PYTHONUNBUFFERED', '1'
-                environment 'TERM', System.getenv('TERM') ?: 'xterm-256color'
-                environment 'BLITZ_LOGGER_MODE', 'plain'
-                commandLine 'python3', "${backendPath}/deploy.py"
-            }
-        } catch (Exception e) {
-            print stdout.toString()
-            System.err.print stderr.toString()
-            throw new RuntimeException("Failed to apply backend: ${e.message}", e)
-        }
-
-        print stdout.toString()
-        System.err.print stderr.toString()
-
-        if (result.exitValue != 0) {
-            throw new RuntimeException("Failed to apply backend because deploy.py exited with status ${result.exitValue}")
+        if (executionResult.get().exitValue != 0) {
+            throw new RuntimeException("Failed to apply backend because deploy.py exited with status ${executionResult.get().exitValue}")
         }
 
         if (expected == null) {
             return
         }
 
-        def output = "${stdout}\n${stderr}"
-        def deployed = deployedPiCount(output)
+        def deployed = deployedPiCount(stdout.toString())
         if (deployed == null) {
             throw new RuntimeException("Failed to apply backend because the deployed Pi count could not be determined")
         }
@@ -88,5 +89,15 @@ tasks.register('deployBackend') {
 
             throw new RuntimeException("Failed to apply backend because it was not deployed on the expected number of Pis (expected ${expected} Pis, deployed ${deployed} Pis)")
         }
+    }
+}
+
+['cacheBackend': 'cache', 'discoverBackend': 'discover', 'buildBackend': 'build', 'distributeBackend': 'distribute'].each { taskName, phase ->
+    tasks.register(taskName, Exec) {
+        workingDir = rootProject.projectDir
+        standardInput = System.in
+        environment 'PYTHONUNBUFFERED', '1'
+        environment 'BLITZ_LOGGER_MODE', 'plain'
+        commandLine 'python3', "${backendPath}/deploy.py", phase
     }
 }

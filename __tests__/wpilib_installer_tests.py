@@ -404,6 +404,23 @@ def test_local_backend_script_deploy_runs_deploy_py_from_project_root(tmp_path: 
     assert (project / "deploy-ran.txt").read_text() == f"{project}:ProcessPlan"
 
 
+def test_local_backend_script_exposes_separate_deployment_phases(tmp_path: Path):
+    project = make_wpilib_project(tmp_path)
+    assert_success(run_installer(project))
+    (project / "backend" / "deploy.py").write_text(
+        "import sys\nfrom pathlib import Path\n"
+        "Path('phase-ran.txt').write_text(sys.argv[1])\n"
+    )
+    for phase in ("discover", "build", "distribute"):
+        result = run_local_backend_script(
+            project / "scripts" / "backend.sh",
+            project,
+            {"BLITZ_BACKEND_ACTION": phase},
+        )
+        assert_success(result)
+        assert (project / "phase-ran.txt").read_text() == phase
+
+
 def test_local_backend_script_no_longer_creates_modules(tmp_path: Path):
     project = make_wpilib_project(tmp_path)
     assert_success(run_installer(project))

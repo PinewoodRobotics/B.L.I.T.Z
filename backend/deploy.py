@@ -1,5 +1,7 @@
 import json
-from backend.deployment.deployer import BlitzNetworkDeployer, PresetConfigSuppliers
+import subprocess
+from backend.deployment.deployer import BlitzNetworkDeployer, MissingDependencyCacheError, PresetConfigSuppliers
+from backend.deployment.compilation.system_builder import DockerCacheInspectionError
 from backend.deployment.network_api.utils import FolderPath
 from backend.deployment.processes import ProcessPlan, WeightedProcess
 from backend.deployment.module.supported import SupportedModules
@@ -21,8 +23,6 @@ if __name__ == "__main__":
     config = (
         BlitzNetworkDeployer.Options()
         .set_local_backend_path(FolderPath("backend/"))
-        # .should_bundle_dependencies(True)
-        .set_discovery_timeout(2)
         .set_config_supplier(
             lambda: json.dumps(
                 {
@@ -33,8 +33,15 @@ if __name__ == "__main__":
         .build()
     )
 
-    BlitzNetworkDeployer.deploy(
-        get_modules(),
-        pi_name_to_process_types,
-        config=config,
-    )
+    try:
+        BlitzNetworkDeployer.run_cli(
+            get_modules(),
+            pi_name_to_process_types,
+            config=config,
+        )
+    except (MissingDependencyCacheError, DockerCacheInspectionError) as error:
+        raise SystemExit(str(error)) from None
+    except subprocess.CalledProcessError as error:
+        if error.cmd and error.cmd[0] == "docker":
+            raise SystemExit(f"Docker command failed with exit code {error.returncode}; see the step output and log path above.") from None
+        raise

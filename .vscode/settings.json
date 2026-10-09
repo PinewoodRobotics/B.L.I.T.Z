@@ -31,5 +31,6 @@
     "source.organizeImports": "always"
   },
   "editor.tabSize": 2,
-  "explorer.excludeGitIgnore": false
+  "explorer.excludeGitIgnore": false,
+  "java.configuration.updateBuildConfiguration": "automatic"
 }
