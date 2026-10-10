@@ -34,6 +34,9 @@ dataset/test/*
 dataset/train/*
 dataset/val/*
 generated/
+# Handwritten portable-stub fixtures are regression-test sources.
+!__tests__/fixtures/module_contract_backend/generated/
+!__tests__/fixtures/module_contract_backend/generated/**
 profiler.txt
 profiler.html
 *.pt

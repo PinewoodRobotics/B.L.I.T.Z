@@ -139,23 +139,28 @@ while IFS= read -r step; do
     source_path="$(jq -r '.source // empty' <<< "$step")"
     case "$phase:$kind" in
         compile:system-packages|compile:cpp-dependencies|compile:rust-toolchain|compile:rust-fetch|compile:python-wheels|\
-        provision:cpp-build|provision:rust-build|provision:native-libraries|provision:copy-module)
+        provision:cpp-build|provision:rust-build|provision:native-libraries|provision:copy-module|provision:shared-generated)
             continue ;;
     esac
     printf '[blitz] START phase=%s step=%s kind=%s module=%s\n' \
         "$phase" "$step_id" "$kind" "${module_name:-none}"
-    if [[ "$phase" != provision && "$kind" != native-libraries ]]; then
+    if [[ "$phase" != provision && "$kind" != native-libraries && "$kind" != shared-generated ]]; then
         build_environment="$("$build_python" /work/build_artifacts.py build-environment "$step")"
         dependency_paths="$(jq -r '.libraries' <<< "$build_environment")"
         header_paths="$(jq -r '.headers' <<< "$build_environment")"
         export BLITZ_LIB_DIR=/artifacts/lib BLITZ_INCLUDE_DIR=/artifacts/include
         export BLITZ_RESOURCE_DIR="/artifacts/resources/$module_name"
+        export BLITZ_GENERATED_DIR=/artifacts/shared/backend/generated
         export LIBRARY_PATH="$dependency_paths" LD_LIBRARY_PATH="$dependency_paths"
         export CPATH="$header_paths" CMAKE_PREFIX_PATH="${header_paths//:/;}"
         export CMAKE_LIBRARY_PATH="$dependency_paths" CMAKE_INCLUDE_PATH="$header_paths"
         export RUSTFLAGS="${dependency_paths:+-L native=${dependency_paths//:/ -L native=}}"
     fi
     case "$kind" in
+        shared-generated)
+            mkdir -p /artifacts/shared/backend
+            cp -a "$source_path/." /artifacts/shared/backend/
+            ;;
         system-packages)
             if [[ "$phase" == compile ]]; then continue; fi
             apt-get install -y curl git build-essential cmake pkg-config libssl-dev python3 python3-venv python3-pip file

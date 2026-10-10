@@ -153,6 +153,17 @@ class SystemBuilder:
             staged_folder.mkdir()
         staged: list[tuple[Module, str]] = []
         workspace_copied = False
+        generated_source: str | None = None
+        generated_root = self.backend_path / 'generated' if self.backend_path is not None else None
+        if generated_root is not None and generated_root.is_dir() and any(path.is_file() for path in generated_root.rglob('*')):
+            shared_backend = self.context / 'sources' / 'shared' / 'backend'
+            _copy_source(str(generated_root), shared_backend / 'generated')
+            # Keep backend.generated importable alongside the installed BLITZ
+            # namespace, without shipping the project's sibling module sources.
+            (shared_backend / '__init__.py').write_text(
+                'from pkgutil import extend_path\n__path__ = extend_path(__path__, __name__)\n'
+            )
+            generated_source = f'/work/{shared_backend.relative_to(self.context)}'
         for module in modules:
             if matches_module_type(module, CPPLibraryModule, CPPRunnableModule, RustModule, RustLibraryModule, GeneratedModule):
                 source, workspace_copied = self._stage_project(
@@ -162,6 +173,8 @@ class SystemBuilder:
                 staged_source = self.context / "sources" / "python" / module.name
                 _copy_source(module.module_folder_path, staged_source)
                 if self.backend_path is not None:
+                    if generated_source is not None and any((staged_source / path).exists() for path in ('backend', 'backend.py')):
+                        raise ValueError(f'Module {module.name} shadows shared backend.generated with a local backend folder')
                     common = self.backend_path / 'python' / 'common'
                     if common.is_dir():
                         if (staged_source / 'common').exists():
@@ -249,6 +262,8 @@ class SystemBuilder:
         steps: list[BuildStep] = []
         if staged:
             steps.append(BuildStep("system-packages", "system-packages"))
+        if generated_source is not None:
+            steps.append(BuildStep('shared-generated', 'shared-generated', source=generated_source))
         cpp_deps: list[str] = []
         for module, _source in cpp_modules:
             assert matches_module_type(module, CPPLibraryModule, CPPRunnableModule)

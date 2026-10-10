@@ -128,7 +128,8 @@ class PythonModule(RunnableModule, DependencyInstallation):
         project = str(Path(self.get_project_path(bundle_path)).resolve())
         # Sibling module source is not an import API. Shared Python code is
         # staged as this module's common package; native libraries remain scoped.
-        environment["PYTHONPATH"] = os.pathsep.join(filter(None, (project, environment["LD_LIBRARY_PATH"], environment.get("PYTHONPATH"))))
+        shared = str(Path(bundle_path).resolve() / 'shared')
+        environment["PYTHONPATH"] = os.pathsep.join(filter(None, (project, shared, environment["LD_LIBRARY_PATH"], environment.get("PYTHONPATH"))))
         return environment
 
     def get_run_argv(self, bundle_path: FolderPath, blitz_path: str | None = None) -> list[str]:

@@ -76,6 +76,17 @@ def test_same_soname_is_isolated_between_python_processes_and_resources_work(con
     assert 'lib/common_two' not in manifest['modules']['python-one']['library_paths']
 
 
+def test_generated_namespace_is_shared_and_bundled_once(contract_bundle: ContractBundle) -> None:
+    root, system, _, _ = contract_bundle
+    bundle = root / system.to_build_key()
+    files = list(bundle.rglob('portable.py'))
+    assert files == [bundle / 'shared/backend/generated/messages/portable.py']
+    assert (bundle / 'shared/backend/generated/messages/schema.txt').read_text().strip() == 'portable-schema'
+    # Both independently launched Python entrypoints import backend.generated.
+    assert run_module(contract_bundle, 'python-one') == '100 resource-ok resource-ok'
+    assert run_module(contract_bundle, 'python-two') == '200'
+
+
 def test_same_soname_in_one_closure_fails_even_with_different_filenames(contract_bundle: ContractBundle) -> None:
     root, system, image, _ = contract_bundle
     helper = Path(__file__).resolve().parents[1] / 'backend' / 'deployment' / 'compilation' / 'build_artifacts.py'

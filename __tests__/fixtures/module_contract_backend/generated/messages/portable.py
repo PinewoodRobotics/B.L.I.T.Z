@@ -1,0 +1,1 @@
+VALUE = 'portable-generated-ok'

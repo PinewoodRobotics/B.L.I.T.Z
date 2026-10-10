@@ -14,6 +14,9 @@ project/
 ├── backend/
 │   ├── deploy.py                 Module declarations and process placement
 │   ├── deployment/               BLITZ deployment tooling
+│   ├── generated/                Shared portable generated stubs and files
+│   │   └── messages/
+│   │       └── portable.py
 │   ├── python/
 │   │   ├── common/               Shared Python source
 │   │   └── control/
@@ -50,6 +53,13 @@ by BLITZ.
 - Python sibling modules are not automatically exposed as import paths. Shared
   source belongs in `backend/python/common/` and is copied into each Python
   module's bundle as `common/`.
+- `backend/generated/` is a shared, language-neutral folder, not a runnable
+  module. It is bundled automatically in `shared/backend/generated/`. Python
+  programs import it as `from backend.generated import ...`; nested packages
+  retain their structure. All languages can locate its files through
+  `BLITZ_GENERATED_DIR`. Generated files must exist before preparation; this
+  does not run a code generator or install extra dependencies. Source changes
+  rebuild the bundle without invalidating the dependency image.
 - C++ and Rust builds can reference their language's `common/` folder explicitly;
   native staging preserves the backend tree for relative build references.
 - Backend source symlinks cannot escape the configured backend root. The layout
@@ -315,6 +325,7 @@ Source location and runtime location are resolved separately:
 | `BLITZ_MODULE_DIR` | This module's runtime directory |
 | `BLITZ_RESOURCE_DIR` | This module's exported resource directory |
 | `BLITZ_LIB_DIR` | Library export root containing module namespaces |
+| `BLITZ_GENERATED_DIR` | Shared portable files from `backend/generated/` |
 | `BLITZ_CONFIG_PATH` | Program configuration file |
 | `BLITZ_BASIC_SYSTEM_CONFIG_PATH` | Basic system configuration file |
 | `BLITZ_SYSTEM_NAME` | Device system name |

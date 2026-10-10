@@ -69,6 +69,7 @@ named backend root; the language/module convention remains the same.
 | C++ or Rust project outside backend | Move the entire subproject into `backend/cpp/<name>/` or `backend/rust/<name>/`. |
 | One folder mixing Python, C++, and Rust subprojects | Split into language-specific modules; declare native dependency edges between them. |
 | Shared Python helpers imported from another runnable module | Move the shared code into `backend/python/common/`; update imports. |
+| Portable generated stubs or shared generated assets | Put them in `backend/generated/`; preserve Python imports such as `from backend.generated.messages import ...`. This folder ships automatically without a module declaration. |
 | Assets loaded from a developer's absolute path | Move into their owning module and declare resource exports. |
 | Multiple Python requirements files or per-program environments | Consolidate into root `requirements.txt`; resolve incompatible versions. |
 | Hand-copied native binaries or application Dockerfiles | Declare native outputs and build configuration; let deployment generate target Dockerfiles. |

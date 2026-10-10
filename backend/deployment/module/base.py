@@ -104,6 +104,7 @@ class RunnableModule(Module):
             "BLITZ_MODULE_PATH": os.pathsep.join(str(path) for path in module_paths),
             "BLITZ_RESOURCE_DIR": str(root / "resources" / self.name),
             "BLITZ_MODULE_DIR": str(root / self.get_language_name() / self.name),
+            "BLITZ_GENERATED_DIR": str(root / 'shared' / 'backend' / 'generated'),
         })
         return environment
 

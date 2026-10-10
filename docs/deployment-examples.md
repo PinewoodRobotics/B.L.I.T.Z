@@ -161,6 +161,52 @@ A module-local `common` folder is rejected when the shared folder exists, to
 avoid silently shadowing shared code. Shared code edits rebuild bundles without
 invalidating the dependency image.
 
+### Portable generated stubs shared by all modules
+
+Put generated files directly under `backend/generated/`, alongside `python/`,
+`cpp/`, and `rust/`. No module declaration or manually constructed source path
+is needed for this folder:
+
+```text
+backend/
+├── deploy.py
+├── generated/
+│   └── messages/
+│       ├── __init__.py
+│       ├── portable.py
+│       └── schema.json
+└── python/
+    └── control/
+        └── main.py
+```
+
+For example, `backend/generated/messages/portable.py` can define `Message`,
+which `backend/python/control/main.py` imports naturally:
+
+```python
+from backend.generated.messages.portable import Message
+# For a file directly under backend/generated/:
+from backend.generated import shared_stub
+```
+
+Portable assets in the same folder are available independently of working
+directory, including from C++ and Rust via the same environment variable:
+
+```python
+import os
+from pathlib import Path
+
+schema = Path(os.environ["BLITZ_GENERATED_DIR"], "messages/schema.json")
+```
+
+Generate these files before preparing/deploying. The bundle stores the shared
+folder once and exposes its `backend.generated` namespace to each Python
+process. This does not expose sibling Python modules. A module-local `backend`
+folder or `backend.py` is rejected when shared generated files exist, so it
+cannot silently shadow this namespace. Normal BLITZ deployment API imports
+remain available. Generated-file changes require a bundle rebuild, not an
+online dependency-cache refresh.
+
 C++ and Rust shared source can live in `backend/cpp/common/` and
 `backend/rust/common/`. Their build files must reference those paths explicitly;
 native staging preserves the backend tree so relative references work. Keep
