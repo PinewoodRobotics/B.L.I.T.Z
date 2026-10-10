@@ -1,5 +1,6 @@
 import argparse
 import json
+import ipaddress
 import os
 import platform
 import re
@@ -134,10 +135,10 @@ def get_system_name() -> str:
         return f.read().strip()
 
 
-def get_primary_ipv4():
+def get_primary_ipv4() -> str:
     """
-    Returns the IPv4 address used for the system's default route.
-    This is the true outbound interface (Ethernet if WiFi is off).
+    Prefer the default-route source, then an active LAN address on offline systems.
+    Querying the route table does not send traffic to the internet.
     """
     try:
         result = subprocess.run(
@@ -155,8 +156,32 @@ def get_primary_ipv4():
         socket.inet_aton(ip)
         return ip
 
-    except Exception as e:
-        raise RuntimeError(f"Failed to determine primary IPv4 address: {e}")
+    except (OSError, subprocess.CalledProcessError, ValueError, IndexError) as error:
+        route_error = error
+
+    # A directly connected offline LAN may have no default gateway. Prefer
+    # physical Ethernet/WiFi interfaces over auxiliary bridges, then link-local
+    # addresses only when no other active IPv4 address is available.
+    stats = psutil.net_if_stats()
+    link_local: list[str] = []
+    interfaces = sorted(netifaces.interfaces(), key=lambda name: (not name.startswith(("eth", "en", "wl")), name))
+    for interface in interfaces:
+        if interface not in stats or not stats[interface].isup:
+            continue
+        for record in netifaces.ifaddresses(interface).get(netifaces.AF_INET, []):
+            try:
+                address = ipaddress.IPv4Address(record.get("addr", ""))
+            except ValueError:
+                continue
+            if address.is_loopback or address.is_unspecified or address.is_multicast:
+                continue
+            if address.is_link_local:
+                link_local.append(str(address))
+            else:
+                return str(address)
+    if link_local:
+        return link_local[0]
+    raise RuntimeError(f"Failed to determine primary IPv4 address: no active LAN address (route query: {route_error})")
 
 
 def get_local_ip(iface: str = "eth0") -> str | None:

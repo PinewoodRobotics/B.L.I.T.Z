@@ -15,5 +15,6 @@ sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
     rsync \
     unzip \
     udev \
+    iproute2 \
     thrift-compiler \
     protobuf-compiler

@@ -16,7 +16,9 @@ trap 'rm -f "$unit_file"' EXIT
 sed "s/^User=.*/User=${SERVICE_USER}/" "${SERVICE_UNIT_SOURCE}" > "$unit_file"
 sudo install -m 0644 "$unit_file" "${SERVICE_UNIT_PATH}"
 
-if command -v systemctl >/dev/null 2>&1 && systemctl is-system-running >/dev/null 2>&1; then
+if command -v systemctl >/dev/null 2>&1 && \
+    { systemctl is-system-running >/dev/null 2>&1 || \
+      [ "$(systemctl is-system-running 2>/dev/null || true)" = degraded ]; }; then
     # real computer with systemd running
     sudo systemctl daemon-reload
     sudo systemctl enable "${SERVICE_NAME}"

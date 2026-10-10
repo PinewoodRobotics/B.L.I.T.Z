@@ -8,6 +8,8 @@ VENV_PYTHON := .venv/bin/python
 NAME_FILE := system_data/name.txt
 PROTO_GEN_DIR := watchdog/generated
 PROTO_FILES := proto/StateLogging.proto proto/PiStatus.proto
+# Image provisioning may install a compiler matching the Python protobuf runtime.
+PROTOC ?= $(if $(wildcard .venv/bin/protoc),.venv/bin/protoc,protoc)
 
 UBUNTU_TARGET ?= nathan-hale.local
 TARGET_USER ?= ubuntu
@@ -100,7 +102,7 @@ generate: codegen
 
 codegen:
 	mkdir -p $(PROTO_GEN_DIR)
-	protoc -I=proto \
+	$(PROTOC) -I=proto \
 		--python_out=watchdog/generated \
 		--pyi_out=watchdog/generated \
 		$(PROTO_FILES)

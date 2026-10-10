@@ -31,7 +31,7 @@ ARTIFACT_SCRIPT_PATH = Path(__file__).with_name("build_artifacts.py")
 SCRIPT_PATH = Path(__file__).with_name("build_system.sh")
 # Bump this when the script's provisioning behavior changes. Compile and logging
 # edits must not force dependency downloads for every recorded system type.
-PROVISION_SCHEMA_VERSION = "1"
+PROVISION_SCHEMA_VERSION = "2"
 
 
 class DockerCacheInspectionError(RuntimeError):

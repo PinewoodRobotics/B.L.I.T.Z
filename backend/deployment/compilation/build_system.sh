@@ -11,6 +11,35 @@ report_failure() {
 }
 trap report_failure ERR
 
+prepare_python() {
+    local binary="python${python_major}.${python_minor}"
+    if command -v "$binary" >/dev/null 2>&1; then return; fi
+    if [[ "$binary" != python3.12 ]]; then
+        apt-get install -y "$binary" "${binary}-venv"
+        return
+    fi
+    # Ubuntu 22.04 / JetPack 6 provides Python 3.10, while the installer
+    # selects managed Python 3.12. Build the same ABI into the dependency
+    # cache; the subsequent offline compilation phase never downloads it.
+    apt-get install -y xz-utils zlib1g-dev libbz2-dev libreadline-dev \
+        libsqlite3-dev libffi-dev liblzma-dev libncursesw5-dev uuid-dev
+    local source_dir
+    source_dir="$(mktemp -d)"
+    curl --fail --location --retry 3 \
+        https://www.python.org/ftp/python/3.12.6/Python-3.12.6.tar.xz \
+        --output "$source_dir/python.tar.xz"
+    echo "1999658298cf2fb837dffed8ff3c033ef0c98ef20cf73c5d5f66bed5ab89697c  $source_dir/python.tar.xz" | sha256sum --check
+    tar -xJf "$source_dir/python.tar.xz" -C "$source_dir"
+    (
+        cd "$source_dir/Python-3.12.6"
+        ./configure --prefix=/opt/blitz-python --with-ensurepip=install
+        make -j "$(nproc)"
+        make altinstall
+    )
+    rm -rf "$source_dir"
+    "$binary" -c 'import ssl, bz2, sqlite3, lzma, ctypes, venv'
+}
+
 build_cpp_module() {
     local project_root="$1" module_name="$2" build_command="$3"
     local actual_glibc="$4" target_distro_key="$5"
@@ -74,6 +103,7 @@ if [[ "$phase" != provision && "$phase" != compile && "$phase" != all ]]; then
     exit 1
 fi
 export DEBIAN_FRONTEND=noninteractive TZ=UTC
+export PATH="/opt/blitz-python/bin:$PATH"
 step_id=bootstrap-packages kind=bootstrap module_name=none
 printf '[blitz] START phase=%s step=%s\n' "$phase" "$step_id"
 if [[ "$phase" != compile ]]; then
@@ -96,6 +126,8 @@ fi
 target_distro_key="$(jq -r '.system.distro_key' "$plan")"
 python_major="$(jq -r '.system.python_major' "$plan")"
 python_minor="$(jq -r '.system.python_minor' "$plan")"
+build_python="$(command -v "python${python_major}.${python_minor}" || true)"
+build_python="${build_python:-python3}"
 if [[ "$phase" != provision ]]; then
     mkdir -p /artifacts
 fi
@@ -113,7 +145,7 @@ while IFS= read -r step; do
     printf '[blitz] START phase=%s step=%s kind=%s module=%s\n' \
         "$phase" "$step_id" "$kind" "${module_name:-none}"
     if [[ "$phase" != provision && "$kind" != native-libraries ]]; then
-        build_environment="$(python3 /work/build_artifacts.py build-environment "$step")"
+        build_environment="$("$build_python" /work/build_artifacts.py build-environment "$step")"
         dependency_paths="$(jq -r '.libraries' <<< "$build_environment")"
         header_paths="$(jq -r '.headers' <<< "$build_environment")"
         export BLITZ_LIB_DIR=/artifacts/lib BLITZ_INCLUDE_DIR=/artifacts/include
@@ -127,6 +159,8 @@ while IFS= read -r step; do
         system-packages)
             if [[ "$phase" == compile ]]; then continue; fi
             apt-get install -y curl git build-essential cmake pkg-config libssl-dev python3 python3-venv python3-pip file
+            prepare_python
+            build_python="$(command -v "python${python_major}.${python_minor}")"
             ;;
         cpp-dependencies)
             if [[ "$phase" == compile ]]; then continue; fi
@@ -148,20 +182,20 @@ while IFS= read -r step; do
             ;;
         cpp-build)
             if [[ "$phase" == provision ]]; then continue; fi
-            python3 /work/build_artifacts.py validate-toolkit "$step" "$plan"
+            "$build_python" /work/build_artifacts.py validate-toolkit "$step" "$plan"
             command="$(jq -r '.command' <<< "$step")"
             build_cpp_module "$source_path" "$module_name" "$command" "$actual_glibc" "$target_distro_key"
             ;;
         rust-build)
             if [[ "$phase" == provision ]]; then continue; fi
-            python3 /work/build_artifacts.py validate-toolkit "$step" "$plan"
+            "$build_python" /work/build_artifacts.py validate-toolkit "$step" "$plan"
             source "$HOME/.cargo/env"
             binary="$(jq -r '.binary // empty' <<< "$step")"
             build_rust_module "$source_path" "$module_name" "$binary"
             ;;
         native-libraries)
             if [[ "$phase" == provision ]]; then continue; fi
-            python3 /work/build_artifacts.py finalize "$plan"
+            "$build_python" /work/build_artifacts.py finalize "$plan"
             ;;
         copy-module)
             if [[ "$phase" == provision ]]; then continue; fi
@@ -172,9 +206,6 @@ while IFS= read -r step; do
         python-wheels)
             if [[ "$phase" == compile ]]; then continue; fi
             python_binary="python${python_major}.${python_minor}"
-            if ! command -v "$python_binary" >/dev/null 2>&1; then
-                apt-get install -y "$python_binary" "${python_binary}-venv"
-            fi
             "$python_binary" -m venv /tmp/blitz-wheel-venv
             mkdir -p /artifacts/deps/python
             cd /work/dependency-inputs/python
@@ -185,7 +216,7 @@ while IFS= read -r step; do
     esac
     case "$kind" in
         cpp-build|rust-build|copy-module)
-            python3 /work/build_artifacts.py export "$step" ;;
+            "$build_python" /work/build_artifacts.py export "$step" ;;
     esac
     printf '[blitz] DONE phase=%s step=%s\n' "$phase" "$step_id"
 done < <(jq -c '.steps[]' "$plan")
