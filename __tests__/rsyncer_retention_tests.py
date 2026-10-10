@@ -83,6 +83,26 @@ def test_invalid_archive_keeps_active_bundle_and_cleans_extraction(tmp_path: Pat
     assert not list((backend.parent / 'bundles').glob('.install.*'))
 
 
+def test_bundle_installs_matching_deployment_api_and_removes_old_files(tmp_path: Path) -> None:
+    system = target(tmp_path / 'target with spaces')
+    backend = Path(system.general_info.blitz_path) / 'backend'
+    (backend / 'deployment/__pycache__').mkdir(parents=True)
+    (backend / 'deployment/obsolete.py').write_text('old API')
+    (backend / 'deployment/__pycache__/cached.pyc').write_bytes(b'old cache')
+    (backend / '__init__.py').write_text('# preserved package\n')
+    output = tmp_path / 'outputs'
+    write_bundle(output, system, {
+        'deployment/module/catalog.py': 'matching API',
+        'deployment/.blitz-runtime-id': 'new revision',
+        'deploy.py': 'new declarations',
+    })
+    Rsyncer([], FolderPath(str(output)), FolderPath('bundles'), {system}).deploy()
+    assert (backend / 'deployment/module/catalog.py').read_text() == 'matching API'
+    assert not (backend / 'deployment/obsolete.py').exists()
+    assert not (backend / 'deployment/__pycache__').exists()
+    assert (backend / '__init__.py').read_text() == '# preserved package\n'
+
+
 def test_dependency_failure_keeps_transfer_for_retry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     system = target(tmp_path / 'target')
     output = tmp_path / 'outputs'

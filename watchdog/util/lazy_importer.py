@@ -6,6 +6,7 @@ from collections.abc import Callable
 import functools
 import importlib
 import sys
+from pathlib import Path
 from typing import Any, TypeVar, cast
 
 
@@ -17,7 +18,31 @@ class LazyImportError(RuntimeError):
     pass
 
 
+_deployment_revision: str | None = None
+
+
+def _refresh_deployment_runtime(module_path: str) -> None:
+    """Drop cached deployment definitions when a new bundle installs its API."""
+    global _deployment_revision
+    if module_path != "backend.deploy" and not module_path.startswith("backend.deployment."):
+        return
+    backend = importlib.import_module("backend")
+    for root in backend.__path__:
+        marker = Path(root) / "deployment" / ".blitz-runtime-id"
+        if not marker.is_file():
+            continue
+        revision = marker.read_text().strip()
+        if revision != _deployment_revision:
+            for name in list(sys.modules):
+                if name == "backend.deploy" or name == "backend.deployment" or name.startswith("backend.deployment."):
+                    del sys.modules[name]
+            _deployment_revision = revision
+            importlib.invalidate_caches()
+        break
+
+
 def _import_or_reload_module(module_path: str) -> Any:
+    _refresh_deployment_runtime(module_path)
     importlib.invalidate_caches()
     if module_path in sys.modules:
         return importlib.reload(sys.modules[module_path])

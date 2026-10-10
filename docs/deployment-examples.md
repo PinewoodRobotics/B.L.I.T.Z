@@ -365,7 +365,9 @@ Generated contexts and bundles are under `build/backend-bundle/`.
 
 Each target keeps one installed bundle in its `backend/` folder. Installing a new
 bundle removes files and module folders absent from the replacement, while
-preserving `backend/deployment/` and the root package marker used by watchdog.
+preserving the root package marker used by watchdog. New bundles replace
+`backend/deployment/` with the library matching their `deploy.py`; legacy bundles
+without that folder preserve the target's installed library.
 Extraction uses a temporary folder that is cleaned on completion or failure.
 After installation and offline dependency installation succeed, deployment
 removes ZIP transfers and their legacy extracted folders from the dedicated

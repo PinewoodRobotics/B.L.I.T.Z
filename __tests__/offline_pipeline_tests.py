@@ -121,9 +121,14 @@ def test_advertised_mdns_system_generates_dockerfile(tmp_path: Path) -> None:
     try:
         zeroconf.register_service(service)
         BlitzNetworkDeployer.discover([], config)
-        dockerfiles = list(Path(config.build_folder_path).glob("**/Dockerfile"))
-        assert len(dockerfiles) == 1
-        assert "debian:12" in dockerfiles[0].read_text()
+        # Other watchdogs may be advertising on the developer's network.
+        dockerfile = (
+            Path(config.build_folder_path) / config.bundle_name / "contexts"
+            / system.to_system_id().to_build_key() / "Dockerfile"
+        )
+        assert "debian:12" in dockerfile.read_text()
+        inventory = BlitzNetworkDeployer._read_inventory(config)
+        assert inventory["devices"][system.hostname]["system_name"] == system.system_name
     finally:
         zeroconf.unregister_service(service)
         zeroconf.close()

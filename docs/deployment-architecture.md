@@ -196,7 +196,7 @@ For an example installation root of `/opt/blitz`:
 ├── .venv/                        Shared target Python environment
 ├── watchdog/
 └── backend/                      One active installed bundle
-    ├── deployment/               Preserved BLITZ tooling
+    ├── deployment/               BLITZ API matching the bundle's deploy.py
     ├── deploy.py
     ├── build-plan.json
     ├── runtime-manifest.json
@@ -215,8 +215,11 @@ For an example installation root of `/opt/blitz`:
 ```
 
 Installation extracts into a temporary folder and synchronizes the replacement
-with deletion of obsolete bundle files. `backend/deployment/` and the root
-package marker are preserved so watchdog can still import the deployment APIs.
+with deletion of obsolete bundle files. Bundles include the deployment library
+that built them, so `deploy.py` and `backend/deployment/` use the same API. The
+watchdog discards cached deployment definitions when `.blitz-runtime-id` changes.
+Legacy bundles without `deployment/` preserve the installed library. The root
+package marker is always preserved.
 Declared resources also retain their relative paths in the runnable module.
 
 After bundle installation and offline dependency installation succeed, transfer
@@ -371,9 +374,10 @@ that account during BLITZ setup (default `ubuntu`).
 
 Image provisioning does not compile your application's modules. Deployment later
 replaces the active backend bundle and supplies namespaced native libraries,
-resources, and offline Python wheels. Preserve the target's `backend/deployment/`
-when replacing application files. The application deployer and target watchdog
-should be updated together when changing module contracts.
+resources, offline Python wheels, and the matching deployment library. This does
+not update `watchdog/`; update the target watchdog when its module contract
+changes. An older running watchdog also needs an update and restart to support
+deployment-library cache invalidation.
 
 ### Stale Docker dependency cleanup
 

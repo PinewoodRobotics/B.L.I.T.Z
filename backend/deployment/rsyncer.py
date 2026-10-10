@@ -112,6 +112,9 @@ class Rsyncer:
         trap 'rm -rf -- "$staging"' EXIT
         unzip -o {shlex.quote(remote_zip_path)} -d "$staging"
         test -d "$staging"/{shlex.quote(bundle_dir_name)}
+        if [ -d "$staging"/{shlex.quote(bundle_dir_name)}/deployment ]; then
+            rsync -a --delete -- "$staging"/{shlex.quote(bundle_dir_name)}/deployment/ {shlex.quote(remote_backend_path)}/deployment/
+        fi
         rsync -a --delete --exclude=/deployment/ --exclude=/__init__.py -- \
             "$staging"/{shlex.quote(bundle_dir_name)}/ {shlex.quote(remote_backend_path)}/
         """

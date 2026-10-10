@@ -6,6 +6,8 @@ if __name__ == "__main__" and __package__ is None:
 
 import re
 import shutil
+import hashlib
+from pathlib import Path
 from backend.deployment.compilation.util.systems import (
     Architecture,
     LinuxDistro,
@@ -110,6 +112,25 @@ class CodeBundler:
                 additional_file,
                 build_path,
             )
+
+        # deploy.py imports this API on the target. Ship the library that built
+        # the bundle rather than relying on the watchdog's installed copy.
+        runtime_path = Path(build_path) / "deployment"
+        shutil.copytree(
+            Path(__file__).resolve().parent,
+            runtime_path,
+            ignore=shutil.ignore_patterns(
+                "__pycache__", "*.pyc", "*.pyo", ".DS_Store", ".blitz-runtime-id"
+            ),
+        )
+        revision = hashlib.sha256()
+        for path in sorted(runtime_path.rglob("*")):
+            if path.is_file():
+                revision.update(path.relative_to(runtime_path).as_posix().encode())
+                revision.update(b"\0")
+                revision.update(path.read_bytes())
+                revision.update(b"\0")
+        (runtime_path / ".blitz-runtime-id").write_text(revision.hexdigest() + "\n")
 
         archive_base_path = FilePath(
             os.path.join(self.output_folder_path, self.system_key)
