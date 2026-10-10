@@ -1,68 +1,47 @@
 from __future__ import annotations
 
+import socket
+
 import pytest
 from zeroconf import ServiceInfo
 
-from backend.deployment.network_api.utils import FolderPath
-from backend.deployment.network_api.zeroconf import DiscoveredNetworkSystem
+from backend.deployment.network_api.zeroconf import DiscoveredEndpoint, SERVICE
 
 
 def _service_info(properties: dict[str, object]) -> ServiceInfo:
     return ServiceInfo(
-        "_watchdog._udp.local.",
-        "test._watchdog._udp.local.",
-        addresses=[],
-        port=9999,
-        server="test.local.",
-        properties=properties,
+        SERVICE, "test." + SERVICE,
+        addresses=[socket.inet_aton("192.0.2.10")], port=5000,
+        server="server-alias.local.", properties=properties,
     )
 
 
-def test_discovered_network_system_parses_current_zeroconf_properties() -> None:
-    system = DiscoveredNetworkSystem.from_service_info(
-        _service_info(
-            {
-                "system_name": "test",
-                "watchdog_port": "9999",
-                "autobahn_port": "9998",
-                "blitz_path": "/opt/blitz",
-                "machine_architecture": "aarch64",
-                "platform_description": "Linux-6.8.0-glibc2.39-aarch64",
-                "python_major_version": "3",
-                "python_minor_version": "12",
-                "os_distribution_id": "ubuntu",
-                "os_distribution_family": None,
-                "os_distribution_version_id": "24.04",
-            }
-        )
-    )
-
-    assert system.hostname == "test.local."
-    assert system.system_name == "test"
-    assert system.watchdog_port == 9999
-    assert system.autobahn_port == 9998
-    assert system.blitz_path == FolderPath("/opt/blitz")
-    assert system.machine_architecture == "aarch64"
-    assert system.python_major_version == 3
-    assert system.python_minor_version == 12
-    assert system.os_distribution_family is None
+def properties():
+    return {"schema_version": "2", "hostname": "test.local", "system_name": "test", "watchdog_port": "5000", "autobahn_port": "8080", "ssh_port": "2200"}
 
 
-def test_discovered_network_system_requires_current_zeroconf_properties() -> None:
-    with pytest.raises(
-        ValueError, match="Missing required service property: machine_architecture"
-    ):
-        DiscoveredNetworkSystem.from_service_info(
-            _service_info(
-                {
-                    "system_name": "test",
-                    "watchdog_port": "9999",
-                    "autobahn_port": "9998",
-                    "blitz_path": "/opt/blitz",
-                    "platform_machine": "aarch64",
-                    "platform_description": "Linux-6.8.0-glibc2.39-aarch64",
-                    "python_major_version": "3",
-                    "python_minor_version": "12",
-                }
-            )
-        )
+def test_endpoint_parses_connection_metadata_without_system_profile():
+    endpoint = DiscoveredEndpoint.from_service_info(_service_info(properties()))
+    assert endpoint.hostname == "test.local"
+    assert endpoint.contact_host == "192.0.2.10"
+    assert endpoint.watchdog_port == 5000
+    assert endpoint.autobahn_port == 8080
+    assert endpoint.ssh_port == 2200
+    assert endpoint.aliases == ("server-alias.local.",)
+    assert endpoint.is_blacklisted(["SERVER-ALIAS.LOCAL"])
+
+
+@pytest.mark.parametrize("field", ["schema_version", "hostname", "system_name", "watchdog_port", "autobahn_port", "ssh_port"])
+def test_endpoint_rejects_missing_required_connection_metadata(field):
+    payload = properties()
+    payload.pop(field)
+    with pytest.raises(ValueError, match="incompatible|Missing required discovery property"):
+        DiscoveredEndpoint.from_service_info(_service_info(payload))
+
+
+def test_old_full_profile_advertisement_is_incompatible():
+    payload = properties()
+    payload.pop("schema_version")
+    payload["machine_architecture"] = "aarch64"
+    with pytest.raises(ValueError, match="upgrade watchdog and deployer"):
+        DiscoveredEndpoint.from_service_info(_service_info(payload))

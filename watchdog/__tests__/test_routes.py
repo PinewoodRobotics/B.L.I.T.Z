@@ -90,12 +90,13 @@ def test_system_identity_endpoint_exposes_discovery_profile(
         os_distribution_version_id="12",
     )
     monkeypatch.setattr(
-        "watchdog.routes.getters.DiscoveredNetworkSystem.collect", lambda: identity
+        "watchdog.routes.getters.system_catalog_cache.get", lambda: {"schema_version": 2, "system": identity.to_dict()}
     )
 
     response = client.get("/get/system/identity")
     assert response.status_code == 200
-    assert response.json == identity.to_dict()
+    assert response.json == {"schema_version": 2, "system": identity.to_dict()}
+    assert client.get("/get/system/catalog").json == response.json
 
 
 def test_start_process_endpoint_requires_config_and_starts_process(

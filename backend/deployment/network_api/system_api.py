@@ -11,6 +11,7 @@ import time
 from backend.deployment.network_api.utils import FilePath, FolderPath
 from backend.deployment.network_api.zeroconf import (
     DiscoveredNetworkSystem,
+    http_authority,
 )
 from backend.deployment.processes import Process
 
@@ -41,14 +42,19 @@ class System:
 
     password: str = dataclasses.field(default="ubuntu")
     user: str = dataclasses.field(default="ubuntu")
-    ssh_port: int = dataclasses.field(default=22)
-    remote_host: str = dataclasses.field(init=False)
+    ssh_port: int | None = dataclasses.field(default=None)
 
     def __post_init__(self) -> None:
-        self.remote_host = f"{self.user}@{self.general_info.hostname}"
+        self.ssh_port = self.ssh_port or self.general_info.ssh_port
+
+    @property
+    def remote_host(self) -> str:
+        host = self.general_info.ssh_host or self.general_info.hostname
+        return f"{self.user}@{host}"
 
     def watchdog_url(self) -> str:
-        return f"http://{self.general_info.hostname}:{self.general_info.watchdog_port}/"
+        host = self.general_info.watchdog_host or self.general_info.hostname
+        return f"http://{http_authority(host, self.general_info.watchdog_port)}/"
 
     def set_config(self, raw_config_base64: str, *, timeout_s: float = 5.0) -> bool:
         """
@@ -126,11 +132,15 @@ class System:
                 "-e",
                 f"ssh -p {self.ssh_port} {SSH_OPTIONS}",
                 str(local_file_path),
-                f"{self.remote_host}:{shlex.quote(remote_file)}",
+                f"{self._rsync_remote_host()}:{shlex.quote(remote_file)}",
             ],
             "rsync bundle",
         )
         return rsync_proc.returncode == 0
+
+    def _rsync_remote_host(self) -> str:
+        host = self.general_info.ssh_host or self.general_info.hostname
+        return f"{self.user}@[{host}]" if ":" in host else f"{self.user}@{host}"
 
     def run_command(self, command: str) -> bool:
         ssh_proc = self._run_with_retries(
@@ -187,4 +197,4 @@ class System:
         return last_proc
 
     def __hash__(self) -> int:
-        return hash(self.general_info.hostname)
+        return hash(self.general_info)

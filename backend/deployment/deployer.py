@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
@@ -13,6 +12,10 @@ from backend.deployment.bundle_index import save_bundle_index, verify_bundles
 from backend.deployment.bundler import CodeBundler
 from backend.deployment.compilation.util.systems import SystemId
 from backend.deployment.compilation.system_builder import SystemBuilder
+from backend.deployment.fleet import (
+    ExpectedSystemType, validate_fleet_configuration, validate_fleet_count,
+    validate_fleet_profiles,
+)
 from backend.deployment.module.base import Module, matches_module_type
 from backend.deployment.module.graph import ModuleGraph
 from backend.deployment.network_api.system_api import System
@@ -56,7 +59,7 @@ class BlitzNetworkDeployer:
         systems = BlitzNetworkDeployer._find_systems(config)
         if not systems:
             raise ValueError(
-                "No watchdog systems discovered via _watchdog._udp.local. "
+                "No watchdog systems discovered via _watchdog._tcp.local. "
                 "No Dockerfiles were generated. Connect to the device network "
                 "and confirm the watchdog is advertising its service, or pass "
                 "--device HOST:PORT."
@@ -118,6 +121,8 @@ class BlitzNetworkDeployer:
             config = BlitzNetworkDeployer.Options().build()
         if systems is None:
             systems = BlitzNetworkDeployer._find_systems(config)
+        else:
+            BlitzNetworkDeployer._validate_fleet(config, systems)
         if not systems:
             raise ValueError("No systems discovered")
         if process_mapping is None:
@@ -253,12 +258,26 @@ class BlitzNetworkDeployer:
             "--system-id", action="append", default=[], metavar="BUILD_KEY",
             help="Prepare a known system profile without contacting devices (repeatable)",
         )
+        parser.add_argument("--blacklist", action="append", default=[], metavar="HOST_OR_IP", help="Exclude a hostname or IP before catalog requests (repeatable)")
+        parser.add_argument("--simulation", action="store_true", help="Use the simulation watchdog addresses configured in deploy.py, bypassing mDNS")
+        parser.add_argument("--expected-systems", type=int, metavar="COUNT", help="Require exactly this many devices after exclusions")
         args = parser.parse_args(argv)
-        if args.system_id and (args.phase not in ("discover", "cache") or args.device):
-            parser.error("--system-id is only valid for discover/cache and cannot be combined with --device")
+        if args.simulation and args.phase not in ("discover", "distribute", "deploy"):
+            parser.error("--simulation is only valid for discover/distribute/deploy")
+        if args.system_id and (args.phase not in ("discover", "cache") or args.device or args.simulation):
+            parser.error("--system-id is only valid for discover/cache and cannot be combined with --device or --simulation")
         options = config or BlitzNetworkDeployer.Options().build()
+        if args.simulation:
+            options.set_simulation(True)
+        if args.expected_systems is not None:
+            options.require_fleet_size(args.expected_systems)
+        if args.blacklist:
+            options.set_blacklist((*options.blacklist, *args.blacklist))
         if args.device:
-            options.set_pinned_devices(args.device)
+            if options.simulation:
+                options.set_simulation_devices(args.device)
+            else:
+                options.set_pinned_devices(args.device)
         if args.output_dir is not None:
             options.set_output_folder_path(FolderPath(str(args.output_dir)))
         if args.phase == "discover":
@@ -292,7 +311,10 @@ class BlitzNetworkDeployer:
     @staticmethod
     def _read_inventory(config: BlitzNetworkDeployer.Options) -> dict:
         path = BlitzNetworkDeployer._inventory_path(config)
-        return json.loads(path.read_text()) if path.is_file() else {"system_ids": [], "devices": {}}
+        inventory = json.loads(path.read_text()) if path.is_file() else {"system_ids": []}
+        # Legacy destinations are never restored: offline caching remembers only
+        # compatibility profiles, not device identities, addresses, or ports.
+        return {"system_ids": inventory.get("system_ids", [])}
 
     @staticmethod
     def _remember_system_ids(config: BlitzNetworkDeployer.Options, system_ids: Sequence[SystemId]) -> None:
@@ -307,12 +329,6 @@ class BlitzNetworkDeployer:
     @staticmethod
     def _remember_systems(config: BlitzNetworkDeployer.Options, systems: set[System]) -> None:
         BlitzNetworkDeployer._remember_system_ids(config, BlitzNetworkDeployer._unique_system_ids(systems))
-        inventory = BlitzNetworkDeployer._read_inventory(config)
-        for system in systems:
-            inventory["devices"][system.general_info.hostname] = asdict(system.general_info)
-        BlitzNetworkDeployer._inventory_path(config).write_text(
-            json.dumps(inventory, indent=2, sort_keys=True) + "\n"
-        )
 
     @staticmethod
     def _preflight(
@@ -339,11 +355,35 @@ class BlitzNetworkDeployer:
 
     @staticmethod
     def _find_systems(config: BlitzNetworkDeployer.Options) -> set[System]:
-        if config.pinned_devices:
-            discovered = discover_at_addresses(config.pinned_devices)
+        expected_count = validate_fleet_configuration(config.expected_system_count, config.expected_system_types)
+        if config.simulation:
+            if config.pinned_devices:
+                raise ValueError("Simulation mode cannot use pinned physical targets; use simulation_devices instead")
+            if not config.simulation_devices:
+                raise ValueError("Simulation mode requires watchdog HOST:PORT addresses in SIMULATION_DEVICES in deploy.py, or --simulation --device HOST:PORT. mDNS will not be used.")
+            discovered = discover_at_addresses(config.simulation_devices, blacklist=config.blacklist, expected_count=expected_count)
+        elif config.pinned_devices:
+            discovered = discover_at_addresses(config.pinned_devices, blacklist=config.blacklist, expected_count=expected_count)
         else:
-            discovered = discover_all_on_network(timeout_seconds=config.discovery_timeout)
-        return {System(general_info=system) for system in discovered}
+            discovered = discover_all_on_network(timeout_seconds=config.discovery_timeout, blacklist=config.blacklist, expected_count=expected_count)
+        names: set[str] = set()
+        for system in discovered:
+            name = normalize_pi_name(system.system_name)
+            if name in names:
+                raise ValueError(f"Duplicate discovered system name: {name}. Assign unique system names before deployment.")
+            names.add(name)
+        systems = {System(general_info=system) for system in discovered}
+        BlitzNetworkDeployer._validate_fleet(config, systems)
+        return systems
+
+    @staticmethod
+    def _validate_fleet(config: BlitzNetworkDeployer.Options, systems: set[System]) -> None:
+        validate_fleet_count(len(systems), config.expected_system_count, config.expected_system_types)
+        if config.expected_system_types:
+            validate_fleet_profiles(
+                [system.general_info.to_system_id() for system in systems],
+                config.expected_system_types,
+            )
 
     @staticmethod
     def _bundler(
@@ -396,6 +436,11 @@ class BlitzNetworkDeployer:
         remote_bundle_path: FolderPath = FolderPath("bundles/")
         discovery_timeout: float = 10.0
         pinned_devices: tuple[str, ...] = ()
+        simulation: bool = False
+        simulation_devices: tuple[str, ...] = ()
+        expected_system_count: int | None = None
+        expected_system_types: tuple[ExpectedSystemType, ...] = ()
+        blacklist: tuple[str, ...] = ()
         bundle_dependencies: bool = True
         host_to_pass_user_mapper: dict[str, tuple[str, str]] = field(
             default_factory=dict
@@ -436,6 +481,37 @@ class BlitzNetworkDeployer:
         ) -> "BlitzNetworkDeployer.Options":
             self.pinned_devices = tuple(addresses)
             return self
+
+        def set_blacklist(self, hosts_or_ips: Sequence[str]) -> "BlitzNetworkDeployer.Options":
+            self.blacklist = tuple(hosts_or_ips)
+            return self
+
+        def set_simulation(self, enabled: bool = True) -> "BlitzNetworkDeployer.Options":
+            self.simulation = enabled
+            return self
+
+        def set_simulation_devices(self, addresses: Sequence[str]) -> "BlitzNetworkDeployer.Options":
+            self.simulation_devices = tuple(addresses)
+            return self
+
+        def require_fleet_size(self, count: int | None) -> "BlitzNetworkDeployer.Options":
+            validate_fleet_configuration(count, self.expected_system_types)
+            self.expected_system_count = count
+            return self
+
+        def require_device_profiles(self, profiles: Sequence[ExpectedSystemType]) -> "BlitzNetworkDeployer.Options":
+            profiles = tuple(profiles)
+            validate_fleet_configuration(self.expected_system_count, profiles)
+            self.expected_system_types = profiles
+            return self
+
+        def set_expected_system_count(self, count: int | None) -> "BlitzNetworkDeployer.Options":
+            """Compatibility alias for require_fleet_size."""
+            return self.require_fleet_size(count)
+
+        def set_expected_system_types(self, profiles: Sequence[ExpectedSystemType]) -> "BlitzNetworkDeployer.Options":
+            """Compatibility alias for require_device_profiles."""
+            return self.require_device_profiles(profiles)
 
         def set_config_supplier(
             self,
@@ -483,6 +559,7 @@ class BlitzNetworkDeployer:
             return self
 
         def build(self) -> "BlitzNetworkDeployer.Options":
+            validate_fleet_configuration(self.expected_system_count, self.expected_system_types)
             return self
 
 

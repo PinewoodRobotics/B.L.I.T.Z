@@ -1,16 +1,17 @@
 from flask import Blueprint, current_app, request, jsonify
 from watchdog.monitor import ProcessMonitor
-from watchdog.util.system import DiscoveredNetworkSystem
+from watchdog.util.system import system_catalog_cache
 from typing import cast
 
 
 GETTERS_BP = Blueprint("getter_routes", __name__)
 
 
+@GETTERS_BP.route("/get/system/catalog", methods=["GET"])
 @GETTERS_BP.route("/get/system/identity", methods=["GET"])
 def get_system_identity():
-    """Expose the same target profile used by mDNS for direct-address discovery."""
-    return jsonify(DiscoveredNetworkSystem.collect().to_dict())
+    """Both routes expose the same periodically refreshed catalog contract."""
+    return jsonify(system_catalog_cache.get())
 
 
 @GETTERS_BP.route("/get/system/status", methods=["GET"])

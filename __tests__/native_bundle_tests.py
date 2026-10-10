@@ -13,6 +13,7 @@ from zipfile import ZipFile
 
 import pytest
 
+from __tests__.docker_resources import DockerTestResources
 from backend.deployment.bundler import CodeBundler
 from backend.deployment.compilation.system_builder import SystemBuilder
 from backend.deployment.compilation.util.systems import Architecture, LinuxDistro, PythonVersion, SystemId
@@ -33,7 +34,7 @@ class NativeBundle(NamedTuple):
 
 
 @pytest.fixture(scope="module")
-def native_bundle(tmp_path_factory: pytest.TempPathFactory) -> NativeBundle:
+def native_bundle(tmp_path_factory: pytest.TempPathFactory, docker_builds: DockerTestResources) -> NativeBundle:
     test_root = tmp_path_factory.mktemp("native-bundle")
     system_id = SystemId(
         "2.39", LinuxDistro.UBUNTU_24,
@@ -105,7 +106,7 @@ def test_rust_executable_is_bundled_and_runs(native_bundle: NativeBundle) -> Non
     assert run_from_bundle(native_bundle, f"/bundle/{executable}") == "45"
 
 
-def test_orin_python_312_bundle_builds_and_runs_offline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_orin_python_312_bundle_builds_and_runs_offline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, docker_builds: DockerTestResources) -> None:
     """JetPack 6's Ubuntu 22.04 needs the installer's managed Python ABI."""
     backend = tmp_path / "backend"
     native = backend / "cpp" / "value"

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from __tests__.docker_test_utils import DockerTestRunner
 
 
@@ -11,15 +9,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 INSTALLED_REPO = "/opt/blitz/B.L.I.T.Z"
 SERVICE_NAME = "blitz-service"
 TARGET_ALIAS = "blitz-target"
-
-
-@pytest.fixture
-def docker_runner() -> DockerTestRunner:
-    runner = DockerTestRunner(REPO_ROOT)
-    try:
-        yield runner
-    finally:
-        runner.cleanup()
 
 
 def prepare_ssh_target(docker_runner: DockerTestRunner, target):

@@ -438,6 +438,13 @@ from backend.deployment.misc import output
 from backend.deployment.module.supported import SupportedModules
 from backend.deployment.module.catalog import BackendModules
 from backend.deployment.processes import ProcessPlan, WeightedProcess
+from backend.deployment.fleet import ExpectedSystemType
+
+SIMULATION_ENABLED = False
+SIMULATION_DEVICES: tuple[str, ...] = ()
+# Example: ("127.0.0.1:15000", "127.0.0.1:25000")
+FLEET_SIZE: int | None = None
+DEVICE_PROFILES: tuple[ExpectedSystemType, ...] = ()
 
 modules = BackendModules(__file__)
 
@@ -468,6 +475,10 @@ if __name__ == "__main__":
     config = (
         BlitzNetworkDeployer.Options()
         .set_local_backend_path(modules.backend_path)
+        .set_simulation(SIMULATION_ENABLED)
+        .set_simulation_devices(SIMULATION_DEVICES)
+        .require_fleet_size(FLEET_SIZE)
+        .require_device_profiles(DEVICE_PROFILES)
         .should_bundle_dependencies(True)
         .set_discovery_timeout(2)
         .build()

@@ -22,7 +22,7 @@ SERVICE_NAME ?= blitz-startup
 SERVICE_UNIT_SOURCE := $(BLITZ_PATH)/ops/systemd/watchdog.service
 SERVICE_UNIT_PATH ?= /etc/systemd/system/$(SERVICE_NAME).service
 
-.PHONY: help setup rebuild create-python-venv dependencies link wipe set-name ensure-name show-name generate codegen run test install-service deploy-sync deploy deploy-wipe deploy-flash send-to-target restart-service deploy-to-target wipe-target flash-target deploy-bundles cache-bundles discover-bundles build-bundles distribute-bundles
+.PHONY: help setup rebuild create-python-venv dependencies link wipe set-name ensure-name show-name generate codegen run test test-clean install-service deploy-sync deploy deploy-wipe deploy-flash send-to-target restart-service deploy-to-target wipe-target flash-target deploy-bundles cache-bundles discover-bundles build-bundles distribute-bundles
 
 help:
 	@printf '%s\n' \
@@ -35,6 +35,7 @@ help:
 		'  make generate                 Generate protobuf Python files' \
 		'  make run                      Start the watchdog locally' \
 		'  make test                     Run pytest' \
+		'  make test-clean               Remove Docker test leftovers (stop tests first)' \
 		'  make install-service          Install and restart the systemd watchdog service' \
 		'  make wipe                     Remove local system links and service' \
 		'  make deploy-sync              Rsync the repo to the target and run setup.sh' \
@@ -130,6 +131,9 @@ distribute-bundles:
 test: create-python-venv
 	$(VENV_PYTHON) -m pip install -r requirements.txt.dev
 	$(VENV_PYTHON) -m pytest
+
+test-clean:
+	$(VENV_PYTHON) -m __tests__.docker_resources
 
 install-service: link ensure-name
 	BLITZ_PATH="$(BLITZ_PATH)" \

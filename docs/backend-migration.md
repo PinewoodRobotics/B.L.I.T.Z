@@ -341,5 +341,7 @@ its native library calls before rolling out to the fleet.
 Deploying replaces the target's active application bundle, including removing
 obsolete application files. There is one active bundle, but replacement is not
 an atomic, rollback-safe release switch. Keep your source checkpoint and test a
-device first. Remembered offline devices are not automatically retired just
-because they are absent from a discovery run.
+device first. In 2.0, deployment destinations are discovered anew on each run;
+only build profiles are kept for offline cache preparation. Update the watchdog
+and deployment tooling together for the new lightweight mDNS and HTTP catalog
+protocol. See [device discovery](device-discovery.md).

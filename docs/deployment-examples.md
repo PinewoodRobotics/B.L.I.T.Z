@@ -377,6 +377,7 @@ Import the target types:
 
 ```python
 from backend.deployment.compilation.util.systems import Architecture
+from backend.deployment.compilation.util.capabilities import Capability
 from backend.deployment.module.contracts import CapabilityRequirement, TargetRequirements
 ```
 
@@ -385,7 +386,7 @@ Add this keyword to a module that specifically requires ARM64 and CUDA 12.2:
 ```python
 targets=TargetRequirements(
     architectures=(Architecture.AARCH64,),
-    capabilities=(CapabilityRequirement("cuda", minimum_version="12.2"),),
+    capabilities=(CapabilityRequirement(Capability.CUDA, minimum_version="12.2"),),
 )
 ```
 
@@ -404,7 +405,8 @@ Run from the repository root with Docker available:
 .venv/bin/python backend/deploy.py
 ```
 
-The default command discovers devices, records profiles, prepares Dockerfiles,
+The default command discovers endpoints, filters blacklists, collects HTTP
+catalogs, records build profiles, prepares Dockerfiles,
 checks cached dependencies, builds bundles, and distributes them. Docker is the
 compilation environment; the target receives bundles, not a Docker runtime image.
 Generated contexts and bundles are under `build/backend-bundle/`.
@@ -427,7 +429,20 @@ To select a device without mDNS discovery:
 .venv/bin/python backend/deploy.py --device raspberrypi.local:9999
 ```
 
-If dependencies are missing, the command records the discovered systems and
+The known-address path reads the same `/get/system/catalog` used after mDNS
+discovery. Exclude targets before any catalog request with repeatable blacklist
+arguments:
+
+```bash
+.venv/bin/python backend/deploy.py --blacklist spare.local --blacklist 192.168.1.90
+```
+
+Only build profiles are saved for offline caching; no device identity or port
+list is reused as a future deployment destination. See
+[device discovery](device-discovery.md) for the 2.0 protocol and Docker simulation
+endpoint configuration.
+
+If dependencies are missing, the command records the discovered build profiles and
 stops with instructions. Connect to the internet and run:
 
 ```bash

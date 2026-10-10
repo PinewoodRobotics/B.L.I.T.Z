@@ -2,6 +2,9 @@
 
 Multi-process robotics stack with a Python watchdog, codegen, and deploy tooling.
 
+See [BLITZ values](values.md) for the design principles that guide development
+and prevent regressions.
+
 ## Install BLITZ
 
 Run this command on the machine you want to set up:
@@ -48,7 +51,7 @@ Docker image is only a build environment and is never run on the target.
 build/
   backend-bundle/
     contexts/<system-id>/        Dockerfile, build script, plans, staged sources
-    systems.json                  saved device identities and system types
+    systems.json                  saved build profiles only; no device addresses
     artifacts/<system-id>/       extracted files before packaging
     logs/<system-id>/            Docker dependency, compile, and extraction logs
     outputs/<system-id>.zip      finished bundle
@@ -61,9 +64,11 @@ Run one deployment command from the project root while connected to the devices:
 python3 backend/deploy.py
 ```
 
-This discovers watchdogs through mDNS, records their identities and system types
-in `build/backend-bundle/systems.json`, refreshes the Dockerfiles and build
-inputs, checks the local Docker dependency images, compiles bundles with network
+This discovers watchdog endpoints through mDNS, filters blacklisted hostnames
+and IP addresses, then collects each remaining watchdog's HTTP system catalog
+once. It records only distinct build profiles in
+`build/backend-bundle/systems.json`, refreshes the Dockerfiles and build inputs,
+checks the local Docker dependency images, compiles bundles with network
 access disabled, and distributes them. If requirements changed and an older
 dependency image for the same system is still cached, deployment asks whether
 to continue with that image. The default answer is no; continuing may leave
@@ -93,10 +98,35 @@ C++ and Rust libraries and executables. Run
 `.venv/bin/python -m pytest __tests__/native_bundle_tests.py` to build its
 Docker bundle, inspect the zip, and execute all four artifacts in a container.
 
-If mDNS is unavailable, pin watchdog addresses with `--device HOST:PORT`, for
+If mDNS is unavailable, supply watchdog addresses with `--device HOST:PORT`, for
 example `python3 backend/deploy.py --device 192.168.1.50:5000`. The flag is
-repeatable. Pinned discovery queries each watchdog's `/get/system/identity`
-endpoint instead of using mDNS.
+repeatable. Known addresses enter the same blacklist and HTTP catalog collection
+phase; the client requests `/get/system/catalog` from each selected watchdog.
+This also supports real watchdogs running in Docker simulations.
+
+For a saved simulation setup, fill `SIMULATION_DEVICES` with watchdog `HOST:PORT`
+addresses in `backend/deploy.py`, then run `python3 backend/deploy.py --simulation`.
+Simulation is off by default and bypasses mDNS completely. Containers must
+already be running with those ports published.
+
+Optional `FLEET_SIZE` and `DEVICE_PROFILES` settings in that
+script check the fleet before building or transferring anything. The count is
+exact; types use architecture/OS/capability profiles and require distinct devices.
+Use `--expected-systems 3` for a temporary count override. See the
+[configuration examples](docs/device-discovery.md#optional-fleet-expectations).
+
+Use repeatable `--blacklist HOST_OR_IP` arguments to exclude devices before
+catalog requests, building, or transfer. Blacklists match advertised hostnames
+and IP addresses. Live device identities and ports are not saved as future
+deployment destinations. Each deployment discovers or receives its current
+targets anew.
+
+The 2.0 discovery protocol uses `_watchdog._tcp.local.` and lightweight,
+versioned mDNS metadata containing identity and service endpoints. Full system
+specifications and capabilities come from the watchdog's cached HTTP catalog.
+Update watchdogs and deployment tooling together. See
+[device discovery and capabilities](docs/device-discovery.md) for the contract,
+refresh behavior, and simulation endpoint configuration.
 
 If a device is unavailable but its system build key is known, prepare its cache
 without contacting the device:
@@ -147,11 +177,28 @@ make run
 ## Tests
 
 The default test suite includes Docker-based installation tests. Start Docker
-before running tests.
+before running tests; Docker Buildx 0.13 or newer is required.
 
 ```bash
 make test
 ```
+
+Docker tests use a disposable builder with its own cache volume. Installation
+images are reused within a test session, and that builder's unused cache is
+trimmed toward 4 GB after each build. Teardown removes the session's images,
+containers, anonymous volumes, networks, and complete builder cache, including
+after test failures. Successful pytest runs discard temporary bundles and build
+contexts; only the latest failed session's temporary files are retained for
+debugging. Active concurrent runs are protected. Cleanup errors fail the run
+visibly.
+
+This does not prune your existing shared Docker cache or deployment images.
+The 4 GB target applies to unused test build cache between builds, not total
+Docker disk usage or an active build's peak storage. A small reusable BuildKit
+service image remains installed; build dependencies are provisioned again for
+each new test session. If pytest is forcibly killed or Docker stops before
+teardown, use `make test-clean` after stopping all Docker test runs to remove
+leftover resources owned by this test harness.
 
 ## Deploy to a target machine
 
@@ -257,18 +304,25 @@ match the selected Python ABI.
 Use target requirements for hardware-specific modules:
 
 ```python
+from backend.deployment.compilation.util.capabilities import Capability
+
 TargetRequirements(
     architectures=(Architecture.AARCH64,),
-    capabilities=(CapabilityRequirement("cuda", minimum_version="12.2"),),
+    capabilities=(CapabilityRequirement(Capability.CUDA, minimum_version="12.2"),),
 )
 ```
 
 Requirements can also restrict `distros` and exact `(major, minor)`
-`python_versions`. Discovery advertises CUDA driver support when `nvidia-smi`
-reports it; unknown capabilities are treated as unavailable. Custom target
-profiles can supply `SystemId.capabilities` as `(name, version)` pairs.
-Capability values are part of the profile/cache key and persist with recorded
-systems. CUDA compiler modules additionally verify the cached `nvcc` version
+`python_versions`. Capabilities use the official registry in
+`backend.deployment.compilation.util.capabilities`. CUDA support and NVIDIA driver
+versions come from a bounded NVIDIA probe; V4L2, I²C, SPI, and GPIO report
+accessible Linux device interfaces. Distribution profiles select relevant probe
+families, but never imply that hardware is present. Unsupported capability names
+are rejected. Custom target profiles can supply registered
+`SystemId.capabilities` as `(name, value)` pairs. Capability values are part of
+the profile/cache key and persist with recorded build profiles. Expensive probes
+refresh periodically in the watchdog, independently of mDNS advertising.
+CUDA compiler modules additionally verify the cached `nvcc` version
 against the module requirement and the target driver's supported version.
 Provision the appropriate toolkit using the existing C++ dependency configuration
 or a supported CUDA base distro; detecting a GPU does not install a toolkit.

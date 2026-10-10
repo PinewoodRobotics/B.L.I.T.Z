@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "blitz"
-version = "1.2.0"
+version = "2.1.1"
 description = "Battle-Linked Intelligent Tactical Pi Swarm"
 readme = "README.md"
 authors = [
@@ -33,3 +33,7 @@ namespaces = true
 [tool.pytest.ini_options]
 testpaths = ["watchdog/", "backend/", "__tests__/"]
 python_files = ["test_*.py", "*_tests.py"]
+
+# Discard successful runs; retain only the latest failure and protect active runs.
+tmp_path_retention_count = 1
+tmp_path_retention_policy = "failed"

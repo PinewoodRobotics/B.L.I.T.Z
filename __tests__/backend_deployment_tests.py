@@ -33,15 +33,6 @@ class DeploymentTestProcess(WeightedProcess):
     SAMPLE = "sample-deployment-process", 1.0
 
 
-@pytest.fixture
-def docker_runner() -> DockerTestRunner:
-    runner = DockerTestRunner(REPO_ROOT)
-    try:
-        yield runner
-    finally:
-        runner.cleanup()
-
-
 def make_discovered_system(
     docker_runner: DockerTestRunner,
     target,

@@ -11,6 +11,7 @@ from typing import NamedTuple
 
 import pytest
 
+from __tests__.docker_resources import DockerTestResources
 from backend.deployment.bundler import CodeBundler
 from backend.deployment.compilation.system_builder import SystemBuilder
 from backend.deployment.compilation.util.systems import Architecture, LinuxDistro, PythonVersion, SystemId
@@ -28,7 +29,7 @@ class ContractBundle(NamedTuple):
 
 
 @pytest.fixture(scope='module')
-def contract_bundle(tmp_path_factory: pytest.TempPathFactory) -> ContractBundle:
+def contract_bundle(tmp_path_factory: pytest.TempPathFactory, docker_builds: DockerTestResources) -> ContractBundle:
     root = tmp_path_factory.mktemp('module-contracts')
     modules = runpy.run_path(str(SAMPLE / 'deploy.py'))['get_modules']()
     system = SystemId('2.39', LinuxDistro.UBUNTU_24, Architecture.from_machine(platform.machine()), PythonVersion(3, 12))

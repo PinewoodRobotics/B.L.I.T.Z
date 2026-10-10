@@ -158,10 +158,16 @@ From the project root, the default command is:
 .venv/bin/python backend/deploy.py
 ```
 
-It discovers devices through mDNS, records profiles, generates one Dockerfile per
-distinct target profile, checks dependency caches, builds offline, and distributes
-bundles. Use repeatable `--device HOST:PORT` arguments to query watchdogs directly
-without mDNS.
+It discovers lightweight endpoints through mDNS, applies hostname/IP blacklists,
+then collects full specifications from each allowed watchdog's
+`/get/system/catalog` endpoint in one phase. That live catalog is reused for
+validation, building, and transfer. It generates one Dockerfile per distinct
+target profile, checks dependency caches, builds offline, and distributes bundles.
+Use repeatable `--device HOST:PORT` arguments for known watchdogs without mDNS,
+and repeatable `--blacklist HOST_OR_IP` to exclude targets before catalog requests.
+Only build profiles are recorded for offline caching; identities, addresses,
+and ports are not persistent deployment destinations. See
+[device discovery](device-discovery.md) for protocol and capability details.
 
 If dependencies are not cached, discovery records the target profiles and
 deployment stops with instructions. Connect the build computer to the internet:
@@ -186,7 +192,7 @@ each module's installation commands directly.
 ```text
 build/backend-bundle/
 ├── contexts/<system-id>/         Dockerfile, scripts, plans, staged sources
-├── systems.json                 Recorded device identities and profiles
+├── systems.json                 Recorded build profiles; no device identities
 ├── artifacts/<system-id>/        Extracted build outputs
 ├── logs/<system-id>/             Dependency, compilation, and extraction logs
 └── outputs/
@@ -402,5 +408,6 @@ longer available for that override.
 Cleanup uses `docker image rm` without force. Images Docker reports as in use are
 kept with a warning and a command-output log under `build/backend-bundle/logs/`.
 Unrelated images, other system profiles, bundles, and Docker's internal build
-cache are preserved. This cleanup does not retire remembered devices: temporarily
-offline devices remain in the recorded fleet.
+cache are preserved. There is no persistent device fleet to retire: each live
+deployment resolves its current destinations again. Recorded build profiles
+remain available for offline dependency preparation.

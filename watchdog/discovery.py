@@ -5,12 +5,13 @@ from zeroconf import ServiceInfo, Zeroconf
 
 from watchdog.util.logger import error, success
 from watchdog.util.system import (
-    DiscoveredNetworkSystem,
+    DiscoveryAnnouncement,
+    load_basic_system_config,
     get_primary_ipv4,
 )
 
 
-TYPE_ = "_watchdog._udp.local."
+TYPE_ = "_watchdog._tcp.local."
 _service_info = None
 _should_stop = False
 zeroconf = None
@@ -21,17 +22,18 @@ def _zeroconf_properties(properties: dict[str, object | None]) -> dict[str, obje
 
 
 def construct_service_info():
-    hostname = socket.gethostname()
-    local_ip = get_primary_ipv4()
-    discovered_system = DiscoveredNetworkSystem.collect()
-    addresses = [socket.inet_aton(local_ip)]
+    config = load_basic_system_config()
+    announcement = DiscoveryAnnouncement.collect(config)
+    addresses = config.discovery.addresses or [get_primary_ipv4()]
+    packed_addresses = [socket.inet_pton(socket.AF_INET6 if ":" in address else socket.AF_INET, address) for address in addresses]
+    server = announcement.hostname.rstrip(".") + "."
     return ServiceInfo(
         TYPE_,
-        f"{hostname}.{TYPE_}",
-        addresses=addresses,
-        port=9999,
-        server=discovered_system.hostname,
-        properties=_zeroconf_properties(discovered_system.to_dict()),
+        f"{announcement.system_name}.{TYPE_}",
+        addresses=packed_addresses,
+        port=announcement.watchdog_port,
+        server=server,
+        properties=_zeroconf_properties(announcement.to_dict()),
     )
 
 

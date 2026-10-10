@@ -7,11 +7,15 @@ from io import BytesIO
 from pathlib import Path
 from collections.abc import Iterable
 import shlex
+from uuid import uuid4
 
 import docker
-from docker.errors import APIError, DockerException, ImageNotFound, NotFound
+from docker.errors import APIError, DockerException, NotFound
 from docker.models.containers import Container
 from docker.models.networks import Network
+from docker.types import LogConfig
+
+from __tests__.docker_resources import DockerTestResources
 
 
 @dataclass(frozen=True)
@@ -21,42 +25,23 @@ class ExecResult:
 
 
 class DockerTestRunner:
-    def __init__(self, repo_root: Path):
+    def __init__(self, repo_root: Path, resources: DockerTestResources):
         self.repo_root = repo_root
+        self.resources = resources
         self.client = docker.from_env()
-        self.images: list[str] = []
         self.containers: list[Container] = []
         self.networks: list[Network] = []
 
     def build_image(self, dockerfile: str, tag_prefix: str) -> str:
-        image_tag = f"{tag_prefix}:{int(time.time() * 1000)}"
-        logs: list[str] = []
-
-        try:
-            _image, build_logs = self.client.images.build(
-                path=str(self.repo_root),
-                dockerfile=dockerfile,
-                tag=image_tag,
-                rm=True,
-                forcerm=True,
-            )
-            for chunk in build_logs:
-                line = chunk.get("stream") or chunk.get("error") or ""
-                if line:
-                    logs.append(line.rstrip())
-        except (APIError, DockerException) as error:
-            log_text = "\n".join(logs[-80:])
-            raise AssertionError(
-                f"Failed to build {dockerfile} as {image_tag}.\n{log_text}"
-            ) from error
-
-        self.images.append(image_tag)
-        return image_tag
+        # Different test cases share one immutable image for each Dockerfile.
+        # tag_prefix remains accepted for existing callers; ownership is scoped
+        # to the session instead of creating a new timestamp tag for every test.
+        return self.resources.installation_image(self.repo_root, dockerfile)
 
     def create_network(self, name_suffix: str) -> Network:
-        network_name = f"blitz-pytest-{name_suffix}-{int(time.time() * 1000)}"
+        network_name = f"{self.resources.name}-{name_suffix}-{uuid4().hex[:8]}"
         try:
-            network = self.client.networks.create(network_name, driver="bridge")
+            network = self.client.networks.create(network_name, driver="bridge", labels=self.resources.labels)
         except (APIError, DockerException) as error:
             raise AssertionError(f"Failed to create Docker network {network_name}") from error
 
@@ -73,7 +58,7 @@ class DockerTestRunner:
         environment: dict[str, str] | None = None,
         ports: dict[str, object] | None = None,
     ) -> Container:
-        container_name = f"blitz-pytest-{name_suffix}-{int(time.time() * 1000)}"
+        container_name = f"{self.resources.name}-{name_suffix}-{uuid4().hex[:8]}"
         run_kwargs = {
             "image": image_tag,
             "name": container_name,
@@ -83,6 +68,8 @@ class DockerTestRunner:
             "tmpfs": {"/run": "", "/run/lock": ""},
             "environment": environment,
             "ports": ports,
+            "labels": self.resources.labels,
+            "log_config": LogConfig(type="json-file", config={"max-size": "10m", "max-file": "2"}),
         }
         try:
             container = self.client.containers.run(cgroupns="host", **run_kwargs)
@@ -156,28 +143,23 @@ class DockerTestRunner:
                 raise AssertionError(f"Missing file in {container.name}: {path}") from error
 
     def cleanup(self) -> None:
+        errors: list[str] = []
         for container in reversed(self.containers):
             try:
-                container.remove(force=True)
+                container.remove(force=True, v=True)
             except NotFound:
                 pass
-            except APIError:
-                pass
-
-        for image_tag in reversed(self.images):
-            try:
-                self.client.images.remove(image=image_tag, force=True, noprune=False)
-            except ImageNotFound:
-                pass
-            except APIError:
-                pass
+            except DockerException as error:
+                errors.append(str(error))
 
         for network in reversed(self.networks):
             try:
                 network.remove()
             except NotFound:
                 pass
-            except APIError:
-                pass
+            except DockerException as error:
+                errors.append(str(error))
 
         self.client.close()
+        if errors:
+            raise RuntimeError("Docker test cleanup failed:\n" + "\n".join(errors))

@@ -18,6 +18,9 @@ target. The `website/` directory contains the standalone Next.js marketing site.
 
 ## Working rules
 
+- Read [values.md](values.md) before making design or behavior changes. Use its
+  principles to guide decisions and identify regressions; it records intended
+  behavior and explicitly notes known implementation gaps.
 - Preserve the public deployment hooks in `backend/deploy.py`:
   `get_modules()` and `pi_name_to_process_types()`.
 - All module source folders and assets belong under
@@ -32,6 +35,14 @@ target. The `website/` directory contains the standalone Next.js marketing site.
   `SupportedModules` over ad hoc dictionaries or new config formats.
 - Keep deployment behavior compatible with both local Python execution and the
   existing installer/Gradle integration unless a change explicitly replaces it.
+- Automatically update `backend/deployment/.blitz-build-version` when making
+  substantive non-test changes to backend, deployment, compilation, watchdog,
+  runtime, installer, or protocol behavior. Do not wait for a separate request.
+  Bump the version once per cohesive change: patch for compatible fixes, minor
+  for compatible features, and major for breaking API or bundle changes.
+  Test-only, documentation-only, formatting-only, and website-only changes do
+  not require a deployment version bump. Preserve any version bump already
+  made for the same change.
 - Do not hand-edit generated protobuf files in `watchdog/generated/`; update the
   definitions in `proto/` and run `make generate`.
 - Keep platform-specific build logic inside the existing compilation adapters.

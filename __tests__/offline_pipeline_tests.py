@@ -83,7 +83,7 @@ def test_discover_prepares_dockerfile_per_system_type_without_building(
     assert prepared == [result[0].to_build_key()]
     assert len(list((Path(config.build_folder_path) / config.bundle_name / "contexts").glob("*/Dockerfile"))) == 1
     inventory = json.loads((Path(config.build_folder_path) / config.bundle_name / "systems.json").read_text())
-    assert sorted(inventory["devices"]) == ["one.local", "two.local"]
+    assert "devices" not in inventory
     assert inventory["system_ids"] == [result[0].to_build_key()]
 
 
@@ -105,16 +105,15 @@ def test_discover_writes_a_real_dockerfile(
     assert not (Path(config.build_folder_path) / "artifacts").exists()
 
 
-def test_advertised_mdns_system_generates_dockerfile(tmp_path: Path) -> None:
+def test_advertised_mdns_system_generates_dockerfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config = options(tmp_path).set_discovery_timeout(3)
     system = make_system("advertised", "advertised.local.")
-    properties = {
-        key: str(value) for key, value in vars(system).items()
-        if key != "hostname" and value is not None
-    }
+    properties = {key: str(getattr(system, key)) for key in ("hostname", "system_name", "watchdog_port", "autobahn_port", "ssh_port")}
+    properties["schema_version"] = "2"
+    monkeypatch.setattr("backend.deployment.network_api.zeroconf.requests.get", lambda *_args, **_kwargs: SimpleNamespace(status_code=200, raise_for_status=lambda: None, json=lambda: {"schema_version": 2, "system": vars(system)}))
     service = ServiceInfo(
         SERVICE, "blitz-dockerfile-test." + SERVICE,
-        addresses=[socket.inet_aton("127.0.0.1")], port=9999,
+        addresses=[socket.inet_aton("127.0.0.1")], port=5000,
         server=system.hostname, properties=properties,
     )
     zeroconf = Zeroconf()
@@ -128,7 +127,7 @@ def test_advertised_mdns_system_generates_dockerfile(tmp_path: Path) -> None:
         )
         assert "debian:12" in dockerfile.read_text()
         inventory = BlitzNetworkDeployer._read_inventory(config)
-        assert inventory["devices"][system.hostname]["system_name"] == system.system_name
+        assert "devices" not in inventory
     finally:
         zeroconf.unregister_service(service)
         zeroconf.close()
@@ -141,10 +140,11 @@ def test_pinned_device_reads_watchdog_identity_without_mdns(
     system = make_system("pinned", "device.local")
     requested: list[str] = []
 
-    def fake_get(url: str, *, timeout: int):
+    def fake_get(url: str, *, timeout: int, allow_redirects: bool):
+        assert not allow_redirects
         requested.append(url)
-        assert timeout == 5
-        return SimpleNamespace(raise_for_status=lambda: None, json=lambda: vars(system))
+        assert timeout == 10
+        return SimpleNamespace(status_code=200, raise_for_status=lambda: None, json=lambda: {"schema_version": 2, "system": vars(system)})
 
     monkeypatch.setattr("backend.deployment.network_api.zeroconf.requests.get", fake_get)
     monkeypatch.setattr(
@@ -156,9 +156,9 @@ def test_pinned_device_reads_watchdog_identity_without_mdns(
         ["discover", "--device", "192.0.2.10:5000"],
     )
     assert config.pinned_devices == ("192.0.2.10:5000",)
-    assert requested == ["http://192.0.2.10:5000/get/system/identity"]
+    assert requested == ["http://192.0.2.10:5000/get/system/catalog"]
     assert len(list(Path(config.build_folder_path).glob("**/Dockerfile"))) == 1
-    assert discover_at_addresses(["192.0.2.10:5000"]).pop().hostname == "192.0.2.10"
+    assert discover_at_addresses(["192.0.2.10:5000"]).pop().watchdog_host == "192.0.2.10"
 
 
 def test_known_system_profile_generates_dockerfile_without_network(
@@ -223,7 +223,7 @@ def test_distribute_rediscovers_and_checks_prebuilt_bundles(
     archive.parent.mkdir(parents=True)
     archive.write_bytes(b"prepared bundle")
     save_bundle_index(archive.parent / "bundle-index.json", {key: archive})
-    monkeypatch.setattr("backend.deployment.deployer.discover_at_addresses", lambda _addresses: {system})
+    monkeypatch.setattr("backend.deployment.deployer.discover_at_addresses", lambda _addresses, **_kwargs: {system})
     monkeypatch.setattr("backend.deployment.deployer.discover_all_on_network", lambda **_kw: pytest.fail("mDNS called"))
     monkeypatch.setattr("backend.deployment.deployer.CodeBundler.bundle", lambda *_args, **_kw: pytest.fail("build called"))
     deployed: list[str] = []
@@ -255,7 +255,7 @@ def test_one_command_discovers_then_fails_before_distribution_when_cache_missing
         BlitzNetworkDeployer.run_cli([], lambda _names: {}, config, [])
 
     inventory = json.loads((Path(config.build_folder_path) / config.bundle_name / "systems.json").read_text())
-    assert inventory["devices"]["one.local"]["machine_architecture"] == "aarch64"
+    assert "devices" not in inventory
     assert len(inventory["system_ids"]) == 1
 
 

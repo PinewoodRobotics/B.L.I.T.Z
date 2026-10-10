@@ -7,6 +7,8 @@ import re
 import socket
 import subprocess
 import sys
+import threading
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -17,6 +19,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 from watchdog.constants import BASIC_SYSTEM_CONFIG_PATH, SYSTEM_NAME_PATH
+from watchdog.util.capabilities import collect_capabilities
 
 
 class AutobahnConnectionConfig(BaseModel):
@@ -79,6 +82,20 @@ class WatchdogApiConfig(BaseModel):
     )
 
 
+class WatchdogDiscoveryConfig(BaseModel):
+    """Reachable endpoints may differ from container-local listening ports."""
+
+    hostname: str | None = None
+    addresses: list[str] = Field(default_factory=list)
+    watchdog_host: str | None = None
+    watchdog_port: int | None = Field(default=None, ge=1, le=65535)
+    autobahn_host: str | None = None
+    autobahn_port: int | None = Field(default=None, ge=1, le=65535)
+    ssh_host: str | None = None
+    ssh_port: int = Field(default=22, ge=1, le=65535)
+    catalog_refresh_interval_seconds: float = Field(default=300.0, gt=0)
+
+
 class WatchdogSystemConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -89,6 +106,7 @@ class WatchdogSystemConfig(BaseModel):
             "communication",
         )
     )
+    discovery: WatchdogDiscoveryConfig = Field(default_factory=WatchdogDiscoveryConfig)
     logging: WatchdogLoggingConfig
     watchdog_api: WatchdogApiConfig = Field(
         validation_alias=AliasChoices("watchdog_api", "watchdog")
@@ -248,17 +266,54 @@ def read_os_release() -> dict[str, str]:
     return values
 
 
-def collect_capabilities() -> dict[str, str]:
-    """Only advertise CUDA when a local NVIDIA driver reports support."""
-    capabilities: dict[str, str] = {}
-    try:
-        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True, timeout=3, check=False)
-        match = re.search(r"CUDA Version:\s*(\d+\.\d+)", result.stdout)
-        if result.returncode == 0 and match:
-            capabilities["cuda"] = match.group(1)
-    except (OSError, subprocess.TimeoutExpired):
-        pass
-    return capabilities
+CATALOG_SCHEMA_VERSION = 2
+
+
+@dataclass
+class DiscoveryAnnouncement:
+    """Cheap connection metadata; never probes hardware or system profiles."""
+
+    hostname: str
+    system_name: str
+    watchdog_port: int
+    autobahn_port: int
+    ssh_port: int
+    watchdog_host: str
+    autobahn_host: str
+    ssh_host: str
+    schema_version: int = CATALOG_SCHEMA_VERSION
+
+    @classmethod
+    def collect(cls, config: WatchdogSystemConfig | None = None) -> "DiscoveryAnnouncement":
+        config = config or load_basic_system_config()
+        discovery = config.discovery
+        hostname = discovery.hostname or get_local_hostname()
+
+        def reachable_host(value: str | None) -> str:
+            if not value or value.rstrip(".").lower() == "localhost":
+                return hostname
+            try:
+                address = ipaddress.ip_address(value)
+                if address.is_loopback or address.is_unspecified:
+                    return hostname
+            except ValueError:
+                pass
+            return value
+        return cls(
+            hostname=hostname,
+            system_name=get_system_name(),
+            watchdog_port=discovery.watchdog_port or config.watchdog_api.api_port,
+            autobahn_port=discovery.autobahn_port or config.autobahn_connection.port,
+            ssh_port=discovery.ssh_port,
+            # Explicit discovery hosts describe the client's network view,
+            # including loopback for clients running on the Docker host.
+            watchdog_host=discovery.watchdog_host or hostname,
+            autobahn_host=discovery.autobahn_host or reachable_host(config.autobahn_connection.host),
+            ssh_host=discovery.ssh_host or hostname,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass
@@ -276,23 +331,33 @@ class DiscoveredNetworkSystem:
     os_distribution_family: str | None = None
     os_distribution_version_id: str | None = None
     capabilities_json: str = "{}"
+    ssh_port: int = 22
+    watchdog_host: str | None = None
+    autobahn_host: str | None = None
+    ssh_host: str | None = None
 
     @classmethod
     def collect(cls) -> "DiscoveredNetworkSystem":
         os_release = read_os_release()
         system_config = load_basic_system_config()
+        announcement = DiscoveryAnnouncement.collect(system_config)
+        machine_architecture = platform.machine()
         blitz_path = os.environ.get("BLITZ_PATH") or str(
             Path(__file__).resolve().parents[2]
         )
 
         return cls(
-            capabilities_json=json.dumps(collect_capabilities(), sort_keys=True),
-            hostname=get_local_hostname(),
-            system_name=get_system_name(),
-            watchdog_port=system_config.watchdog_api.api_port,
-            autobahn_port=system_config.autobahn_connection.port,
+            capabilities_json=json.dumps(collect_capabilities(os_release, machine_architecture), sort_keys=True),
+            hostname=announcement.hostname,
+            system_name=announcement.system_name,
+            watchdog_port=announcement.watchdog_port,
+            autobahn_port=announcement.autobahn_port,
+            ssh_port=announcement.ssh_port,
+            watchdog_host=announcement.watchdog_host,
+            autobahn_host=announcement.autobahn_host,
+            ssh_host=announcement.ssh_host,
             blitz_path=blitz_path,
-            machine_architecture=platform.machine(),
+            machine_architecture=machine_architecture,
             platform_description=platform.platform(),
             python_major_version=sys.version_info.major,
             python_minor_version=sys.version_info.minor,
@@ -303,3 +368,46 @@ class DiscoveredNetworkSystem:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+class SystemCatalogCache:
+    """A single atomic hardware snapshot shared by all HTTP callers."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._profile: DiscoveredNetworkSystem | None = None
+        self._collected_at = 0.0
+        self._refresh_interval = 300.0
+        self._last_error: Exception | None = None
+
+    def get(self) -> dict[str, Any]:
+        with self._lock:
+            config = load_basic_system_config()
+            self._refresh_interval = config.discovery.catalog_refresh_interval_seconds
+            now = time.monotonic()
+            if (self._profile is None and self._last_error is None) or now - self._collected_at >= self._refresh_interval:
+                self._collected_at = now
+                try:
+                    profile = DiscoveredNetworkSystem.collect()
+                except Exception as error:
+                    # Also rate-limit failed probes; repeated HTTP requests must
+                    # not hammer a device whose hardware probe is failing.
+                    self._last_error = error
+                else:
+                    self._profile = profile
+                    self._last_error = None
+                self._collected_at = time.monotonic()
+            if self._last_error is not None:
+                raise RuntimeError(f"System catalog collection failed: {self._last_error}") from self._last_error
+            assert self._profile is not None
+            # Reachability and identity remain live while expensive hardware/ABI
+            # checks reuse the cached snapshot. A port/name config change should
+            # not create a mismatch with the latest lightweight announcement.
+            system = self._profile.to_dict()
+            announcement = DiscoveryAnnouncement.collect(config).to_dict()
+            announcement.pop("schema_version")
+            system.update(announcement)
+            return {"schema_version": CATALOG_SCHEMA_VERSION, "system": system}
+
+
+system_catalog_cache = SystemCatalogCache()

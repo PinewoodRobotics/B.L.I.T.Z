@@ -6,6 +6,9 @@ from pathlib import PurePosixPath
 import re
 
 from backend.deployment.compilation.util.systems import Architecture, LinuxDistro, SystemId
+from backend.deployment.compilation.util.capabilities import (
+    CAPABILITY_DEFINITIONS, Capability, validate_capability_version,
+)
 
 
 def relative_path(value: str) -> str:
@@ -17,14 +20,16 @@ def relative_path(value: str) -> str:
 
 @dataclass(frozen=True)
 class CapabilityRequirement:
-    name: str
+    name: Capability | str
     minimum_version: str | None = None
 
     def __post_init__(self) -> None:
-        if not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*', self.name):
-            raise ValueError(f'Invalid capability name: {self.name}')
-        if self.minimum_version and not re.fullmatch(r'\d+(\.\d+)*', self.minimum_version):
-            raise ValueError(f'Invalid capability version: {self.minimum_version}')
+        capability = Capability.from_name(self.name)
+        object.__setattr__(self, 'name', capability.value)
+        if self.minimum_version is not None:
+            if not CAPABILITY_DEFINITIONS[capability].versioned:
+                raise ValueError(f'Capability {capability.value} has presence semantics, not a version')
+            validate_capability_version(self.minimum_version)
 
 
 @dataclass(frozen=True)

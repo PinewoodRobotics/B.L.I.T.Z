@@ -79,6 +79,13 @@ write_deploy_template() {
 from backend.deployment.deployer import BlitzNetworkDeployer
 from backend.deployment.module.supported import SupportedModules
 from backend.deployment.processes import ProcessPlan, WeightedProcess
+from backend.deployment.fleet import ExpectedSystemType
+
+SIMULATION_ENABLED = False
+SIMULATION_DEVICES: tuple[str, ...] = ()
+# Example: ("127.0.0.1:15000", "127.0.0.1:25000")
+FLEET_SIZE: int | None = None
+DEVICE_PROFILES: tuple[ExpectedSystemType, ...] = ()
 
 
 class ProcessType(WeightedProcess):
@@ -97,6 +104,10 @@ if __name__ == "__main__":
     options = (
         BlitzNetworkDeployer.Options()
         .set_local_backend_path("${BLITZ_BACKEND_DIR}")
+        .set_simulation(SIMULATION_ENABLED)
+        .set_simulation_devices(SIMULATION_DEVICES)
+        .require_fleet_size(FLEET_SIZE)
+        .require_device_profiles(DEVICE_PROFILES)
         .should_bundle_dependencies(True)
         .build()
     )

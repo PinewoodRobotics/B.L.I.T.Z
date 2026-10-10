@@ -4,6 +4,12 @@ from collections.abc import Mapping
 import re
 import json
 
+from backend.deployment.compilation.util.capabilities import (
+    CapabilityDetectorFamily,
+    LINUX_CAPABILITY_FAMILIES,
+    normalize_capabilities,
+)
+
 
 @dataclass
 class PythonVersion:
@@ -57,6 +63,13 @@ class LinuxDistro(Enum):
 
     DEBIAN_12 = "debian:12"  # Debian 12 Bookworm - GLIBC 2.36
     DEBIAN_11 = "debian:11"  # Debian 11 Bullseye - GLIBC 2.31
+
+    @property
+    def capability_detector_families(self) -> tuple[CapabilityDetectorFamily, ...]:
+        """Candidate detector families for this Linux build profile, not hardware claims."""
+        if self is LinuxDistro.JETPACK_L4T_R36_2:
+            return (CapabilityDetectorFamily.NVIDIA, CapabilityDetectorFamily.LINUX_DEVICE_INTERFACES)
+        return LINUX_CAPABILITY_FAMILIES
 
     @classmethod
     def from_os_release(
@@ -123,14 +136,12 @@ class SystemId:
     capabilities: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        if len(dict(self.capabilities)) != len(self.capabilities):
-            raise ValueError("Duplicate target capability")
-        self.capabilities = tuple(sorted(self.capabilities))
+        self.capabilities = tuple(normalize_capabilities(self.capabilities).items())
 
     @classmethod
     def from_plan_system(cls, values: Mapping[str, object]) -> "SystemId":
         return cls(
-            capabilities=tuple(sorted(dict(values.get("capabilities", {})).items())),
+            capabilities=tuple(normalize_capabilities(values.get("capabilities", {})).items()),
             c_lib_version=str(values["glibc"]),
             linux_distro=LinuxDistro(str(values["distro"])),
             architecture=Architecture(str(values["architecture"])),
@@ -160,7 +171,7 @@ class SystemId:
     def from_build_key(cls, key: str) -> "SystemId":
         """Recover a known target profile from an existing bundle name."""
         key, separator, capabilities_hex = key.partition("-caps-")
-        capabilities = tuple(sorted(json.loads(bytes.fromhex(capabilities_hex)).items())) if separator else ()
+        capabilities = tuple(normalize_capabilities(json.loads(bytes.fromhex(capabilities_hex))).items()) if separator else ()
         match = re.fullmatch(
             r"(?P<glibc>\d+\.\d+)-(?P<arch>amd64|arm64|arm32|aarch64)-"
             r"(?P<distro>.+)-python(?P<major>\d+)-(?P<minor>\d+)",

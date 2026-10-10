@@ -12,15 +12,6 @@ INSTALLED_REPO = "/opt/blitz/B.L.I.T.Z"
 SERVICE_NAME = "blitz-service"
 
 
-@pytest.fixture
-def docker_runner() -> DockerTestRunner:
-    runner = DockerTestRunner(REPO_ROOT)
-    try:
-        yield runner
-    finally:
-        runner.cleanup()
-
-
 @pytest.mark.parametrize(
     ("dockerfile", "tag_prefix", "container_suffix"),
     [
