@@ -312,7 +312,10 @@ def test_cache_command_uses_recorded_types_without_discovery(
     cached: list[str] = []
     monkeypatch.setattr(SystemBuilder, "cache_dependencies", lambda self: cached.append(self.system_id.to_build_key()))
 
+    cleaned: list[str] = []
+    monkeypatch.setattr(SystemBuilder, "prune_stale_dependency_images", lambda self: cleaned.append(self.system_id.to_build_key()))
     BlitzNetworkDeployer.run_cli([], lambda _names: {}, config, ["cache"])
+    assert cleaned == cached
     assert cached == [system.to_system_id().to_build_key()]
 
 
@@ -349,3 +352,35 @@ def _write_bundle(config: BlitzNetworkDeployer.Options, key: str) -> FilePath:
     with zipfile.ZipFile(output, "w") as archive:
         archive.writestr("artifact", "ready")
     return FilePath(str(output))
+
+
+@pytest.mark.parametrize('already_cached,fail_second', [(True, False), (False, False), (False, True)])
+def test_cache_cleans_only_after_all_replacements_succeed(tmp_path, monkeypatch, already_cached, fail_second):
+    from backend.deployment.compilation.util.systems import Architecture, LinuxDistro, PythonVersion, SystemId
+    config = options(tmp_path)
+    profiles = [
+        SystemId('2.36', LinuxDistro.DEBIAN_12, Architecture.ARM64, PythonVersion(3, 11)),
+        SystemId('2.39', LinuxDistro.UBUNTU_24, Architecture.ARM64, PythonVersion(3, 12)),
+    ]
+    BlitzNetworkDeployer._remember_system_ids(config, profiles)
+    monkeypatch.setattr(BlitzNetworkDeployer, 'prepare_systems', lambda *_args: None)
+    events = []
+    class Builder:
+        def __init__(self, profile):
+            self.profile = profile
+        def dependencies_cached(self):
+            return already_cached
+        def cache_dependencies(self):
+            events.append('cache')
+            if fail_second and len(events) == 2:
+                raise RuntimeError('download failed')
+        def prune_stale_dependency_images(self):
+            events.append('cleanup')
+    monkeypatch.setattr(BlitzNetworkDeployer, '_builder', lambda _config, profile: Builder(profile))
+    if fail_second:
+        with pytest.raises(RuntimeError, match='download failed'):
+            BlitzNetworkDeployer.cache_dependencies([], config)
+        assert events == ['cache', 'cache']
+    else:
+        BlitzNetworkDeployer.cache_dependencies([], config)
+        assert events == (['cleanup', 'cleanup'] if already_cached else ['cache', 'cache', 'cleanup', 'cleanup'])

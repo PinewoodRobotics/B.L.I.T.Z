@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from collections.abc import Sequence
 import re
+import json
 import time
 from urllib.parse import urlsplit
 import warnings
@@ -43,6 +44,7 @@ class DiscoveredNetworkSystem(ZeroconfPropertySchema):
     os_distribution_id: str | None = None
     os_distribution_family: str | None = None
     os_distribution_version_id: str | None = None
+    capabilities_json: str = "{}"
 
     @classmethod
     def from_service_info(cls, info: ServiceInfo) -> "DiscoveredNetworkSystem":
@@ -87,6 +89,7 @@ class DiscoveredNetworkSystem(ZeroconfPropertySchema):
             raise ValueError(str(error) + " for " + str(self)) from error
 
         return SystemId(
+            capabilities=tuple(sorted(json.loads(self.capabilities_json).items())),
             c_lib_version=glibc_version,
             linux_distro=linux_distro,
             architecture=architecture,

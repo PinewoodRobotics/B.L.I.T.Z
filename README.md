@@ -159,3 +159,132 @@ make test
 make deploy-sync
 make deploy
 ```
+
+### Module entrypoints, libraries, resources, and target constraints
+
+For an existing project, follow [backend migration](docs/backend-migration.md)
+to reorganize older layouts after updating BLITZ.
+
+See [deployment architecture](docs/deployment-architecture.md) for the backend
+and frontend layouts, deployment dataflow, target bundle retention, native
+library linking/loading, and runtime paths and flags.
+
+See [deployment examples](docs/deployment-examples.md) for a complete
+`backend/deploy.py` template, two Python module entrypoints, Python using a C++ library,
+C++/Rust executables, resources, target restrictions, and deployment commands.
+
+All module sources live under `backend/<language>/<module-folder>`. One module
+owns one complete folder; different entry files cannot be registered as separate
+modules sharing that folder. Shared
+Python source lives in `backend/python/common/`; sibling modules are not added
+to Python import paths. Native common folders remain accessible to build files
+inside the backend tree.
+
+Keep module declarations in `get_modules()` and assign their process types in
+`pi_name_to_process_types()`. Module `name` is a globally unique ID; a runnable
+module's `equivalent_run_definition` supplies its process ID. These IDs may differ.
+Existing positional constructors and default Python `__main__.py` entrypoints
+remain supported.
+
+```python
+from backend.deployment.module.contracts import (
+    CapabilityRequirement, LaunchSettings, ModuleOutputs,
+    PythonEntrypoint, TargetRequirements,
+)
+
+from backend.deployment.module.catalog import BackendModules
+
+modules = BackendModules(__file__)
+
+# Each module owns a different folder; both use the shared requirements.
+modules.python(
+    "camera", process=ProcessType.CAMERA, entrypoint="camera.py",
+    dependencies=("vision-library",),
+    outputs=ModuleOutputs(resources=("assets/**/*",)),
+    launch=LaunchSettings(arguments=("--mode", "tracking")),
+)
+modules.python("navigation", process=ProcessType.NAVIGATION, entrypoint="navigation.py")
+```
+
+Use `PythonEntrypoint(file=None, package="control.worker")` for `python -m`.
+C++ and Rust runnable modules use `runnable_name` to select their compiled
+executable. Watchdog passes argument lists directly, uses an absolute interpreter
+and executable path, and sets the working directory to the bundled module folder.
+`LaunchSettings.working_directory` can select a subfolder. Program paths and
+arguments can contain spaces. BLITZ CLI flags are disabled by default. Legacy
+programs can explicitly opt in
+with `LaunchSettings(accepts_blitz_flags=True)`.
+BLITZ also supplies those values through environment variables, including
+`BLITZ_CONFIG_PATH`, `BLITZ_BUNDLE_FOLDER_PATH`, and `BLITZ_SYSTEM_NAME`.
+
+Declare module dependencies by ID, for example `dependencies=("math-library",)`.
+The builder rejects unknown IDs, duplicate module/process IDs, and dependency
+cycles, then orders compilation across Python, C++, and Rust modules. It builds
+all compatible declared modules for each profile, regardless of process assignment.
+Native consumers receive `LIBRARY_PATH`, `LD_LIBRARY_PATH`, `CPATH`,
+`CMAKE_LIBRARY_PATH`, `CMAKE_INCLUDE_PATH`, and Rust native search flags for their
+transitive dependencies. `BLITZ_INCLUDE_DIR/<module-id>` provides an explicit,
+namespaced header root. Build commands still choose which libraries to link.
+
+`ModuleOutputs` accepts relative glob patterns:
+
+- `libraries` and `executables` are relative to the module's bundled native build
+  outputs. Unspecified library patterns export all recognized native libraries.
+- `headers` and `resources` are relative to the source folder. Declared files must
+  exist; missing outputs and invalid native entrypoints fail the build.
+- Header exports appear under `include/<module-id>/`; library exports appear
+  under `lib/<module-id>/`. Resources appear under `resources/<module-id>/` and
+  retain their relative paths in the runnable module folder as well.
+
+At runtime, `runtime-manifest.json` records each module's transitive library
+search directories. Watchdog exposes `BLITZ_LIB_DIR`, `BLITZ_MODULE_DIR`, and
+`BLITZ_RESOURCE_DIR`. Python receives its own module and library directories in
+`PYTHONPATH`, supporting compatible Python extension modules. Shared-library
+loading uses each program's dependency closure; it does not inherit the deploying
+computer's library search paths. The builder checks native dependencies
+recursively, packages required system libraries, and rejects unresolved libraries.
+Target glibc and NVIDIA driver libraries remain supplied by the device.
+
+Two independent programs may depend on different modules that each export
+`libcommon.so`. Their library directories remain isolated. If a single dependency
+closure contains different libraries with the same filename or ELF SONAME, the
+build fails and names both providers; a search-path ordering cannot safely resolve
+that ambiguity. Rename/relink those providers or choose one implementation.
+Static `.a` libraries are compile inputs; Python `ctypes` requires a shared
+library with a compatible C interface. Importable native Python extensions must
+match the selected Python ABI.
+
+Use target requirements for hardware-specific modules:
+
+```python
+TargetRequirements(
+    architectures=(Architecture.AARCH64,),
+    capabilities=(CapabilityRequirement("cuda", minimum_version="12.2"),),
+)
+```
+
+Requirements can also restrict `distros` and exact `(major, minor)`
+`python_versions`. Discovery advertises CUDA driver support when `nvidia-smi`
+reports it; unknown capabilities are treated as unavailable. Custom target
+profiles can supply `SystemId.capabilities` as `(name, version)` pairs.
+Capability values are part of the profile/cache key and persist with recorded
+systems. CUDA compiler modules additionally verify the cached `nvcc` version
+against the module requirement and the target driver's supported version.
+Provision the appropriate toolkit using the existing C++ dependency configuration
+or a supported CUDA base distro; detecting a GPU does not install a toolkit.
+
+Incompatible modules and their consumers are skipped with the dependency chain
+logged. Assigning an incompatible program fails before compilation or transfer,
+including when distributing an existing bundle. The stale-dependency override
+cannot bypass target compatibility checks. Dependency cache preparation stays
+online; compilation stays offline. Source, entrypoint, and resource edits do not
+invalidate dependency images. **All Python programs share the one root
+`requirements.txt` and one target virtual environment.**
+
+The self-contained backend in `__tests__/fixtures/module_contract_backend/`
+exercises transitive libraries, exported headers, two Python modules with different entry files, conflicting library names across independent programs, and relative
+resources. Run its actual Docker tests with:
+
+```bash
+.venv/bin/python -m pytest __tests__/module_contract_docker_tests.py __tests__/module_contract_tests.py
+```

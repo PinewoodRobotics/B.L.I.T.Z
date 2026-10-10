@@ -1,6 +1,8 @@
 """Typed module declarations consumed by the per-system build plan."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
+from backend.deployment.module.contracts import PythonEntrypoint, relative_path
 import os
 import posixpath
 import shlex
@@ -54,9 +56,12 @@ class CPPRunnableModule(CompilableModule, RunnableModule):
             return VerificationResult.WARNING, f"CMakeLists.txt file not found in project root folder path {self.project_root_folder_path}"
         return VerificationResult.SUCCESS, ""
 
+    def get_run_argv(self, bundle_path: FolderPath, blitz_path: str | None = None) -> list[str]:
+        executable = Path(self.get_project_path(bundle_path)).resolve() / relative_path(self.runnable_name)
+        return [str(executable), *self.get_extra_run_argv()]
+
     def get_run_command(self, bundle_path: FolderPath) -> str:
-        extra_run_args = self.get_extra_run_args()
-        return f"{self.get_project_path(bundle_path)}/{self.runnable_name} {extra_run_args}".strip()
+        return shlex.join(self.get_run_argv(bundle_path))
 
 
 @dataclass
@@ -71,9 +76,12 @@ class RustModule(CompilableModule, RunnableModule):
             return VerificationResult.FATAL, f"Project root folder path {self.project_root_folder_path} does not exist"
         return VerificationResult.SUCCESS, ""
 
+    def get_run_argv(self, bundle_path: FolderPath, blitz_path: str | None = None) -> list[str]:
+        executable = Path(self.get_project_path(bundle_path)).resolve() / relative_path(self.runnable_name)
+        return [str(executable), *self.get_extra_run_argv()]
+
     def get_run_command(self, bundle_path: FolderPath) -> str:
-        extra_run_args = self.get_extra_run_args()
-        return f"{self.get_project_path(bundle_path)}/{self.runnable_name} {extra_run_args}".strip()
+        return shlex.join(self.get_run_argv(bundle_path))
 
 
 @dataclass
@@ -90,6 +98,7 @@ class RustLibraryModule(CompilableModule):
 @dataclass
 class PythonModule(RunnableModule, DependencyInstallation):
     module_folder_path: FolderPath
+    entrypoint: PythonEntrypoint = field(default_factory=PythonEntrypoint, kw_only=True)
 
     def get_language_name(self) -> str:
         return "python"
@@ -114,15 +123,33 @@ class PythonModule(RunnableModule, DependencyInstallation):
             f"--find-links {quoted_deps_dir} --requirement {requirements_path}"
         )
 
+    def get_run_environment(self, bundle_path: FolderPath) -> dict[str, str]:
+        environment = super().get_run_environment(bundle_path)
+        project = str(Path(self.get_project_path(bundle_path)).resolve())
+        # Sibling module source is not an import API. Shared Python code is
+        # staged as this module's common package; native libraries remain scoped.
+        environment["PYTHONPATH"] = os.pathsep.join(filter(None, (project, environment["LD_LIBRARY_PATH"], environment.get("PYTHONPATH"))))
+        return environment
+
+    def get_run_argv(self, bundle_path: FolderPath, blitz_path: str | None = None) -> list[str]:
+        root = Path(bundle_path).resolve()
+        interpreter = Path(blitz_path).resolve() / VENV_PATH if blitz_path else root.parent / VENV_PATH
+        project = Path(self.get_project_path(bundle_path)).resolve()
+        entry = ["-m", self.entrypoint.package] if self.entrypoint.package else [str(project / self.entrypoint.file)]
+        return [str(interpreter), "-u", *entry, *self.get_extra_run_argv()]
+
     def get_run_command(self, bundle_path: FolderPath) -> str:
-        extra_run_args = self.get_extra_run_args()
-        return f"{VENV_PATH} -u {self.get_project_path(bundle_path)}/__main__.py {extra_run_args}"
+        return shlex.join(self.get_run_argv(bundle_path))
 
     def verify(self) -> tuple[VerificationResult, str]:
-        if not os.path.exists(self.module_folder_path):
+        if not os.path.isdir(self.module_folder_path):
             return VerificationResult.FATAL, f"Module folder path {self.module_folder_path} does not exist"
-        if not os.path.exists(os.path.join(self.module_folder_path, "__main__.py")):
-            return VerificationResult.WARNING, f"__main__.py file not found in module folder path {self.module_folder_path}"
+        if self.entrypoint.file and not os.path.isfile(os.path.join(self.module_folder_path, self.entrypoint.file)):
+            return VerificationResult.FATAL, f"Python entrypoint {self.entrypoint.file} not found in {self.module_folder_path}"
+        if self.entrypoint.package:
+            package = Path(self.module_folder_path).joinpath(*self.entrypoint.package.split("."))
+            if not package.with_suffix(".py").is_file() and not (package / "__main__.py").is_file():
+                return VerificationResult.FATAL, f"Runnable Python package {self.entrypoint.package} not found"
         return VerificationResult.SUCCESS, ""
 
 

@@ -402,3 +402,13 @@ def test_monitor_process_retries_failed_restart_without_forgetting_process(
     assert process_monitor.processes["camera"] is replacement_process
     assert process_monitor.process_mem == ["camera"]
     assert read_memory(tmp_path / "memory.json") == ["camera"]
+
+
+def test_process_id_can_differ_from_module_id(tmp_path, monkeypatch):
+    process = FakeProcess()
+    deployment_modules = FakeDeploymentModules({'source-module': [process]})
+    deployment_modules.modules[0].equivalent_run_definition = FakeRunDefinition('camera-process')
+    monitor, _ = make_monitor(tmp_path, deployment_modules, monkeypatch)
+    assert monitor.get_possible_processes() == ['camera-process']
+    assert monitor.start_process('camera-process') is process
+    assert deployment_modules.started[-1][0] == 'source-module'

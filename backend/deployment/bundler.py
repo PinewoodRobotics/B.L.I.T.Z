@@ -13,6 +13,8 @@ from backend.deployment.compilation.util.systems import (
     PythonVersion,
 )
 from backend.deployment.compilation.system_builder import SystemBuilder
+from backend.deployment.module.graph import ModuleGraph
+from backend.deployment.module.layout import validate_backend_layout
 from backend.deployment.module.base import (
     CompilableModule,
     Module,
@@ -57,15 +59,17 @@ class CodeBundler:
         } | set(additional_files or [])
 
     def prepare(self) -> None:
-        for module in self.modules:
+        validate_backend_layout(self.modules, self.backend_local_path)
+        for module in ModuleGraph(self.modules).compatible(self.system_id):
             self.verify_module(module)
-        SystemBuilder(self.system_id, self.build_path, self.context_path).prepare(
+        SystemBuilder(self.system_id, self.build_path, self.context_path, self.backend_local_path).prepare(
             self.modules, self.bundle_dependencies
         )
 
     def bundle(
         self, *, prepared: bool = False, dependency_image: str | None = None
     ) -> FilePath:
+        validate_backend_layout(self.modules, self.backend_local_path)
         os.makedirs(self.build_folder_path, exist_ok=True)
         os.makedirs(self.output_folder_path, exist_ok=True)
 
@@ -80,11 +84,11 @@ class CodeBundler:
                 os.unlink(build_path)
         os.makedirs(build_path, exist_ok=True)
 
-        system_builder = SystemBuilder(self.system_id, build_path, self.context_path)
+        system_builder = SystemBuilder(self.system_id, build_path, self.context_path, self.backend_local_path)
         if prepared:
             system_builder.build_prepared(dependency_image=dependency_image)
         else:
-            for module in self.modules:
+            for module in ModuleGraph(self.modules).compatible(self.system_id):
                 self.verify_module(module)
             system_builder.build(self.modules, self.bundle_dependencies)
         shutil.copyfile(
@@ -92,7 +96,7 @@ class CodeBundler:
             os.path.join(build_path, "build-plan.json"),
         )
 
-        for module in self.modules:
+        for module in ModuleGraph(self.modules).compatible(self.system_id):
             build_output_path = FolderPath(
                 os.path.join(build_path, module.get_language_name(), module.name)
             )

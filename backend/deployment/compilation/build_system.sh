@@ -14,7 +14,7 @@ trap report_failure ERR
 build_cpp_module() {
     local project_root="$1" module_name="$2" build_command="$3"
     local actual_glibc="$4" target_distro_key="$5"
-    local release_path search_root file
+    local release_path search_root file destination
     cd "$project_root"
     export CPP_BUILD_DIR="build/$actual_glibc/$target_distro_key"
     bash -c "$build_command"
@@ -26,6 +26,11 @@ build_cpp_module() {
     fi
     mkdir -p "$release_path" "/artifacts/cpp/$module_name"
     while IFS= read -r -d '' file; do
+        destination="$release_path/$(basename "$file")"
+        if [[ -e "$destination" ]] && ! cmp -s "$file" "$destination"; then
+            echo "Conflicting C++ output basename: $file and $destination. Export distinct release paths." >&2
+            return 1
+        fi
         cp -a "$file" "$release_path/"
     done < <(find "$search_root" \( -type f -o -type l \) \( -name '*.so' -o -name '*.so.*' -o -name '*.a' -o -name '*.dylib' -o -name '*.dll' -o -name '*.lib' -o -perm -u=x \) ! -path "$release_path/*" ! -path '*/CMakeFiles/*' -print0)
     cp -a "$release_path/." "/artifacts/cpp/$module_name/"
@@ -62,51 +67,6 @@ build_rust_module() {
     fi
 }
 
-bundle_native_libraries() {
-    local artifact soname arrow library_path rest dependencies
-    mkdir -p /artifacts/deps/native /artifacts/cpp /artifacts/rust /tmp/blitz-wheel-native
-    python3 - <<'PY'
-from pathlib import Path
-from shutil import copyfileobj
-from zipfile import ZipFile
-
-root = Path('/tmp/blitz-wheel-native')
-for wheel in Path('/artifacts/deps/python').glob('*.whl'):
-    with ZipFile(wheel) as archive:
-        for member in archive.namelist():
-            if '.so' not in Path(member).name:
-                continue
-            relative = Path(member)
-            if relative.is_absolute() or '..' in relative.parts:
-                raise ValueError(f'Unsafe wheel member: {member}')
-            destination = root / wheel.stem / relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            with archive.open(member) as source, destination.open('wb') as output:
-                copyfileobj(source, output)
-PY
-    while IFS= read -r -d '' artifact; do
-        if ! file -b "$artifact" | grep -q ELF; then continue; fi
-        if ! dependencies="$(ldd "$artifact" 2>&1)"; then
-            if [[ "$dependencies" == *"not a dynamic executable"* ||
-                  "$dependencies" == *"statically linked"* ]]; then
-                continue
-            fi
-            echo "Could not inspect native libraries for $artifact: $dependencies" >&2
-            return 1
-        fi
-        while read -r soname arrow library_path rest; do
-            if [[ "$arrow" == "=>" && "$library_path" == "not" ]]; then
-                echo "Unresolved native library $soname in $artifact" >&2
-                return 1
-            fi
-            if [[ "$arrow" != "=>" || "$library_path" != /* ]]; then continue; fi
-            case "$soname" in
-                libc.so.*|libm.so.*|libpthread.so.*|libdl.so.*|librt.so.*|ld-linux*) continue ;;
-            esac
-            cp -L "$library_path" "/artifacts/deps/native/$soname"
-        done <<< "$dependencies"
-    done < <(find /artifacts/cpp /artifacts/rust /tmp/blitz-wheel-native -type f -print0)
-}
 
 phase="${1:-all}"
 if [[ "$phase" != provision && "$phase" != compile && "$phase" != all ]]; then
@@ -152,6 +112,17 @@ while IFS= read -r step; do
     esac
     printf '[blitz] START phase=%s step=%s kind=%s module=%s\n' \
         "$phase" "$step_id" "$kind" "${module_name:-none}"
+    if [[ "$phase" != provision && "$kind" != native-libraries ]]; then
+        build_environment="$(python3 /work/build_artifacts.py build-environment "$step")"
+        dependency_paths="$(jq -r '.libraries' <<< "$build_environment")"
+        header_paths="$(jq -r '.headers' <<< "$build_environment")"
+        export BLITZ_LIB_DIR=/artifacts/lib BLITZ_INCLUDE_DIR=/artifacts/include
+        export BLITZ_RESOURCE_DIR="/artifacts/resources/$module_name"
+        export LIBRARY_PATH="$dependency_paths" LD_LIBRARY_PATH="$dependency_paths"
+        export CPATH="$header_paths" CMAKE_PREFIX_PATH="${header_paths//:/;}"
+        export CMAKE_LIBRARY_PATH="$dependency_paths" CMAKE_INCLUDE_PATH="$header_paths"
+        export RUSTFLAGS="${dependency_paths:+-L native=${dependency_paths//:/ -L native=}}"
+    fi
     case "$kind" in
         system-packages)
             if [[ "$phase" == compile ]]; then continue; fi
@@ -177,18 +148,20 @@ while IFS= read -r step; do
             ;;
         cpp-build)
             if [[ "$phase" == provision ]]; then continue; fi
+            python3 /work/build_artifacts.py validate-toolkit "$step" "$plan"
             command="$(jq -r '.command' <<< "$step")"
             build_cpp_module "$source_path" "$module_name" "$command" "$actual_glibc" "$target_distro_key"
             ;;
         rust-build)
             if [[ "$phase" == provision ]]; then continue; fi
+            python3 /work/build_artifacts.py validate-toolkit "$step" "$plan"
             source "$HOME/.cargo/env"
             binary="$(jq -r '.binary // empty' <<< "$step")"
             build_rust_module "$source_path" "$module_name" "$binary"
             ;;
         native-libraries)
             if [[ "$phase" == provision ]]; then continue; fi
-            bundle_native_libraries
+            python3 /work/build_artifacts.py finalize "$plan"
             ;;
         copy-module)
             if [[ "$phase" == provision ]]; then continue; fi
@@ -209,6 +182,10 @@ while IFS= read -r step; do
             cp -a /work/dependency-inputs/python/. /artifacts/deps/python/
             ;;
         *) echo "Unknown build step: $kind" >&2; exit 1 ;;
+    esac
+    case "$kind" in
+        cpp-build|rust-build|copy-module)
+            python3 /work/build_artifacts.py export "$step" ;;
     esac
     printf '[blitz] DONE phase=%s step=%s\n' "$phase" "$step_id"
 done < <(jq -c '.steps[]' "$plan")

@@ -20,6 +20,14 @@ target. The `website/` directory contains the standalone Next.js marketing site.
 
 - Preserve the public deployment hooks in `backend/deploy.py`:
   `get_modules()` and `pi_name_to_process_types()`.
+- All module source folders and assets belong under
+  `backend/<language>/<module-folder>` (or the configured installer backend root).
+  One module owns one complete source folder; never declare multiple modules
+  for different files in the same folder.
+  Prefer `BackendModules(__file__)` declarations by module name over manually
+  constructing backend source paths in deployment examples and new code.
+  Shared source belongs in the language's `common/` folder. Do not expose sibling
+  Python modules as import paths; native dependencies use compiled exports.
 - Prefer typed Python APIs such as `ProcessPlan`, `WeightedProcess`, and
   `SupportedModules` over ad hoc dictionaries or new config formats.
 - Keep deployment behavior compatible with both local Python execution and the

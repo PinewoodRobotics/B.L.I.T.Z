@@ -13,20 +13,20 @@ ROOT = Path(__file__).resolve().parent
 def get_modules() -> list[SupportedModules._Generic]:
     return [
         SupportedModules.CPPLibraryModule(
-            "sample_cpp_library", FolderPath(str(ROOT / "cpp_library")),
+            "sample_cpp_library", FolderPath(str(ROOT / "cpp/cpp_library")),
             CPPBuildConfig.with_cmake(),
         ),
         SupportedModules.CPPRunnableModule(
             "sample_cpp_executable", [], None,
-            FolderPath(str(ROOT / "cpp_executable")),
+            FolderPath(str(ROOT / "cpp/cpp_executable")),
             CPPBuildConfig.with_cmake(), "sample_cpp_executable",
         ),
         SupportedModules.RustLibraryModule(
-            "sample_rust_library", FolderPath(str(ROOT / "rust_library")),
+            "sample_rust_library", FolderPath(str(ROOT / "rust/rust_library")),
         ),
         SupportedModules.RustModule(
             "sample_rust_executable", [], None,
-            FolderPath(str(ROOT / "rust_executable")), "sample_rust_executable",
+            FolderPath(str(ROOT / "rust/rust_executable")), "sample_rust_executable",
         ),
     ]
 

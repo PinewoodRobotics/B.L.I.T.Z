@@ -96,7 +96,8 @@ def test_installs_into_discovered_wpilib_project_from_nested_directory(tmp_path:
     assert deploy_py.is_file()
     deploy_source = deploy_py.read_text()
     ast.parse(deploy_source)
-    assert '.set_local_backend_path("backend")' in deploy_source
+    assert 'modules = BackendModules(__file__)' in deploy_source
+    assert '.set_local_backend_path(modules.backend_path)' in deploy_source
 
     deploy_import = subprocess.run(
         [sys.executable, "-c", "from backend.deploy import get_modules; assert get_modules() == []"],
@@ -373,7 +374,7 @@ def test_local_backend_script_changes_backend_folder_and_gradle_blocks(tmp_path:
         in (project / "settings.gradle").read_text()
     )
     assert (
-        '.set_local_backend_path("robotBackend")'
+        '.set_local_backend_path(modules.backend_path)'
         in (project / "robotBackend" / "deploy.py").read_text()
     )
     assert (project / "settings.gradle").read_text().count(

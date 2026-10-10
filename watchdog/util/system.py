@@ -223,6 +223,19 @@ def read_os_release() -> dict[str, str]:
     return values
 
 
+def collect_capabilities() -> dict[str, str]:
+    """Only advertise CUDA when a local NVIDIA driver reports support."""
+    capabilities: dict[str, str] = {}
+    try:
+        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True, timeout=3, check=False)
+        match = re.search(r"CUDA Version:\s*(\d+\.\d+)", result.stdout)
+        if result.returncode == 0 and match:
+            capabilities["cuda"] = match.group(1)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return capabilities
+
+
 @dataclass
 class DiscoveredNetworkSystem:
     hostname: str
@@ -237,6 +250,7 @@ class DiscoveredNetworkSystem:
     os_distribution_id: str | None = None
     os_distribution_family: str | None = None
     os_distribution_version_id: str | None = None
+    capabilities_json: str = "{}"
 
     @classmethod
     def collect(cls) -> "DiscoveredNetworkSystem":
@@ -247,6 +261,7 @@ class DiscoveredNetworkSystem:
         )
 
         return cls(
+            capabilities_json=json.dumps(collect_capabilities(), sort_keys=True),
             hostname=get_local_hostname(),
             system_name=get_system_name(),
             watchdog_port=system_config.watchdog_api.api_port,

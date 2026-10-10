@@ -46,12 +46,22 @@ class OpenedProcess(subprocess.Popen[str]):
     def start_module(
         cls, module: RunnableModule, bundle_path: str, flags: dict[str, str]
     ) -> "OpenedProcess":
-        cmd = f"{module.get_run_command(bundle_path)} {OpenedProcess._format_flags(flags)}".strip()
-        debug(f"Starting: {cmd}\n")
+        bundle_path = os.path.abspath(bundle_path)
+        flags = dict(flags)
+        for key in ("config-path", "basic-system-config-path", "blitz-path", "bundle-folder-path"):
+            if key in flags:
+                flags[key] = os.path.abspath(flags[key])
+        argv = module.get_run_argv(bundle_path, flags.get("blitz-path"))
+        if module.launch.accepts_blitz_flags:
+            argv.extend(part for key, value in flags.items() for part in (f"--{key}", value))
+        debug(f"Starting: {shlex.join(argv)}\n")
         environment = os.environ.copy()
         environment.update(module.get_run_environment(bundle_path))
+        environment.update({"BLITZ_" + key.upper().replace("-", "_"): value for key, value in flags.items()})
+
         return cls(
-            shlex.split(cmd),
+            argv,
+            cwd=module.get_run_directory(bundle_path),
             env=environment,
             text=True,
             bufsize=1,

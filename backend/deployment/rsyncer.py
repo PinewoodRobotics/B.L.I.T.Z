@@ -1,7 +1,9 @@
 import os
 import posixpath
 import shlex
+from pathlib import PurePosixPath
 
+from backend.deployment.module.graph import ModuleGraph
 from backend.deployment.module.base import DependencyInstallation, Module, matches_module_type
 from backend.deployment.network_api.system_api import System
 from backend.deployment.network_api.utils import FilePath, FolderPath
@@ -28,6 +30,9 @@ class Rsyncer:
             system_host_to_pass_user
         )
         self.are_deps_bundled: bool = are_deps_bundled
+        transfer_path = PurePosixPath(self.backend_bundle_path.strip('/'))
+        if not transfer_path.parts or '..' in transfer_path.parts or transfer_path.parts[0] == 'backend':
+            raise ValueError('Bundle transfers require a dedicated folder outside backend/')
 
     def deploy(self) -> None:
         for system in sorted(self.systems, key=self._system_label):
@@ -37,10 +42,11 @@ class Rsyncer:
 
             if self.are_deps_bundled:
                 self.install_dependencies(system)
+            self.cleanup_bundle_transfers(system)
 
     def install_dependencies(self, system: System) -> None:
         installed_deps_lang_names: set[str] = set()
-        for module in self.modules:
+        for module in ModuleGraph(self.modules).compatible(system.general_info.to_system_id()):
             if not matches_module_type(module, DependencyInstallation):
                 continue
 
@@ -100,20 +106,35 @@ class Rsyncer:
             )
         )
         bundle_dir_name = name[:-4] if name.endswith(".zip") else name
-        remote_extracted_bundle_path = FolderPath(
-            posixpath.join(remote_bundle_dir, bundle_dir_name)
-        )
-
         command = f"""
-        rm -rf {shlex.quote(remote_extracted_bundle_path)} &&
-        unzip -o {shlex.quote(remote_zip_path)} -d {shlex.quote(remote_bundle_dir)} &&
-        rsync -a {shlex.quote(remote_extracted_bundle_path)}/ {shlex.quote(remote_backend_path)}/ &&
-        rm -rf {shlex.quote(remote_extracted_bundle_path)}
+        set -e
+        staging=$(mktemp -d {shlex.quote(posixpath.join(remote_bundle_dir, '.install.XXXXXX'))})
+        trap 'rm -rf -- "$staging"' EXIT
+        unzip -o {shlex.quote(remote_zip_path)} -d "$staging"
+        test -d "$staging"/{shlex.quote(bundle_dir_name)}
+        rsync -a --delete --exclude=/deployment/ --exclude=/__init__.py -- \
+            "$staging"/{shlex.quote(bundle_dir_name)}/ {shlex.quote(remote_backend_path)}/
         """
         if not system.run_command(command):
             raise RuntimeError(
-                f"Failed to extract bundle on {system.general_info.hostname}"
+                f"Failed to install bundle on {system.general_info.hostname}"
             )
+
+    def cleanup_bundle_transfers(self, system: System) -> None:
+        """Keep only backend/; transfer archives are not a target-side cache."""
+        remote_bundle_dir = posixpath.join(
+            system.general_info.blitz_path, self.backend_bundle_path.strip('/')
+        )
+        command = f"""
+        set -e
+        for archive in {shlex.quote(remote_bundle_dir)}/*.zip; do
+            [ -f "$archive" ] || continue
+            rm -rf -- "${{archive%.zip}}"
+            rm -f -- "$archive"
+        done
+        """
+        if not system.run_command(command):
+            raise RuntimeError(f"Failed to clean bundle transfers on {system.general_info.hostname}")
 
     def get_bundled_zip(self, system: DiscoveredNetworkSystem) -> tuple[str, FilePath]:
         name = f"{system.to_system_id().to_build_key()}.zip"

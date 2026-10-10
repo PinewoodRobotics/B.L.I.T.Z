@@ -1,3 +1,4 @@
+#include "values.h"
 #include <dlfcn.h>
 #include <iostream>
 
@@ -10,7 +11,7 @@ int main(int argc, char** argv) {
     }
     auto value = reinterpret_cast<int (*)()>(dlsym(library, "blitz_cpp_library_value"));
     if (!value) return 4;
-    std::cout << value() + 1 << '\n';
+    std::cout << value() + executable_increment() << '\n';
     dlclose(library);
     return 0;
 }

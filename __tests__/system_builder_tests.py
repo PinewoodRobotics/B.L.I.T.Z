@@ -70,6 +70,7 @@ def test_one_system_graph_builds_every_declared_module(tmp_path: Path, monkeypat
         "RUN /bin/bash /work/build_system.sh provision\n"
         "FROM ${DEPENDENCY_IMAGE} AS build\n"
         "COPY build_system.sh /work/build_system.sh\n"
+        "COPY build_artifacts.py /work/build_artifacts.py\n"
         "COPY build-plan.json /work/build-plan.json\n"
         "COPY sources /work/sources\n"
         "COPY workspace /work/workspace\n"
@@ -158,3 +159,40 @@ def test_stale_dependency_images_match_only_the_current_system(
 
     monkeypatch.setattr("backend.deployment.compilation.system_builder.subprocess.run", fake_run)
     assert builder.stale_dependency_images() == [older]
+
+
+@pytest.mark.parametrize('cached', [True, False])
+def test_cleanup_requires_replacement_and_only_removes_owned_profile_images(tmp_path, monkeypatch, cached):
+    system = SystemId('2.36', LinuxDistro.DEBIAN_12, Architecture.AMD64, PythonVersion(3, 11))
+    builder = SystemBuilder(system, FolderPath(str(tmp_path / 'artifacts')), FolderPath(str(tmp_path / 'context')))
+    builder.prepare([], bundle_dependencies=False)
+    prefix = f'blitz-deps-{system.to_build_key()}-'.lower()
+    old = prefix + '0' * 16
+    # A longer system profile must not match this profile merely by prefix.
+    candidates = [old, prefix + 'cap-cuda12-' + '1' * 16, 'unrelated-image', prefix + 'manual-tag']
+    monkeypatch.setattr(builder, 'dependencies_cached', lambda: cached)
+    monkeypatch.setattr(builder, 'stale_dependency_images', lambda: candidates)
+    commands = []
+    monkeypatch.setattr('backend.deployment.compilation.system_builder.run_command', lambda command, *_args, **_kwargs: commands.append(command))
+    if not cached:
+        with pytest.raises(RuntimeError, match='before current dependencies'):
+            builder.prune_stale_dependency_images()
+        assert commands == []
+    else:
+        assert builder.prune_stale_dependency_images() == [old]
+        assert commands == [['docker', 'image', 'rm', old]]
+
+
+def test_cleanup_keeps_in_use_images_and_continues(tmp_path, monkeypatch, capsys):
+    system = SystemId('2.36', LinuxDistro.DEBIAN_12, Architecture.AMD64, PythonVersion(3, 11))
+    builder = SystemBuilder(system, FolderPath(str(tmp_path / 'artifacts')), FolderPath(str(tmp_path / 'context')))
+    first = f'blitz-deps-{system.to_build_key()}-' + '0' * 16
+    second = f'blitz-deps-{system.to_build_key()}-' + '1' * 16
+    monkeypatch.setattr(builder, 'dependencies_cached', lambda: True)
+    monkeypatch.setattr(builder, 'stale_dependency_images', lambda: [first, second])
+    def remove(command, *_args, **_kwargs):
+        if command[-1] == first:
+            raise subprocess.CalledProcessError(1, command, output='image is used by a container')
+    monkeypatch.setattr('backend.deployment.compilation.system_builder.run_command', remove)
+    assert builder.prune_stale_dependency_images() == [second]
+    assert f'Kept stale Docker image {first}' in capsys.readouterr().out

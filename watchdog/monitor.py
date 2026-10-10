@@ -138,7 +138,7 @@ class ProcessMonitor:
         possible_processes: list[str] = []
         for module in get_modules():
             if isinstance(module, RunnableModule):
-                possible_processes.append(module.equivalent_run_definition.get_name())
+                possible_processes.append(module.get_process_name())
 
         return possible_processes
 
@@ -184,7 +184,7 @@ class ProcessMonitor:
 
     def start_process(self, process_type: str) -> OpenedProcess | None:
         module = next(
-            (module for module in get_modules() if module.name == process_type),
+            (module for module in get_modules() if isinstance(module, RunnableModule) and module.get_process_name() == process_type),
             None,
         )
 

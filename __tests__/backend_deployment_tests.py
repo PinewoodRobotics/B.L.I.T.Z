@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+
 import json
 import platform
 import subprocess
@@ -78,8 +80,8 @@ print(json.dumps({
 
 
 def build_sample_python_module(tmp_path: Path) -> SupportedModules.PythonModule:
-    module_root = tmp_path / "sample_deployment_module"
-    module_root.mkdir()
+    module_root = tmp_path / "backend/python/sample_deployment_module"
+    module_root.mkdir(parents=True)
     (module_root / "__main__.py").write_text(
         "import six\n"
         "from pathlib import Path\n"
@@ -217,11 +219,12 @@ def test_rsyncer_deploys_backend_bundle_and_installs_python_dependencies(
     discovered_system = make_discovered_system(docker_runner, target, "127.0.0.1")
     system_id = discovered_system.to_system_id()
     module = build_sample_python_module(tmp_path)
+    shutil.copyfile(REPO_ROOT / "backend/deploy.py", tmp_path / "backend/deploy.py")
     monkeypatch.chdir(tmp_path)
 
     archive_path = CodeBundler(
         modules=[module],
-        backend_local_path=FolderPath(str(REPO_ROOT / "backend")),
+        backend_local_path=FolderPath(str(tmp_path / "backend")),
         build_folder_path=FolderPath(str(tmp_path / "build")),
         output_folder_path=FolderPath(str(tmp_path / "output")),
         system_id=system_id,
@@ -245,7 +248,6 @@ def test_rsyncer_deploys_backend_bundle_and_installs_python_dependencies(
     docker_runner.assert_files_exist(
         target,
         [
-            f"{INSTALLED_REPO}/{REMOTE_BUNDLE_PATH}/{bundle_name}",
             f"{INSTALLED_REPO}/backend/deploy.py",
             f"{INSTALLED_REPO}/backend/python/sample_deployment_module/__main__.py",
         ],
@@ -254,6 +256,7 @@ def test_rsyncer_deploys_backend_bundle_and_installs_python_dependencies(
         target,
         f"""
         set -euo pipefail
+        test ! -e {INSTALLED_REPO}/{REMOTE_BUNDLE_PATH}/{bundle_name}
         test -d {INSTALLED_REPO}/backend/deps/python
         ls {INSTALLED_REPO}/backend/deps/python/six-1.17.0-*.whl
         {INSTALLED_REPO}/.venv/bin/python -c 'import six; assert six.__version__ == "1.17.0"'

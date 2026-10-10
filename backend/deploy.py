@@ -5,6 +5,9 @@ from backend.deployment.compilation.system_builder import DockerCacheInspectionE
 from backend.deployment.network_api.utils import FolderPath
 from backend.deployment.processes import ProcessPlan, WeightedProcess
 from backend.deployment.module.supported import SupportedModules
+from backend.deployment.module.catalog import BackendModules
+
+modules = BackendModules(__file__)
 
 
 class ProcessType(WeightedProcess):
@@ -22,7 +25,7 @@ def get_modules() -> list[SupportedModules._Generic]:
 if __name__ == "__main__":
     config = (
         BlitzNetworkDeployer.Options()
-        .set_local_backend_path(FolderPath("backend/"))
+        .set_local_backend_path(modules.backend_path)
         .set_config_supplier(
             lambda: json.dumps(
                 {

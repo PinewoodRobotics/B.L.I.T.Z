@@ -436,8 +436,10 @@ write_deploy_template() {
 from backend.deployment.deployer import BlitzNetworkDeployer
 from backend.deployment.misc import output
 from backend.deployment.module.supported import SupportedModules
+from backend.deployment.module.catalog import BackendModules
 from backend.deployment.processes import ProcessPlan, WeightedProcess
 
+modules = BackendModules(__file__)
 
 class ProcessType(WeightedProcess):
     # Example:
@@ -456,12 +458,7 @@ def pi_name_to_process_types(pi_names: list[str]) -> dict[str, list[ProcessType]
 
 def get_modules() -> list[SupportedModules._Generic]:
     return [
-        # SupportedModules.PythonModule(
-        #     name="example",
-        #     extra_run_args=[],
-        #     equivalent_run_definition=ProcessType.APRILTAG,
-        #     module_folder_path="${BLITZ_BACKEND_DIR}/python/example",
-        # ),
+        # modules.python("example", process=ProcessType.APRILTAG),
     ]
 
 
@@ -470,7 +467,7 @@ if __name__ == "__main__":
 
     config = (
         BlitzNetworkDeployer.Options()
-        .set_local_backend_path("${BLITZ_BACKEND_DIR}")
+        .set_local_backend_path(modules.backend_path)
         .should_bundle_dependencies(True)
         .set_discovery_timeout(2)
         .build()

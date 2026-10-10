@@ -14,6 +14,7 @@ from backend.deployment.bundler import CodeBundler
 from backend.deployment.compilation.util.systems import SystemId
 from backend.deployment.compilation.system_builder import SystemBuilder
 from backend.deployment.module.base import Module, matches_module_type
+from backend.deployment.module.graph import ModuleGraph
 from backend.deployment.network_api.system_api import System
 from backend.deployment.network_api.utils import FolderPath
 from backend.deployment.network_api.zeroconf import (
@@ -111,6 +112,7 @@ class BlitzNetworkDeployer:
         mapper: ProcessMapper,
         config: BlitzNetworkDeployer.Options | None = None,
         systems: set[System] | None = None,
+        process_mapping: Mapping[str, Sequence[WeightedProcess]] | None = None,
     ) -> None:
         if config is None:
             config = BlitzNetworkDeployer.Options().build()
@@ -118,6 +120,10 @@ class BlitzNetworkDeployer:
             systems = BlitzNetworkDeployer._find_systems(config)
         if not systems:
             raise ValueError("No systems discovered")
+        if process_mapping is None:
+            process_mapping = BlitzNetworkDeployer._preflight(modules, mapper, systems)
+        else:
+            BlitzNetworkDeployer._validate_mapping(modules, process_mapping, systems)
         bundle_paths = BlitzNetworkDeployer._bundle_paths(config, systems)
         verify_bundles(BlitzNetworkDeployer._index_path(config), bundle_paths)
 
@@ -130,9 +136,6 @@ class BlitzNetworkDeployer:
             are_deps_bundled=config.bundle_dependencies,
         ).deploy()
 
-        process_mapping = mapper(
-            [system.general_info.system_name for system in systems]
-        )
         for system in sorted(systems, key=BlitzNetworkDeployer._system_label):
             pi_name = normalize_pi_name(system.general_info.system_name)
             processes = process_mapping.get(
@@ -165,6 +168,7 @@ class BlitzNetworkDeployer:
         systems = BlitzNetworkDeployer._find_systems(config)
         if not systems:
             raise ValueError("No watchdog systems discovered; no bundles were built")
+        process_mapping = BlitzNetworkDeployer._preflight(modules, mapper, systems)
         print(f"found {len(systems)} systems")
         BlitzNetworkDeployer._remember_systems(config, systems)
         system_ids = BlitzNetworkDeployer._unique_system_ids(systems)
@@ -205,7 +209,7 @@ class BlitzNetworkDeployer:
                 raise MissingDependencyCacheError("Deployment cancelled. " + cache_instruction)
             print("Continuing with older cached dependencies by user choice.")
         BlitzNetworkDeployer.build_bundles(modules, config, system_ids, stale_images)
-        BlitzNetworkDeployer.distribute(modules, mapper, config, systems)
+        BlitzNetworkDeployer.distribute(modules, mapper, config, systems, process_mapping)
 
     @staticmethod
     def cache_dependencies(
@@ -226,6 +230,9 @@ class BlitzNetworkDeployer:
                 print(f"Docker dependencies for {system_id.to_build_key()}: cached")
             else:
                 builder.cache_dependencies()
+        # Finish caching the fleet before discarding fallback images.
+        for system_id in system_ids:
+            BlitzNetworkDeployer._builder(config, system_id).prune_stale_dependency_images()
         print(f"cached dependencies for {len(system_ids)} system types")
 
     @staticmethod
@@ -308,9 +315,27 @@ class BlitzNetworkDeployer:
         )
 
     @staticmethod
+    def _preflight(
+        modules: list[Module], mapper: ProcessMapper, systems: set[System]
+    ) -> Mapping[str, Sequence[WeightedProcess]]:
+        mapping = mapper([system.general_info.system_name for system in sorted(systems, key=BlitzNetworkDeployer._system_label)])
+        BlitzNetworkDeployer._validate_mapping(modules, mapping, systems)
+        return mapping
+
+    @staticmethod
+    def _validate_mapping(
+        modules: list[Module], mapping: Mapping[str, Sequence[WeightedProcess]], systems: set[System]
+    ) -> None:
+        graph = ModuleGraph(modules)
+        for system in systems:
+            name = system.general_info.system_name
+            processes = mapping.get(normalize_pi_name(name), mapping.get(name, ()))
+            graph.validate_processes([process.get_name() for process in processes], system.general_info.to_system_id())
+
+    @staticmethod
     def _builder(config: BlitzNetworkDeployer.Options, system_id: SystemId) -> SystemBuilder:
         bundler = BlitzNetworkDeployer._bundler([], config, system_id)
-        return SystemBuilder(system_id, bundler.build_path, bundler.context_path)
+        return SystemBuilder(system_id, bundler.build_path, bundler.context_path, config.local_backend_path)
 
     @staticmethod
     def _find_systems(config: BlitzNetworkDeployer.Options) -> set[System]:

@@ -15,6 +15,8 @@ import tomllib
 from backend.deployment.compilation.util.commands import run_command
 from backend.deployment.compilation.util.systems import SystemId
 from backend.deployment.module.base import Module, matches_module_type
+from backend.deployment.module.graph import ModuleGraph
+from backend.deployment.module.layout import validate_backend_layout
 from backend.deployment.module.supported import (
     CPPLibraryModule,
     CPPRunnableModule,
@@ -25,6 +27,7 @@ from backend.deployment.module.supported import (
 )
 from backend.deployment.network_api.utils import FolderPath
 
+ARTIFACT_SCRIPT_PATH = Path(__file__).with_name("build_artifacts.py")
 SCRIPT_PATH = Path(__file__).with_name("build_system.sh")
 # Bump this when the script's provisioning behavior changes. Compile and logging
 # edits must not force dependency downloads for every recorded system type.
@@ -49,6 +52,11 @@ class BuildStep:
     libraries: str | None = None
     extra_commands: str | None = None
     binary: str | None = None
+    dependencies: tuple[str, ...] = ()
+    outputs: dict[str, tuple[str, ...]] | None = None
+    entry_file: str | None = None
+    entry_package: str | None = None
+    target_capabilities: tuple[dict[str, str | None], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -63,8 +71,17 @@ class BuildPlan:
             if step.id in completed or missing:
                 raise ValueError(f"Invalid build graph at {step.id}: missing {sorted(missing)}")
             completed.add(step.id)
+        serialized_steps = []
+        provision_kinds = {"system-packages", "cpp-dependencies", "rust-toolchain", "rust-fetch", "python-wheels"}
+        for step in self.steps:
+            values = asdict(step)
+            if step.kind in provision_kinds:
+                for key in ("dependencies", "outputs", "entry_file", "entry_package", "target_capabilities"):
+                    values.pop(key)
+            serialized_steps.append(values)
         return {
             "system": {
+                **({"capabilities": dict(self.system_id.capabilities)} if self.system_id.capabilities else {}),
                 "glibc": self.system_id.c_lib_version,
                 "distro": self.system_id.linux_distro.value,
                 "distro_key": self.system_id.linux_distro.remove_nonchars(),
@@ -72,7 +89,7 @@ class BuildPlan:
                 "python_major": self.system_id.python_version.major,
                 "python_minor": self.system_id.python_version.minor,
             },
-            "steps": [asdict(step) for step in self.steps],
+            "steps": serialized_steps,
         }
 
 
@@ -90,15 +107,22 @@ def _copy_source(source: str, destination: Path, exclude: str = "") -> None:
 
 class SystemBuilder:
     def __init__(
-        self, system_id: SystemId, build_path: FolderPath, context_path: FolderPath
+        self, system_id: SystemId, build_path: FolderPath, context_path: FolderPath,
+        backend_path: FolderPath | None = None,
     ):
         self.system_id = system_id
         self.build_path = Path(build_path).resolve()
         self.context = Path(context_path).resolve()
         self.dockerfile = self.context / "Dockerfile"
+        self.backend_path = Path(backend_path).resolve() if backend_path is not None else None
 
     def _stage_project(self, module: Module, source: str, workspace_copied: bool) -> tuple[str, bool]:
         source_path = Path(source).resolve()
+        if self.backend_path is not None:
+            if not workspace_copied:
+                _copy_source(str(self.backend_path), self.context / 'workspace' / 'backend')
+            staged_source = self.context / 'workspace' / 'backend' / source_path.relative_to(self.backend_path)
+            return f'/work/{staged_source.relative_to(self.context)}', True
         try:
             relative_path = source_path.relative_to(Path.cwd().resolve())
         except ValueError:
@@ -112,7 +136,15 @@ class SystemBuilder:
         return f"/work/{staged_source.relative_to(self.context)}", workspace_copied
 
     def create_plan(self, modules: list[Module], bundle_dependencies: bool) -> BuildPlan:
-        """Include every declared module for this system, regardless of process assignment."""
+        """Build every compatible declared module, regardless of process assignment."""
+        if self.backend_path is not None:
+            validate_backend_layout(modules, str(self.backend_path))
+        graph = ModuleGraph(modules)
+        for module in graph.ordered:
+            reason = graph.reason(module.name, self.system_id)
+            if reason:
+                print(f"Skipping module {module.name}: {reason}")
+        modules = graph.compatible(self.system_id)
         self.context.mkdir(parents=True, exist_ok=True)
         for folder in ("sources", "workspace", "dependency-inputs"):
             staged_folder = self.context / folder
@@ -121,14 +153,7 @@ class SystemBuilder:
             staged_folder.mkdir()
         staged: list[tuple[Module, str]] = []
         workspace_copied = False
-        seen_modules: set[tuple[str, str]] = set()
         for module in modules:
-            if not re.fullmatch(r"[A-Za-z0-9_.-]+", module.name) or module.name in (".", ".."):
-                raise ValueError(f"Unsafe module name: {module.name}")
-            identity = (module.get_language_name(), module.name)
-            if identity in seen_modules:
-                raise ValueError(f"Duplicate module: {identity}")
-            seen_modules.add(identity)
             if matches_module_type(module, CPPLibraryModule, CPPRunnableModule, RustModule, RustLibraryModule, GeneratedModule):
                 source, workspace_copied = self._stage_project(
                     module, module.project_root_folder_path, workspace_copied
@@ -136,6 +161,12 @@ class SystemBuilder:
             elif matches_module_type(module, PythonModule):
                 staged_source = self.context / "sources" / "python" / module.name
                 _copy_source(module.module_folder_path, staged_source)
+                if self.backend_path is not None:
+                    common = self.backend_path / 'python' / 'common'
+                    if common.is_dir():
+                        if (staged_source / 'common').exists():
+                            raise ValueError(f'Module {module.name} shadows shared backend/python/common')
+                        _copy_source(str(common), staged_source / 'common')
                 source = f"/work/{staged_source.relative_to(self.context)}"
             else:
                 raise TypeError(f"Container build does not support {type(module).__name__}")
@@ -143,9 +174,8 @@ class SystemBuilder:
 
         cpp_modules = [(m, s) for m, s in staged if matches_module_type(m, CPPLibraryModule, CPPRunnableModule)]
         rust_modules = [(m, s) for m, s in staged if matches_module_type(m, RustModule, RustLibraryModule)]
-        copy_modules = [(m, s) for m, s in staged if matches_module_type(m, PythonModule, GeneratedModule)]
         python_wheels = bundle_dependencies and any(matches_module_type(m, PythonModule) for m, _ in staged)
-        if python_wheels and not workspace_copied:
+        if python_wheels and not workspace_copied and self.backend_path is None:
             _copy_source(str(Path.cwd()), self.context / "workspace", self.context.name)
         dependency_inputs = self.context / "dependency-inputs"
         if python_wheels:
@@ -178,6 +208,7 @@ class SystemBuilder:
                         pending.append(requirement_file.parent / option[2:])
                     elif option.startswith(("--requirement=", "--constraint=")):
                         pending.append(requirement_file.parent / option.split("=", 1)[1])
+        rust_fetch_sources: dict[str, str] = {}
         for module, source in rust_modules:
             project = self.context / source.removeprefix("/work/")
             manifest_root = project
@@ -185,7 +216,13 @@ class SystemBuilder:
                 manifest_root = manifest_root.parent
             if not (manifest_root / "Cargo.toml").is_file():
                 raise FileNotFoundError(f"Cargo.toml not found for {module.name}")
+            if self.backend_path is not None:
+                # Preserve relative path dependencies on backend/rust/common,
+                # including its manifests, without caching source contents.
+                manifest_root = self.context / 'workspace' / 'backend' / 'rust'
             rust_inputs = dependency_inputs / "rust" / module.name
+            fetch_project = project if (project / 'Cargo.toml').is_file() else manifest_root
+            rust_fetch_sources[module.name] = str(Path('/work/dependency-inputs/rust') / module.name / fetch_project.relative_to(manifest_root))
             for manifest in manifest_root.rglob("Cargo.toml"):
                 if any(part in ("target", "build", ".git") for part in manifest.relative_to(manifest_root).parts):
                     continue
@@ -210,7 +247,7 @@ class SystemBuilder:
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copyfile(candidate, dest)
         steps: list[BuildStep] = []
-        if cpp_modules or rust_modules or python_wheels:
+        if staged:
             steps.append(BuildStep("system-packages", "system-packages"))
         cpp_deps: list[str] = []
         for module, _source in cpp_modules:
@@ -228,37 +265,44 @@ class SystemBuilder:
                 steps.append(BuildStep(
                     f"rust-fetch:{module.name}", "rust-fetch", ("rust-toolchain",),
                     module=module.name,
-                    source=f"/work/dependency-inputs/rust/{module.name}",
+                    source=rust_fetch_sources[module.name],
                 ))
         if python_wheels:
             steps.append(BuildStep(
                 "python-wheels", "python-wheels", ("system-packages", *cpp_deps),
             ))
-        for module, source in cpp_modules:
-            assert matches_module_type(module, CPPLibraryModule, CPPRunnableModule)
-            steps.append(BuildStep(
-                f"cpp-build:{module.name}", "cpp-build", tuple(cpp_deps),
-                module=module.name, language="cpp", source=source,
-                command=module.compilation_config.build_cmd,
-            ))
-        for module, source in rust_modules:
-            assert matches_module_type(module, RustModule, RustLibraryModule)
-            steps.append(BuildStep(
-                f"rust-build:{module.name}", "rust-build", (f"rust-fetch:{module.name}",),
-                module=module.name, language="rust", source=source,
-                binary=module.runnable_name if matches_module_type(module, RustModule) else None,
-            ))
-        for module, source in copy_modules:
-            steps.append(BuildStep(
-                f"copy:{module.get_language_name()}:{module.name}", "copy-module",
+        build_ids: dict[str, str] = {}
+        for module, source in staged:
+            dependencies = tuple(build_ids[name] for name in module.dependencies)
+            metadata = dict(
                 module=module.name, language=module.get_language_name(), source=source,
-            ))
-        if cpp_modules or rust_modules or python_wheels:
-            build_ids = tuple(
-                step.id for step in steps
-                if step.kind in ("cpp-build", "rust-build", "python-wheels")
+                dependencies=tuple(graph.closure(module.name)[1:]), outputs=asdict(module.outputs),
+                target_capabilities=tuple(asdict(requirement) for requirement in module.targets.capabilities),
             )
-            steps.append(BuildStep("native-libraries", "native-libraries", build_ids))
+            if matches_module_type(module, CPPLibraryModule, CPPRunnableModule):
+                step = BuildStep(
+                    f"cpp-build:{module.name}", "cpp-build", (*cpp_deps, *dependencies),
+                    command=module.compilation_config.build_cmd,
+                    binary=module.runnable_name if matches_module_type(module, CPPRunnableModule) else None,
+                    **metadata,
+                )
+            elif matches_module_type(module, RustModule, RustLibraryModule):
+                step = BuildStep(
+                    f"rust-build:{module.name}", "rust-build", (f"rust-fetch:{module.name}", *dependencies),
+                    binary=module.runnable_name if matches_module_type(module, RustModule) else None,
+                    **metadata,
+                )
+            else:
+                step = BuildStep(
+                    f"copy:{module.get_language_name()}:{module.name}", "copy-module", dependencies,
+                    entry_file=module.entrypoint.file if matches_module_type(module, PythonModule) else None,
+                    entry_package=module.entrypoint.package if matches_module_type(module, PythonModule) else None,
+                    **metadata,
+                )
+            steps.append(step)
+            build_ids[module.name] = step.id
+        if staged:
+            steps.append(BuildStep("native-libraries", "native-libraries", (*build_ids.values(), *(("python-wheels",) if python_wheels else ()))))
         plan = BuildPlan(self.system_id, tuple(steps))
         (self.context / "build-plan.json").write_text(
             json.dumps(plan.to_dict(), indent=2) + "\n"
@@ -276,6 +320,7 @@ class SystemBuilder:
     def prepare(self, modules: list[Module], bundle_dependencies: bool) -> BuildPlan:
         plan = self.create_plan(modules, bundle_dependencies)
         shutil.copyfile(SCRIPT_PATH, self.context / "build_system.sh")
+        shutil.copyfile(ARTIFACT_SCRIPT_PATH, self.context / "build_artifacts.py")
         platform = self.system_id.docker_image
         dockerfile_lines = [
             "ARG DEPENDENCY_IMAGE=scratch",
@@ -287,6 +332,7 @@ class SystemBuilder:
             "RUN /bin/bash /work/build_system.sh provision",
             "FROM ${DEPENDENCY_IMAGE} AS build",
             "COPY build_system.sh /work/build_system.sh",
+            "COPY build_artifacts.py /work/build_artifacts.py",
             "COPY build-plan.json /work/build-plan.json",
             "COPY sources /work/sources",
             "COPY workspace /work/workspace",
@@ -350,6 +396,32 @@ class SystemBuilder:
             image for image in result.stdout.splitlines()
             if image.startswith(prefix) and image != current
         ))
+
+    def prune_stale_dependency_images(self) -> list[str]:
+        """Remove superseded BLITZ dependency tags only after verifying replacement."""
+        if not self.dependencies_cached():
+            raise RuntimeError("Cannot remove older Docker images before current dependencies are cached")
+        prefix = f"blitz-deps-{self.system_id.to_build_key()}-".lower()
+        pattern = re.compile(re.escape(prefix) + r"[0-9a-f]{16}")
+        stale = [image for image in self.stale_dependency_images() if pattern.fullmatch(image)]
+        if not stale:
+            print(f"Docker cache cleanup for {self.system_id.to_build_key()}: no stale dependency images")
+            return []
+        removed: list[str] = []
+        for image in stale:
+            try:
+                run_command(
+                    ["docker", "image", "rm", image],
+                    f"Remove stale Docker dependency image {image}",
+                    log_path=self._log_path(f"cleanup-{image[-16:]}"),
+                )
+            except (subprocess.CalledProcessError, OSError) as error:
+                # Containers may still use this image. Never force their removal.
+                print(f"WARNING: Kept stale Docker image {image}: {error}")
+            else:
+                removed.append(image)
+                print(f"Removed stale Docker dependency image {image}")
+        return removed
 
     def _log_path(self, phase: str) -> Path:
         return self.context.parents[1] / "logs" / self.context.name / f"{phase}.log"

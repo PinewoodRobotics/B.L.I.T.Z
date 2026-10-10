@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from collections.abc import Mapping
 import re
+import json
 
 
 @dataclass
@@ -119,10 +120,17 @@ class SystemId:
     linux_distro: LinuxDistro
     architecture: Architecture
     python_version: PythonVersion
+    capabilities: tuple[tuple[str, str], ...] = ()
+
+    def __post_init__(self) -> None:
+        if len(dict(self.capabilities)) != len(self.capabilities):
+            raise ValueError("Duplicate target capability")
+        self.capabilities = tuple(sorted(self.capabilities))
 
     @classmethod
     def from_plan_system(cls, values: Mapping[str, object]) -> "SystemId":
         return cls(
+            capabilities=tuple(sorted(dict(values.get("capabilities", {})).items())),
             c_lib_version=str(values["glibc"]),
             linux_distro=LinuxDistro(str(values["distro"])),
             architecture=Architecture(str(values["architecture"])),
@@ -143,11 +151,16 @@ class SystemId:
 
     def to_build_key(self) -> str:
         distro = re.sub(r"[^a-zA-Z0-9]+", "-", self.linux_distro.value).strip("-")
-        return f"{self.c_lib_version}-{self.architecture.value}-{distro}-{str(self.python_version)}"
+        key = f"{self.c_lib_version}-{self.architecture.value}-{distro}-{str(self.python_version)}"
+        if self.capabilities:
+            key += "-caps-" + json.dumps(dict(self.capabilities), sort_keys=True, separators=(",", ":")).encode().hex()
+        return key
 
     @classmethod
     def from_build_key(cls, key: str) -> "SystemId":
         """Recover a known target profile from an existing bundle name."""
+        key, separator, capabilities_hex = key.partition("-caps-")
+        capabilities = tuple(sorted(json.loads(bytes.fromhex(capabilities_hex)).items())) if separator else ()
         match = re.fullmatch(
             r"(?P<glibc>\d+\.\d+)-(?P<arch>amd64|arm64|arm32|aarch64)-"
             r"(?P<distro>.+)-python(?P<major>\d+)-(?P<minor>\d+)",
@@ -166,6 +179,7 @@ class SystemId:
         if distro is None:
             raise ValueError(f"Unsupported distro in system build key: {key}")
         return cls(
+            capabilities=capabilities,
             c_lib_version=match.group("glibc"),
             linux_distro=distro,
             architecture=Architecture(match.group("arch")),

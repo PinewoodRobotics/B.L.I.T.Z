@@ -1,0 +1,1 @@
+# One shared Python dependency file; this fixture needs only the standard library.
