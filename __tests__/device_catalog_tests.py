@@ -16,21 +16,21 @@ from watchdog.util import system as watchdog_system
 
 
 def profile(name="pi", hostname="pi.local"):
-    return discovery.DiscoveredNetworkSystem(
+    return discovery.SystemCatalog(
         hostname, name, 5000, 8080, "/blitz", "aarch64", "Linux-glibc2.36", 3, 11,
         os_distribution_id="debian", os_distribution_version_id="12",
     )
 
 
 def response(system=None, payload=None, status=200):
-    payload = payload if payload is not None else {"schema_version": 2, "system": asdict(system or profile())}
+    payload = payload if payload is not None else {"schema_version": 3, "system": asdict(system or profile())}
     return SimpleNamespace(status_code=status, raise_for_status=lambda: None, json=lambda: payload)
 
 
 def service(system=None, properties=None, address="192.0.2.10", server="pi.local."):
     system = system or profile()
     metadata = {key: str(getattr(system, key)) for key in ("hostname", "system_name", "watchdog_port", "autobahn_port", "ssh_port")}
-    metadata["schema_version"] = "2"
+    metadata["schema_version"] = "3"
     return ServiceInfo(discovery.SERVICE, system.system_name + "." + discovery.SERVICE,
         addresses=[socket.inet_pton(socket.AF_INET6 if ":" in address else socket.AF_INET, address)],
         server=server, port=system.watchdog_port,
@@ -50,7 +50,7 @@ def test_advertisement_is_lightweight_and_uses_reachable_simulation_ports(monkey
     settings = config(hostname="sim.local", addresses=["192.0.2.50"], watchdog_port=15000, autobahn_port=18080, ssh_port=12200)
     monkeypatch.setattr(advertisement, "load_basic_system_config", lambda: settings)
     monkeypatch.setattr(watchdog_system, "get_system_name", lambda: "sim")
-    monkeypatch.setattr(watchdog_system.DiscoveredNetworkSystem, "collect", lambda: pytest.fail("profile probe from mDNS"))
+    monkeypatch.setattr(watchdog_system, "collect_system_catalog", lambda: pytest.fail("profile probe from mDNS"))
     monkeypatch.setattr(watchdog_system, "collect_capabilities", lambda *_args: pytest.fail("hardware probe from mDNS"))
     monkeypatch.setattr(advertisement, "get_primary_ipv4", lambda: pytest.fail("explicit address ignored"))
     info = advertisement.construct_service_info()
@@ -184,18 +184,21 @@ def test_http_batch_is_concurrent_and_failure_never_returns_partial_fleet(monkey
 @pytest.mark.parametrize("change", [
     lambda data: data.pop("schema_version"),
     lambda data: data.update(schema_version=1),
-    lambda data: data.update(schema_version=2.0),
-    lambda data: data["system"].pop("capabilities_json"),
-    lambda data: data["system"].update(capabilities_json='{"random_gpu": "1"}'),
-    lambda data: data["system"].update(capabilities_json='[]'),
+    lambda data: data.update(schema_version=2),
+    lambda data: data.update(schema_version=3.0),
+    lambda data: data["system"].pop("capabilities"),
+    lambda data: data["system"].update(capabilities={"random_gpu": "1"}),
+    lambda data: data["system"].update(capabilities=[]),
     lambda data: data["system"].update(ssh_host=["pi.local"]),
     lambda data: data["system"].update(ssh_port=22.5),
+    lambda data: data["system"].update(ssh_port="22"),
+    lambda data: data["system"].update(capabilities="{}"),
     lambda data: data["system"].update(autobahn_port=True),
     lambda data: data["system"].update(hostname="bad/hostname"),
     lambda data: data["system"].update(os_distribution_family=[]),
 ])
 def test_incompatible_or_invalid_catalogs_fail_closed(monkeypatch, change):
-    payload = {"schema_version": 2, "system": asdict(profile())}
+    payload = {"schema_version": 3, "system": asdict(profile())}
     change(payload)
     monkeypatch.setattr(discovery.requests, "get", lambda *_args, **_kwargs: response(payload=payload))
     with pytest.raises(ValueError, match="no deployment will proceed"):
@@ -283,9 +286,9 @@ def test_watchdog_catalog_cache_probes_once_and_refreshes_atomically(monkeypatch
     def collect():
         probes.append(now[0])
         data = asdict(profile())
-        data["capabilities_json"] = '{}' if len(probes) == 1 else '{"gpio": "present"}'
-        return watchdog_system.DiscoveredNetworkSystem(**data)
-    monkeypatch.setattr(watchdog_system.DiscoveredNetworkSystem, "collect", collect)
+        data["capabilities"] = {} if len(probes) == 1 else {"gpio": "present"}
+        return watchdog_system.SystemCatalog(**data)
+    monkeypatch.setattr(watchdog_system, "collect_system_catalog", collect)
     first = cache.get()
     now[0] = 299
     assert cache.get() == first
@@ -296,7 +299,7 @@ def test_watchdog_catalog_cache_probes_once_and_refreshes_atomically(monkeypatch
     for thread in threads:
         thread.join()
     assert probes == [0, 300]
-    assert cache.get()["system"]["capabilities_json"] == '{"gpio": "present"}'
+    assert cache.get()["system"]["capabilities"] == {"gpio": "present"}
     first["system"]["hostname"] = "changed"
     assert cache.get()["system"]["hostname"] == "pi.local"
 
@@ -312,7 +315,7 @@ def test_failed_catalog_probes_are_also_rate_limited(monkeypatch):
     def fail():
         probes.append(now[0])
         raise OSError("hardware unavailable")
-    monkeypatch.setattr(watchdog_system.DiscoveredNetworkSystem, "collect", fail)
+    monkeypatch.setattr(watchdog_system, "collect_system_catalog", fail)
     for value in (0, 1, 59, 60):
         now[0] = value
         with pytest.raises(RuntimeError, match="hardware unavailable"):
@@ -329,8 +332,8 @@ def test_endpoint_configuration_updates_without_hardware_reprobe(monkeypatch):
     monkeypatch.setattr(watchdog_system, "get_system_name", lambda: "pi")
     def collect():
         probes.append(1)
-        return watchdog_system.DiscoveredNetworkSystem(**asdict(profile()))
-    monkeypatch.setattr(watchdog_system.DiscoveredNetworkSystem, "collect", collect)
+        return watchdog_system.SystemCatalog(**asdict(profile()))
+    monkeypatch.setattr(watchdog_system, "collect_system_catalog", collect)
     assert cache.get()["system"]["watchdog_port"] == 5000
     settings.discovery.watchdog_port = 15000
     settings.discovery.hostname = "new-pi.local"

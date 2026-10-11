@@ -69,18 +69,25 @@ and IP addresses, then collects each remaining watchdog's HTTP system catalog
 once. It records only distinct build profiles in
 `build/backend-bundle/systems.json`, refreshes the Dockerfiles and build inputs,
 checks the local Docker dependency images, compiles bundles with network
-access disabled, and distributes them. If requirements changed and an older
-dependency image for the same system is still cached, deployment asks whether
-to continue with that image. The default answer is no; continuing may leave
+access disabled, and distributes them. If matching dependency images are missing,
+BLITZ checks public HTTPS services for internet access and attempts to prepare
+the missing images when it is detected. Failed preparation stops deployment
+before compilation or transfer. Complete caches need no internet check.
+
+Without detected internet access, if an older dependency image for the same
+system is still cached, deployment asks whether to continue with that image.
+The default answer is no; continuing may leave
 out new dependencies or fail compilation. If there is no cached image for a
 system type, deployment stops before building or transferring bundles. To
-refresh dependencies, connect the build machine to the internet and run:
+prepare dependencies ahead of deployment, connect the build machine to the
+internet and run:
 
 ```bash
 python3 backend/deploy.py cache
 ```
 
 The cache command uses recorded system types without contacting devices.
+It is optional when internet access is available during deployment.
 Reconnect to the device network and rerun `python3 backend/deploy.py`. Source
 changes alone do not invalidate dependency images. Python wheels and Rust crates
 are downloaded during online cache preparation; C++ dependency commands also
@@ -121,7 +128,7 @@ and IP addresses. Live device identities and ports are not saved as future
 deployment destinations. Each deployment discovers or receives its current
 targets anew.
 
-The 2.0 discovery protocol uses `_watchdog._tcp.local.` and lightweight,
+The 3.0 discovery protocol uses `_watchdog._tcp.local.` and lightweight,
 versioned mDNS metadata containing identity and service endpoints. Full system
 specifications and capabilities come from the watchdog's cached HTTP catalog.
 Update watchdogs and deployment tooling together. See

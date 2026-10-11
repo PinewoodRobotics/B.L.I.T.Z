@@ -76,13 +76,13 @@ def test_config_endpoint_saves_config_and_rejects_invalid_payload(
     assert monitor.is_config_exists
 
 
-def test_system_identity_endpoint_exposes_discovery_profile(
+def test_system_catalog_endpoint_exposes_profile_without_legacy_alias(
     watchdog_client: WatchdogClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, _, _, _ = watchdog_client
-    from watchdog.util.system import DiscoveredNetworkSystem
+    from watchdog.util.system import SystemCatalog
 
-    identity = DiscoveredNetworkSystem(
+    identity = SystemCatalog(
         hostname="test-pi.local", system_name="test-pi", watchdog_port=5000,
         autobahn_port=8080, blitz_path="/opt/blitz", machine_architecture="aarch64",
         platform_description="Linux-with-glibc2.36", python_major_version=3,
@@ -90,13 +90,14 @@ def test_system_identity_endpoint_exposes_discovery_profile(
         os_distribution_version_id="12",
     )
     monkeypatch.setattr(
-        "watchdog.routes.getters.system_catalog_cache.get", lambda: {"schema_version": 2, "system": identity.to_dict()}
+        "watchdog.routes.getters.system_catalog_cache.get", lambda: {"schema_version": 3, "system": identity.to_dict()}
     )
 
-    response = client.get("/get/system/identity")
+    response = client.get("/get/system/catalog")
     assert response.status_code == 200
-    assert response.json == {"schema_version": 2, "system": identity.to_dict()}
+    assert response.json == {"schema_version": 3, "system": identity.to_dict()}
     assert client.get("/get/system/catalog").json == response.json
+    assert client.get("/get/system/identity").status_code == 404
 
 
 def test_start_process_endpoint_requires_config_and_starts_process(

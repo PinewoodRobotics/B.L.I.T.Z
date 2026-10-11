@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, fields, replace
+from dataclasses import dataclass, replace
 from collections.abc import Sequence
-import re
-import json
 import time
 from urllib.parse import urlsplit
 import ipaddress
@@ -13,16 +11,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
-from backend.deployment.compilation.util.systems import (
-    Architecture,
-    LinuxDistro,
-    PythonVersion,
-    SystemId,
-)
+from backend.deployment.network_api.catalog import CATALOG_SCHEMA_VERSION, SystemCatalog
 from backend.deployment.fleet import validate_fleet_count
 from backend.deployment.network_api.utils import (
-    FolderPath,
-    ZeroconfPropertySchema,
     decode_zeroconf_hostname,
     decode_zeroconf_properties,
 )
@@ -30,87 +21,7 @@ from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
 
 SERVICE = "_watchdog._tcp.local."
-CATALOG_SCHEMA_VERSION = 2
 
-
-@dataclass
-class DiscoveredNetworkSystem(ZeroconfPropertySchema):
-    hostname: str  # EG: "nathan-hale.local"
-    system_name: str  # EG: "nathan-hale"
-    watchdog_port: int  # EG: 9999
-    autobahn_port: int  # EG: 9999
-
-    blitz_path: FolderPath  # EG: "/opt/blitz/B.L.I.T.Z"
-
-    machine_architecture: str
-    platform_description: str
-    python_major_version: int
-    python_minor_version: int
-    os_distribution_id: str | None = None
-    os_distribution_family: str | None = None
-    os_distribution_version_id: str | None = None
-    capabilities_json: str = "{}"
-    ssh_port: int = 22
-    watchdog_host: str | None = None
-    autobahn_host: str | None = None
-    ssh_host: str | None = None
-
-    def _platform_text(self) -> str:
-        return " ".join(
-            value
-            for value in [
-                self.platform_description,
-                self.os_distribution_id,
-                self.os_distribution_family,
-                self.os_distribution_version_id,
-            ]
-            if value
-        ).lower()
-
-    def to_system_id(self) -> SystemId:
-        platform_text = self._platform_text()
-        glibc_match = re.search(r"glibc(?P<version>\d+(?:\.\d+)*)", platform_text)
-        if glibc_match is None:
-            raise ValueError("Could not infer glibc version: " + str(self))
-
-        glibc_version = glibc_match.group("version")
-
-        try:
-            architecture = Architecture.from_machine(self.machine_architecture)
-        except ValueError as error:
-            raise ValueError(str(error) + " for " + str(self)) from error
-
-        try:
-            linux_distro = LinuxDistro.from_os_release(
-                os_id=self.os_distribution_id,
-                os_id_like=self.os_distribution_family,
-                version_id=self.os_distribution_version_id,
-                platform_text=platform_text,
-            )
-        except ValueError as error:
-            raise ValueError(str(error) + " for " + str(self)) from error
-
-        return SystemId(
-            capabilities=tuple(sorted(json.loads(self.capabilities_json).items())),
-            c_lib_version=glibc_version,
-            linux_distro=linux_distro,
-            architecture=architecture,
-            python_version=PythonVersion(
-                major=self.python_major_version,
-                minor=self.python_minor_version,
-            ),
-        )
-
-    def __str__(self) -> str:
-        lines: list[str] = []
-        for field in fields(self):
-            value = getattr(self, field.name)
-            if value is not None:
-                lines.append(f"{field.name}: {value}")
-        return "\n".join(lines)
-
-    def __hash__(self) -> int:
-        return hash((self.watchdog_host or self.hostname, self.watchdog_port))
 
 
 def canonical_host(host: str) -> str:
@@ -191,7 +102,7 @@ class DiscoveredEndpoint:
     def from_service_info(cls, info: ServiceInfo) -> "DiscoveredEndpoint":
         properties = decode_zeroconf_properties(info.properties)
         if properties.get("schema_version") != str(CATALOG_SCHEMA_VERSION):
-            raise ValueError("Watchdog discovery schema is incompatible; upgrade watchdog and deployer together to BLITZ 2")
+            raise ValueError("Watchdog discovery schema is incompatible; upgrade watchdog and deployer together to BLITZ 3")
         for name in ("hostname", "system_name", "watchdog_port", "autobahn_port", "ssh_port"):
             if not properties.get(name):
                 raise ValueError(f"Missing required discovery property: {name}")
@@ -228,7 +139,7 @@ def endpoints_at_addresses(addresses: Sequence[str]) -> set[DiscoveredEndpoint]:
     return endpoints
 
 
-def _fetch_catalog(endpoint: DiscoveredEndpoint) -> DiscoveredNetworkSystem:
+def _fetch_catalog(endpoint: DiscoveredEndpoint) -> SystemCatalog:
     try:
         # A cold catalog can run SMI plus a driver-API fallback, each bounded
         # to three seconds. Allow that collection to finish on the first call.
@@ -239,36 +150,8 @@ def _fetch_catalog(endpoint: DiscoveredEndpoint) -> DiscoveredNetworkSystem:
         payload = response.json()
     except (requests.RequestException, ValueError) as error:
         raise ValueError(f"Could not collect watchdog catalog at {endpoint.authority}: {error}") from error
-    if not isinstance(payload, dict) or type(payload.get("schema_version")) is not int or payload.get("schema_version") != CATALOG_SCHEMA_VERSION or not isinstance(payload.get("system"), dict):
-        raise ValueError(f"Incompatible watchdog catalog at {endpoint.authority}; expected schema_version={CATALOG_SCHEMA_VERSION}. Upgrade watchdog and deployer together.")
-    profile = payload["system"]
     try:
-        # Require the complete catalog, including explicit capability results.
-        required = ("hostname", "system_name", "blitz_path", "machine_architecture", "platform_description", "capabilities_json", "python_major_version", "python_minor_version", "watchdog_port", "autobahn_port", "ssh_port")
-        for name in required:
-            if name not in profile or profile[name] is None:
-                raise ValueError(f"Missing required catalog field: {name}")
-        for name in ("hostname", "system_name", "blitz_path", "machine_architecture", "platform_description"):
-            if not isinstance(profile[name], str) or not profile[name].strip():
-                raise ValueError(f"Invalid catalog field: {name}")
-        for name in ("python_major_version", "python_minor_version"):
-            if type(profile[name]) is not int or profile[name] < 0:
-                raise ValueError(f"Invalid catalog field: {name}")
-        for name in ("watchdog_port", "autobahn_port", "ssh_port"):
-            profile[name] = _port(profile[name], name)
-        for name in ("hostname", "watchdog_host", "autobahn_host", "ssh_host"):
-            host = profile.get(name)
-            if host is not None and (not isinstance(host, str) or not host.strip() or (any(character in host for character in "/\\?#@[]") or any(character.isspace() for character in host))):
-                raise ValueError(f"Invalid catalog field: {name}")
-        for name in ("os_distribution_id", "os_distribution_family", "os_distribution_version_id"):
-            value = profile.get(name)
-            if value is not None and not isinstance(value, str):
-                raise ValueError(f"Invalid catalog field: {name}")
-        capabilities = json.loads(profile["capabilities_json"])
-        if not isinstance(capabilities, dict) or not all(isinstance(key, str) and isinstance(value, str) for key, value in capabilities.items()):
-            raise ValueError("Invalid capabilities_json")
-        properties = {key: str(value) if value is not None else None for key, value in profile.items()}
-        system = DiscoveredNetworkSystem.from_zeroconf_properties(properties)
+        system = SystemCatalog.from_payload(payload)
         if endpoint.system_name is not None:
             if system.system_name != endpoint.system_name or canonical_host(system.hostname) != canonical_host(endpoint.hostname):
                 raise ValueError("Catalog identity differs from mDNS announcement")
@@ -288,8 +171,6 @@ def _fetch_catalog(endpoint: DiscoveredEndpoint) -> DiscoveredNetworkSystem:
             system.ssh_host = endpoint.contact_host
         if not system.autobahn_host or canonical_host(system.autobahn_host) == canonical_host(system.hostname):
             system.autobahn_host = endpoint.contact_host
-        # Validate build compatibility now, before any build/transfer starts.
-        system.to_system_id()
         return system
     except (TypeError, ValueError, KeyError) as error:
         raise ValueError(f"Invalid watchdog catalog at {endpoint.authority}: {error}") from error
@@ -298,7 +179,7 @@ def _fetch_catalog(endpoint: DiscoveredEndpoint) -> DiscoveredNetworkSystem:
 def collect_system_catalogs(
     endpoints: Sequence[DiscoveredEndpoint], blacklist: Sequence[str] = (),
     expected_count: int | None = None,
-) -> set[DiscoveredNetworkSystem]:
+) -> set[SystemCatalog]:
     """Filter the whole fleet, then collect one complete catalog per endpoint."""
     selected = {(_connection_host_key(endpoint.contact_host), endpoint.watchdog_port): endpoint for endpoint in endpoints if not endpoint.is_blacklisted(blacklist)}
     validate_fleet_count(len(selected), expected_count, ())
@@ -371,7 +252,7 @@ def _pinned_endpoints_with_blacklist(
 
 def discover_at_addresses(
     addresses: Sequence[str], blacklist: Sequence[str] = (), expected_count: int | None = None,
-) -> set[DiscoveredNetworkSystem]:
+) -> set[SystemCatalog]:
     endpoints = _pinned_endpoints_with_blacklist(addresses, blacklist)
     return collect_system_catalogs(tuple(endpoints), blacklist, expected_count)
 
@@ -441,6 +322,6 @@ def discover_endpoints_on_network(timeout_seconds: float = 5.0, blacklist: Seque
 
 def discover_all_on_network(
     timeout_seconds: float = 5.0, blacklist: Sequence[str] = (), expected_count: int | None = None,
-) -> set[DiscoveredNetworkSystem]:
+) -> set[SystemCatalog]:
     endpoints = discover_endpoints_on_network(timeout_seconds, blacklist)
     return collect_system_catalogs(tuple(endpoints), blacklist, expected_count)

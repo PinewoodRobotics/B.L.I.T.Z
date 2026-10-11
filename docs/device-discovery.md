@@ -1,4 +1,4 @@
-# Device discovery and capabilities (BLITZ 2.0)
+# Device discovery and capabilities (BLITZ 3.0)
 
 Discovery has one collection phase for each deployment:
 
@@ -21,7 +21,7 @@ the reachable machine. The TXT metadata contains only connection information:
 
 | Field | Meaning |
 | --- | --- |
-| `schema_version` | `2`; watchdog and client must agree on the protocol. |
+| `schema_version` | `3`; watchdog and client must agree on the protocol. |
 | `hostname` | Advertised device hostname. |
 | `system_name` | BLITZ application/process-placement name. |
 | `watchdog_port` | Reachable HTTP API port. |
@@ -40,7 +40,7 @@ or capabilities. Its advertising loop never runs hardware probes.
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "system": {
     "hostname": "robot-one.local",
     "system_name": "robot-one",
@@ -58,15 +58,16 @@ or capabilities. Its advertising loop never runs hardware probes.
     "os_distribution_id": "debian",
     "os_distribution_family": null,
     "os_distribution_version_id": "12",
-    "capabilities_json": "{}"
+    "capabilities": {}
   }
 }
 ```
 
 Values above are illustrative. The profile contains the same identity/endpoint
-fields plus build specifications. `capabilities_json` retains the existing JSON
-string representation inside that profile. `/get/system/identity` is an alias
-for the same cached envelope, not a second catalog or the old unversioned format.
+fields plus build specifications. `capabilities` is a native JSON object. The
+watchdog and client share `SystemCatalog` in `network_api/catalog.py`; HTTP
+parsing validates JSON types directly. `/get/system/catalog` is the sole catalog
+route; the old identity route and unversioned response are removed.
 
 The watchdog caches the expensive system/capability snapshot in memory. The
 first request collects it; the first request after the configured refresh
@@ -270,10 +271,13 @@ associate it with a detector family, implement a conservative bounded probe,
 update applicable profile mappings, and test positive, absent, and failure cases.
 Do not introduce private capability names only in an application declaration.
 
-## Upgrading from 1.x
+## Upgrading from 1.x or 2.x
 
 Update the deployment backend and watchdogs together. The mDNS service type,
 metadata contract, HTTP envelope, and accepted capability names changed in 2.0.
+Version 3 replaces string-encoded capabilities with an object and removes the
+identity route. Update image provisioning, watchdogs, and application deployment
+libraries together; schema version 2 is rejected explicitly.
 Old full-profile mDNS announcements and old unversioned HTTP responses are not
 valid catalogs. The client reports incompatibility rather than guessing missing
 specifications or combining contradictory metadata.

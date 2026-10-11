@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from backend.deployment.network_api.catalog import SystemCatalog
+
 import shutil
 
 import json
@@ -16,9 +18,6 @@ from backend.deployment.compilation.util.systems import SystemId
 from backend.deployment.module.supported import SupportedModules
 from backend.deployment.network_api.system_api import System
 from backend.deployment.network_api.utils import FolderPath
-from backend.deployment.network_api.zeroconf import (
-    DiscoveredNetworkSystem,
-)
 from backend.deployment.processes import WeightedProcess
 from backend.deployment.rsyncer import Rsyncer
 from __tests__.deploy_script_tests import INSTALLED_REPO
@@ -37,7 +36,7 @@ def make_discovered_system(
     docker_runner: DockerTestRunner,
     target,
     hostname: str,
-) -> DiscoveredNetworkSystem:
+) -> SystemCatalog:
     raw_info = docker_runner.exec(
         target,
         """
@@ -60,7 +59,7 @@ print(json.dumps({
         """,
     ).output.strip()
     info = json.loads(raw_info)
-    return DiscoveredNetworkSystem(
+    return SystemCatalog(
         hostname=hostname,
         system_name="test",
         watchdog_port=5000,
@@ -115,7 +114,7 @@ def prepare_existing_repo_ssh_target(docker_runner: DockerTestRunner, target) ->
 def test_system_run_command_retries_transient_ssh_auth_failure(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    discovered_system = DiscoveredNetworkSystem(
+    discovered_system = SystemCatalog(
         hostname="tripoli.local.",
         system_name="tripoli",
         watchdog_port=5000,
@@ -227,13 +226,14 @@ def test_rsyncer_deploys_backend_bundle_and_installs_python_dependencies(
     system.user = "ubuntu"
     system.password = "ubuntu"
     system.ssh_port = ssh_port
-    Rsyncer(
+    sync = Rsyncer(
         modules=[module],
         local_bundler_output_path=str(tmp_path / "output"),
         backend_bundle_path=REMOTE_BUNDLE_PATH,
         systems={system},
         are_deps_bundled=True,
-    ).deploy()
+    )
+    sync.deploy()
 
     bundle_name = f"{system_id.to_build_key()}.zip"
     docker_runner.assert_files_exist(
@@ -257,6 +257,30 @@ def test_rsyncer_deploys_backend_bundle_and_installs_python_dependencies(
         """,
     )
 
+    # Runtime imports belong to the deployment user. They must be removable on
+    # the next deployment without asking for sudo access.
+    docker_runner.exec(
+        target,
+        f"""
+        set -euo pipefail
+        rm -f /etc/sudoers.d/ubuntu
+        cd {INSTALLED_REPO}
+        runuser -u ubuntu -- .venv/bin/python -c 'import backend.deployment.module.catalog; import py_compile; py_compile.compile("backend/python/sample_deployment_module/__main__.py")'
+        test "$(stat -c '%U' backend/deployment/__pycache__)" = ubuntu
+        test "$(stat -c '%U' backend/python/sample_deployment_module/__pycache__)" = ubuntu
+        """,
+    )
+    sync.deploy()
+    docker_runner.exec(
+        target,
+        f"""
+        set -euo pipefail
+        test ! -e {INSTALLED_REPO}/backend/deployment/__pycache__
+        test ! -e {INSTALLED_REPO}/backend/python/sample_deployment_module/__pycache__
+        {INSTALLED_REPO}/.venv/bin/python -c 'import six; assert six.__version__ == "1.17.0"'
+        """,
+    )
+
 
 def make_ubuntu_24_distro():
     from backend.deployment.compilation.util.systems import LinuxDistro
@@ -274,3 +298,13 @@ def make_host_python_version():
     from backend.deployment.compilation.util.systems import PythonVersion
 
     return PythonVersion(major=3, minor=12)
+
+
+def test_configuration_client_sends_only_canonical_field(monkeypatch):
+    from types import SimpleNamespace
+
+    system = System(SystemCatalog("pi.local", "pi", 5000, 8080, "/blitz", "aarch64", "Linux-glibc2.39", 3, 12))
+    payloads = []
+    monkeypatch.setattr("requests.post", lambda _url, **kwargs: payloads.append(kwargs["json"]) or SimpleNamespace(status_code=200))
+    assert system.set_config("YWJj")
+    assert payloads == [{"config_base64": "YWJj"}]

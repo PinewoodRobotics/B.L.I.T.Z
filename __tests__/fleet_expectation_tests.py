@@ -13,13 +13,13 @@ from backend.deployment.network_api import zeroconf as discovery
 from backend.deployment.network_api.system_api import System
 
 
-def device(name: str, architecture: str = "aarch64", cuda: bool = False) -> discovery.DiscoveredNetworkSystem:
-    return discovery.DiscoveredNetworkSystem(
+def device(name: str, architecture: str = "aarch64", cuda: bool = False) -> discovery.SystemCatalog:
+    return discovery.SystemCatalog(
         hostname=name + ".local", system_name=name, watchdog_port=5000,
         autobahn_port=8080, blitz_path="/blitz", machine_architecture=architecture,
         platform_description="Linux-glibc2.36", python_major_version=3,
         python_minor_version=11, os_distribution_id="debian",
-        os_distribution_version_id="12", capabilities_json='{"cuda":"12.2"}' if cuda else '{}',
+        os_distribution_version_id="12", capabilities={"cuda": "12.2"} if cuda else {},
     )
 
 
@@ -36,7 +36,7 @@ def test_simulation_uses_declared_endpoints_and_the_regular_catalog(monkeypatch)
         requests.append(url)
         profile = device("one" if ":15000/" in url else "two")
         return SimpleNamespace(status_code=200, raise_for_status=lambda: None,
-            json=lambda: {"schema_version": 2, "system": asdict(profile)})
+            json=lambda: {"schema_version": 3, "system": asdict(profile)})
     monkeypatch.setattr(discovery.requests, "get", get)
     monkeypatch.setattr(discovery, "Zeroconf", lambda: pytest.fail("simulation attempted mDNS"))
     systems = BlitzNetworkDeployer._find_systems(options)
@@ -147,9 +147,9 @@ def test_overlapping_profiles_can_be_matched_without_greedy_misassignment():
 
 def test_overlapping_capabilities_can_reassign_several_existing_matches():
     systems = [device("one"), device("two"), device("three")]
-    systems[0].capabilities_json = '{"cuda":"12.2","v4l2":"present"}'
-    systems[1].capabilities_json = '{"cuda":"12.2","v4l2":"present","gpio":"present"}'
-    systems[2].capabilities_json = '{"gpio":"present"}'
+    systems[0].capabilities = {"cuda": "12.2", "v4l2": "present"}
+    systems[1].capabilities = {"cuda": "12.2", "v4l2": "present", "gpio": "present"}
+    systems[2].capabilities = {"gpio": "present"}
     validate_fleet_profiles([system.to_system_id() for system in systems], [
         ExpectedSystemType("CUDA", 1, CUDA),
         ExpectedSystemType("GPIO", 1, TargetRequirements(capabilities=(CapabilityRequirement(Capability.GPIO),))),

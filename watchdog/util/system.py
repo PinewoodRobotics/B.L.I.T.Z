@@ -1,4 +1,3 @@
-import argparse
 import json
 import ipaddress
 import os
@@ -9,7 +8,7 @@ import subprocess
 import sys
 import threading
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +19,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from watchdog.constants import BASIC_SYSTEM_CONFIG_PATH, SYSTEM_NAME_PATH
 from watchdog.util.capabilities import collect_capabilities
+from backend.deployment.network_api.catalog import CATALOG_SCHEMA_VERSION, SystemCatalog
 
 
 class AutobahnConnectionConfig(BaseModel):
@@ -224,12 +224,6 @@ def get_local_hostname(include_local_suffix: bool = True) -> str:
     return hostname
 
 
-def get_config_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser()
-    _ = parser.add_argument("--config", type=str, default=None)
-    return parser
-
-
 def get_camera_video_ports() -> list[str]:
     ports = []
     symlink_names = ["usb_cam1", "usb_cam2", "usb_cam3", "usb_cam4"]
@@ -264,9 +258,6 @@ def read_os_release() -> dict[str, str]:
         key, value = line.split("=", 1)
         values[key] = value.strip().strip("\"'")
     return values
-
-
-CATALOG_SCHEMA_VERSION = 2
 
 
 @dataclass
@@ -316,58 +307,35 @@ class DiscoveryAnnouncement:
         return asdict(self)
 
 
-@dataclass
-class DiscoveredNetworkSystem:
-    hostname: str
-    system_name: str
-    watchdog_port: int
-    autobahn_port: int
-    blitz_path: str
-    machine_architecture: str
-    platform_description: str
-    python_major_version: int
-    python_minor_version: int
-    os_distribution_id: str | None = None
-    os_distribution_family: str | None = None
-    os_distribution_version_id: str | None = None
-    capabilities_json: str = "{}"
-    ssh_port: int = 22
-    watchdog_host: str | None = None
-    autobahn_host: str | None = None
-    ssh_host: str | None = None
+def collect_system_catalog() -> SystemCatalog:
+    os_release = read_os_release()
+    system_config = load_basic_system_config()
+    announcement = DiscoveryAnnouncement.collect(system_config)
+    machine_architecture = platform.machine()
+    blitz_path = os.environ.get("BLITZ_PATH") or str(
+        Path(__file__).resolve().parents[2]
+    )
 
-    @classmethod
-    def collect(cls) -> "DiscoveredNetworkSystem":
-        os_release = read_os_release()
-        system_config = load_basic_system_config()
-        announcement = DiscoveryAnnouncement.collect(system_config)
-        machine_architecture = platform.machine()
-        blitz_path = os.environ.get("BLITZ_PATH") or str(
-            Path(__file__).resolve().parents[2]
-        )
+    return SystemCatalog(
+        capabilities=collect_capabilities(os_release, machine_architecture),
+        hostname=announcement.hostname,
+        system_name=announcement.system_name,
+        watchdog_port=announcement.watchdog_port,
+        autobahn_port=announcement.autobahn_port,
+        ssh_port=announcement.ssh_port,
+        watchdog_host=announcement.watchdog_host,
+        autobahn_host=announcement.autobahn_host,
+        ssh_host=announcement.ssh_host,
+        blitz_path=blitz_path,
+        machine_architecture=machine_architecture,
+        platform_description=platform.platform(),
+        python_major_version=sys.version_info.major,
+        python_minor_version=sys.version_info.minor,
+        os_distribution_id=os_release.get("ID"),
+        os_distribution_family=os_release.get("ID_LIKE"),
+        os_distribution_version_id=os_release.get("VERSION_ID"),
+    )
 
-        return cls(
-            capabilities_json=json.dumps(collect_capabilities(os_release, machine_architecture), sort_keys=True),
-            hostname=announcement.hostname,
-            system_name=announcement.system_name,
-            watchdog_port=announcement.watchdog_port,
-            autobahn_port=announcement.autobahn_port,
-            ssh_port=announcement.ssh_port,
-            watchdog_host=announcement.watchdog_host,
-            autobahn_host=announcement.autobahn_host,
-            ssh_host=announcement.ssh_host,
-            blitz_path=blitz_path,
-            machine_architecture=machine_architecture,
-            platform_description=platform.platform(),
-            python_major_version=sys.version_info.major,
-            python_minor_version=sys.version_info.minor,
-            os_distribution_id=os_release.get("ID"),
-            os_distribution_family=os_release.get("ID_LIKE"),
-            os_distribution_version_id=os_release.get("VERSION_ID"),
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
 
 
 class SystemCatalogCache:
@@ -375,7 +343,7 @@ class SystemCatalogCache:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._profile: DiscoveredNetworkSystem | None = None
+        self._profile: SystemCatalog | None = None
         self._collected_at = 0.0
         self._refresh_interval = 300.0
         self._last_error: Exception | None = None
@@ -388,7 +356,7 @@ class SystemCatalogCache:
             if (self._profile is None and self._last_error is None) or now - self._collected_at >= self._refresh_interval:
                 self._collected_at = now
                 try:
-                    profile = DiscoveredNetworkSystem.collect()
+                    profile = collect_system_catalog()
                 except Exception as error:
                     # Also rate-limit failed probes; repeated HTTP requests must
                     # not hammer a device whose hardware probe is failing.
@@ -403,11 +371,9 @@ class SystemCatalogCache:
             # Reachability and identity remain live while expensive hardware/ABI
             # checks reuse the cached snapshot. A port/name config change should
             # not create a mismatch with the latest lightweight announcement.
-            system = self._profile.to_dict()
             announcement = DiscoveryAnnouncement.collect(config).to_dict()
             announcement.pop("schema_version")
-            system.update(announcement)
-            return {"schema_version": CATALOG_SCHEMA_VERSION, "system": system}
+            return replace(self._profile, **announcement).to_payload()
 
 
 system_catalog_cache = SystemCatalogCache()

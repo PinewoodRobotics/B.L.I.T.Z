@@ -9,10 +9,8 @@ import subprocess
 import time
 
 from backend.deployment.network_api.utils import FilePath, FolderPath
-from backend.deployment.network_api.zeroconf import (
-    DiscoveredNetworkSystem,
-    http_authority,
-)
+from backend.deployment.network_api.catalog import SystemCatalog
+from backend.deployment.network_api.zeroconf import http_authority
 from backend.deployment.processes import Process
 
 
@@ -38,7 +36,7 @@ class System:
     - SSH deployment fields (address, password, port)
     """
 
-    general_info: DiscoveredNetworkSystem
+    general_info: SystemCatalog
 
     password: str = dataclasses.field(default="ubuntu")
     user: str = dataclasses.field(default="ubuntu")
@@ -57,15 +55,10 @@ class System:
         return f"http://{http_authority(host, self.general_info.watchdog_port)}/"
 
     def set_config(self, raw_config_base64: str, *, timeout_s: float = 5.0) -> bool:
-        """
-        Sends configuration to the Pi.
-
-        Note: existing Python tooling uses {"config": "..."} while the Java code
-        uses {"config_base64": "..."}. We send BOTH keys for compatibility.
-        """
+        """Send configuration through the watchdog's canonical payload field."""
         import requests  # pyright: ignore[reportMissingModuleSource]
 
-        payload = {"config": raw_config_base64, "config_base64": raw_config_base64}
+        payload = {"config_base64": raw_config_base64}
         r = requests.post(
             f"{self.watchdog_url()}/set/config", json=payload, timeout=timeout_s
         )
@@ -93,18 +86,6 @@ class System:
             return False
 
         return True
-
-    def stop_all_set_config_and_start(
-        self,
-        raw_config_base64: str,
-        *,
-        new_processes_to_run: Iterable[Process] | None = None,
-        timeout_s: float = 5.0,
-    ) -> bool:
-        if not self.set_config(raw_config_base64, timeout_s=timeout_s):
-            return False
-
-        return self.set_processes(new_processes_to_run, timeout_s=timeout_s)
 
     def to_blitz_relative_path(self, path: FilePath) -> FilePath:
         return FilePath(posixpath.join(self.general_info.blitz_path, path))

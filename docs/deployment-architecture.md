@@ -141,9 +141,12 @@ automatically connect independently running processes.
 flowchart TD
     A["deploy.py declarations + discovered device profile"] --> B["Validate folders, dependency graph, and target compatibility"]
     B --> C{"Matching dependency image cached?"}
-    C -->|No| D["Prepare dependencies online with cache command"]
-    D --> C
+    C -->|No| D{"Internet access detected?"}
+    D -->|Yes| L["Prepare missing dependencies online; stop on failure"]
+    D -->|No| M["Stop with cache instructions or explicitly accept an older image"]
+    L --> C
     C -->|Yes| E["Compile compatible modules offline in Docker"]
+    M -->|Older image accepted| E
     E --> F["Export artifacts, wheels, resources, and runtime manifest"]
     F --> G["Transfer target-specific bundle"]
     G --> H["Replace installed backend and remove obsolete files"]
@@ -169,8 +172,13 @@ Only build profiles are recorded for offline caching; identities, addresses,
 and ports are not persistent deployment destinations. See
 [device discovery](device-discovery.md) for protocol and capability details.
 
-If dependencies are not cached, discovery records the target profiles and
-deployment stops with instructions. Connect the build computer to the internet:
+If dependencies are not cached, deployment checks public HTTPS services for
+internet access and attempts to prepare missing images for the selected target
+profiles when it is detected. Preparation must succeed for all selected profiles
+before compilation or transfer. Cached deployments skip the internet check.
+Without detected internet access, deployment stops with instructions unless an
+older compatible-profile image is explicitly accepted. To prepare dependencies
+ahead of time, connect the build computer to the internet:
 
 ```bash
 .venv/bin/python backend/deploy.py cache
@@ -237,6 +245,11 @@ watchdog discards cached deployment definitions when `.blitz-runtime-id` changes
 Legacy bundles without `deployment/` preserve the installed library. The root
 package marker is always preserved.
 Declared resources also retain their relative paths in the runnable module.
+
+Replacement runs as the SSH deployment user and never escalates to sudo. The
+watchdog, module processes, and post-provisioning Python validation must run as
+the configured login user, who owns the runtime tree. Incorrect ownership stops
+installation and must be repaired at its source.
 
 After bundle installation and offline dependency installation succeed, transfer
 ZIPs and their legacy extracted folders are removed from the dedicated target
@@ -381,11 +394,11 @@ Pass that value as `launch=launch` on the module declaration only for legacy
 programs that require these arguments. New programs use the environment variables
 above; no BLITZ flags are added to their command line.
 
-## Image provisioning compatibility (1.2.0)
+## Image provisioning compatibility (3.0.0)
 
 BlitzImageModifier prepares the target watchdog and shared Python environment
 online. Its installer and runtime must come from the same BLITZ checkout, with
-`backend/deployment/.blitz-build-version` at **1.2.0 or later**. The installed
+`backend/deployment/.blitz-build-version` at **3.0.0 or later**. The installed
 watchdog service account must own the application tree; `SERVICE_USER` selects
 that account during BLITZ setup (default `ubuntu`).
 
@@ -405,9 +418,27 @@ needed. A cache-build failure leaves older images available for the offline
 compatibility override. Once cleanup succeeds, those superseded images are no
 longer available for that override.
 
+Automatic online preparation during deployment follows the same cleanup order
+for the missing images of the selected profiles. It never prepares or removes
+images for unselected profiles merely because they appear in recorded inventory.
+
 Cleanup uses `docker image rm` without force. Images Docker reports as in use are
 kept with a warning and a command-output log under `build/backend-bundle/logs/`.
 Unrelated images, other system profiles, bundles, and Docker's internal build
 cache are preserved. There is no persistent device fleet to retire: each live
 deployment resolves its current destinations again. Recorded build profiles
 remain available for offline dependency preparation.
+
+
+### Reusing deployment preflight
+
+`BlitzNetworkDeployer.parse_cli()` applies the same phase/options parser for
+standalone deployment and application orchestration. `config_factory` selects
+project settings from the parsed simulation mode, including offline cache/build.
+
+`prepare_deployment(modules, mapper, options)` collects and validates one live
+fleet and returns a `DeploymentContext`. Applications may check local prerequisites
+and start their bridge, then call `deploy_prepared(context)` or
+`distribute_prepared(context)`. Both operations reuse the selected targets and
+process plan without another catalog collection or placement pass. Keep this
+context in memory for the current run; never persist deployment destinations.

@@ -38,10 +38,6 @@ class OpenedProcess(subprocess.Popen[str]):
         except Exception:
             pass
 
-    @staticmethod
-    def _format_flags(flags: dict[str, str]) -> str:
-        return " ".join([f"--{flag} {value}" for flag, value in flags.items()])
-
     @classmethod
     def start_module(
         cls, module: RunnableModule, bundle_path: str, flags: dict[str, str]

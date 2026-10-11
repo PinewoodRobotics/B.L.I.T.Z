@@ -439,11 +439,15 @@ arguments:
 
 Only build profiles are saved for offline caching; no device identity or port
 list is reused as a future deployment destination. See
-[device discovery](device-discovery.md) for the 2.0 protocol and Docker simulation
+[device discovery](device-discovery.md) for the 3.0 protocol and Docker simulation
 endpoint configuration.
 
-If dependencies are missing, the command records the discovered build profiles and
-stops with instructions. Connect to the internet and run:
+If dependencies are missing, the command records the discovered build profiles,
+checks for internet access, and attempts to prepare the missing dependency images
+when it is detected. Failed preparation stops deployment before compilation or
+transfer. Without detected internet access, it stops with instructions unless you
+explicitly accept an offered older image. To prepare caches ahead of deployment,
+connect to the internet and run:
 
 ```bash
 .venv/bin/python backend/deploy.py cache

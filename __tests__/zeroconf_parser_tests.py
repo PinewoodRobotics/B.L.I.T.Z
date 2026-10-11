@@ -17,7 +17,7 @@ def _service_info(properties: dict[str, object]) -> ServiceInfo:
 
 
 def properties():
-    return {"schema_version": "2", "hostname": "test.local", "system_name": "test", "watchdog_port": "5000", "autobahn_port": "8080", "ssh_port": "2200"}
+    return {"schema_version": "3", "hostname": "test.local", "system_name": "test", "watchdog_port": "5000", "autobahn_port": "8080", "ssh_port": "2200"}
 
 
 def test_endpoint_parses_connection_metadata_without_system_profile():

@@ -101,8 +101,8 @@ def test_entrypoints_and_launch_paths_cannot_escape_module() -> None:
 def test_assigned_incompatible_process_fails_before_docker_or_transfer(monkeypatch: pytest.MonkeyPatch) -> None:
     from backend.deployment.deployer import BlitzNetworkDeployer
     from backend.deployment.network_api.system_api import System
-    from backend.deployment.network_api.zeroconf import DiscoveredNetworkSystem
-    device = System(DiscoveredNetworkSystem('pi.local', 'pi', 9999, 8080, FolderPath('/blitz'), 'aarch64', 'Linux-glibc2.36', 3, 11, 'debian', None, '12'))
+    from backend.deployment.network_api.catalog import SystemCatalog
+    device = System(SystemCatalog('pi.local', 'pi', 9999, 8080, FolderPath('/blitz'), 'aarch64', 'Linux-glibc2.36', 3, 11, 'debian', None, '12'))
     gpu = Module('gpu', targets=TargetRequirements(capabilities=(CapabilityRequirement('cuda'),)))
     program = PythonModule('program', [], Processes.FIRST, FolderPath('.'), dependencies=('gpu',))
     monkeypatch.setattr(BlitzNetworkDeployer, '_find_systems', lambda _: {device})

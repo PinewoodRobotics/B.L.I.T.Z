@@ -7,9 +7,7 @@ from backend.deployment.module.graph import ModuleGraph
 from backend.deployment.module.base import DependencyInstallation, Module, matches_module_type
 from backend.deployment.network_api.system_api import System
 from backend.deployment.network_api.utils import FilePath, FolderPath
-from backend.deployment.network_api.zeroconf import (
-    DiscoveredNetworkSystem,
-)
+from backend.deployment.network_api.catalog import SystemCatalog
 
 
 class Rsyncer:
@@ -139,7 +137,7 @@ class Rsyncer:
         if not system.run_command(command):
             raise RuntimeError(f"Failed to clean bundle transfers on {system.general_info.hostname}")
 
-    def get_bundled_zip(self, system: DiscoveredNetworkSystem) -> tuple[str, FilePath]:
+    def get_bundled_zip(self, system: SystemCatalog) -> tuple[str, FilePath]:
         name = f"{system.to_system_id().to_build_key()}.zip"
         zip_path = FilePath(os.path.join(self.local_bundler_output_path, name))
         return name, zip_path

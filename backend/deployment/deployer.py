@@ -18,6 +18,7 @@ from backend.deployment.fleet import (
 )
 from backend.deployment.module.base import Module, matches_module_type
 from backend.deployment.module.graph import ModuleGraph
+from backend.deployment.network_api.internet import has_internet_access
 from backend.deployment.network_api.system_api import System
 from backend.deployment.network_api.utils import FolderPath
 from backend.deployment.network_api.zeroconf import (
@@ -29,6 +30,23 @@ from backend.deployment.rsyncer import Rsyncer
 
 
 ProcessMapper = Callable[..., Mapping[str, Sequence[WeightedProcess]]]
+
+
+@dataclass(frozen=True)
+class DeploymentContext:
+    """One validated live fleet, reused by orchestration and deployment."""
+
+    modules: tuple[Module, ...]
+    options: BlitzNetworkDeployer.Options
+    systems: frozenset[System]
+    process_mapping: Mapping[str, tuple[WeightedProcess, ...]]
+
+
+@dataclass(frozen=True)
+class DeploymentCommand:
+    phase: str
+    options: BlitzNetworkDeployer.Options
+    system_ids: tuple[str, ...] = ()
 
 
 class MissingDependencyCacheError(RuntimeError):
@@ -129,6 +147,19 @@ class BlitzNetworkDeployer:
             process_mapping = BlitzNetworkDeployer._preflight(modules, mapper, systems)
         else:
             BlitzNetworkDeployer._validate_mapping(modules, process_mapping, systems)
+        context = DeploymentContext(
+            tuple(modules), config, frozenset(systems),
+            {name: tuple(processes) for name, processes in process_mapping.items()},
+        )
+        BlitzNetworkDeployer.distribute_prepared(context)
+
+    @staticmethod
+    def distribute_prepared(context: DeploymentContext) -> None:
+        """Transfer verified bundles to an already validated deployment fleet."""
+        modules = list(context.modules)
+        config = context.options
+        systems = set(context.systems)
+        process_mapping = context.process_mapping
         bundle_paths = BlitzNetworkDeployer._bundle_paths(config, systems)
         verify_bundles(BlitzNetworkDeployer._index_path(config), bundle_paths)
 
@@ -168,17 +199,36 @@ class BlitzNetworkDeployer:
         mapper: ProcessMapper,
         config: BlitzNetworkDeployer.Options | None = None,
     ) -> None:
-        if config is None:
-            config = BlitzNetworkDeployer.Options().build()
+        context = BlitzNetworkDeployer.prepare_deployment(modules, mapper, config)
+        BlitzNetworkDeployer.deploy_prepared(context)
+
+    @staticmethod
+    def prepare_deployment(
+        modules: list[Module], mapper: ProcessMapper,
+        config: BlitzNetworkDeployer.Options | None = None,
+    ) -> DeploymentContext:
+        """Collect and validate targets once, without building or transferring."""
+        config = config or BlitzNetworkDeployer.Options().build()
         systems = BlitzNetworkDeployer._find_systems(config)
         if not systems:
             raise ValueError("No watchdog systems discovered; no bundles were built")
-        process_mapping = BlitzNetworkDeployer._preflight(modules, mapper, systems)
+        mapping = BlitzNetworkDeployer._preflight(modules, mapper, systems)
+        return DeploymentContext(
+            tuple(modules), config, frozenset(systems),
+            {name: tuple(processes) for name, processes in mapping.items()},
+        )
+
+    @staticmethod
+    def deploy_prepared(context: DeploymentContext) -> None:
+        """Build and deploy using the fleet already selected by preflight."""
+        modules = list(context.modules)
+        config = context.options
+        systems = set(context.systems)
         print(f"found {len(systems)} systems")
         BlitzNetworkDeployer._remember_systems(config, systems)
         system_ids = BlitzNetworkDeployer._unique_system_ids(systems)
         BlitzNetworkDeployer.prepare_systems(modules, system_ids, config)
-        missing: list[str] = []
+        missing: dict[str, SystemBuilder] = {}
         stale_images: dict[str, str] = {}
         for system_id in system_ids:
             key = system_id.to_build_key()
@@ -186,14 +236,33 @@ class BlitzNetworkDeployer:
             cached = builder.dependencies_cached()
             print(f"Docker dependencies for {key}: {'cached' if cached else 'missing'}")
             if not cached:
-                missing.append(key)
-                candidates = builder.stale_dependency_images()
-                if candidates:
-                    stale_images[key] = candidates[0]
+                missing[key] = builder
         cache_instruction = (
             "Connect to the internet and run: python3 backend/deploy.py cache; "
             "then rerun python3 backend/deploy.py on the device network."
         )
+        if missing and has_internet_access():
+            print("Internet access detected; preparing missing Docker dependencies.")
+            for key, builder in missing.items():
+                try:
+                    builder.cache_dependencies()
+                    if not builder.dependencies_cached():
+                        raise RuntimeError("Matching Docker dependency image is still missing")
+                except (RuntimeError, subprocess.CalledProcessError, OSError) as error:
+                    raise MissingDependencyCacheError(
+                        f"Online dependency preparation failed for {key}: {error}. "
+                        "No deployment will proceed. " + cache_instruction
+                    ) from error
+            # Keep fallbacks until every selected profile has a replacement.
+            for builder in missing.values():
+                builder.prune_stale_dependency_images()
+            missing.clear()
+        elif missing:
+            print("Internet access was not detected; cannot prepare missing Docker dependencies.")
+            for key, builder in missing.items():
+                candidates = builder.stale_dependency_images()
+                if candidates:
+                    stale_images[key] = candidates[0]
         unavailable = [key for key in missing if key not in stale_images]
         if unavailable:
             raise MissingDependencyCacheError(
@@ -214,7 +283,7 @@ class BlitzNetworkDeployer:
                 raise MissingDependencyCacheError("Deployment cancelled. " + cache_instruction)
             print("Continuing with older cached dependencies by user choice.")
         BlitzNetworkDeployer.build_bundles(modules, config, system_ids, stale_images)
-        BlitzNetworkDeployer.distribute(modules, mapper, config, systems, process_mapping)
+        BlitzNetworkDeployer.distribute_prepared(context)
 
     @staticmethod
     def cache_dependencies(
@@ -241,12 +310,13 @@ class BlitzNetworkDeployer:
         print(f"cached dependencies for {len(system_ids)} system types")
 
     @staticmethod
-    def run_cli(
-        modules: list[Module],
-        mapper: ProcessMapper,
-        config: BlitzNetworkDeployer.Options | None = None,
+    def parse_cli(
         argv: Sequence[str] | None = None,
-    ) -> None:
+        config: BlitzNetworkDeployer.Options | None = None,
+        *,
+        config_factory: Callable[[bool], BlitzNetworkDeployer.Options] | None = None,
+    ) -> DeploymentCommand:
+        """Parse and apply deployment options for every caller, without I/O."""
         parser = argparse.ArgumentParser(description="Discover, build, and distribute BLITZ bundles")
         parser.add_argument("phase", choices=("discover", "build", "distribute", "deploy", "cache"), nargs="?", default="deploy")
         parser.add_argument("--output-dir", type=Path, help="Directory for built bundles")
@@ -259,14 +329,12 @@ class BlitzNetworkDeployer:
             help="Prepare a known system profile without contacting devices (repeatable)",
         )
         parser.add_argument("--blacklist", action="append", default=[], metavar="HOST_OR_IP", help="Exclude a hostname or IP before catalog requests (repeatable)")
-        parser.add_argument("--simulation", action="store_true", help="Use the simulation watchdog addresses configured in deploy.py, bypassing mDNS")
+        parser.add_argument("--sim", "--simulation", action="store_true", dest="simulation", help="Use the simulation watchdog addresses configured in deploy.py, bypassing mDNS")
         parser.add_argument("--expected-systems", type=int, metavar="COUNT", help="Require exactly this many devices after exclusions")
         args = parser.parse_args(argv)
-        if args.simulation and args.phase not in ("discover", "distribute", "deploy"):
-            parser.error("--simulation is only valid for discover/distribute/deploy")
         if args.system_id and (args.phase not in ("discover", "cache") or args.device or args.simulation):
             parser.error("--system-id is only valid for discover/cache and cannot be combined with --device or --simulation")
-        options = config or BlitzNetworkDeployer.Options().build()
+        options = config_factory(args.simulation) if config_factory is not None else (config or BlitzNetworkDeployer.Options().build())
         if args.simulation:
             options.set_simulation(True)
         if args.expected_systems is not None:
@@ -280,21 +348,38 @@ class BlitzNetworkDeployer:
                 options.set_pinned_devices(args.device)
         if args.output_dir is not None:
             options.set_output_folder_path(FolderPath(str(args.output_dir)))
-        if args.phase == "discover":
-            if args.system_id:
-                system_ids = [SystemId.from_build_key(key) for key in args.system_id]
+        return DeploymentCommand(args.phase, options, tuple(args.system_id))
+
+    @staticmethod
+    def run_cli(
+        modules: list[Module],
+        mapper: ProcessMapper,
+        config: BlitzNetworkDeployer.Options | None = None,
+        argv: Sequence[str] | None = None,
+        *,
+        config_factory: Callable[[bool], BlitzNetworkDeployer.Options] | None = None,
+    ) -> None:
+        command = BlitzNetworkDeployer.parse_cli(argv, config, config_factory=config_factory)
+        BlitzNetworkDeployer.execute_cli(command, modules, mapper)
+
+    @staticmethod
+    def execute_cli(command: DeploymentCommand, modules: list[Module], mapper: ProcessMapper) -> None:
+        options = command.options
+        if command.phase == "discover":
+            if command.system_ids:
+                system_ids = [SystemId.from_build_key(key) for key in command.system_ids]
                 BlitzNetworkDeployer._remember_system_ids(options, system_ids)
                 BlitzNetworkDeployer.prepare_systems(modules, system_ids, options)
             else:
                 BlitzNetworkDeployer.discover(modules, options)
-        elif args.phase == "build":
+        elif command.phase == "build":
             BlitzNetworkDeployer.build_bundles(modules, options)
-        elif args.phase == "distribute":
+        elif command.phase == "distribute":
             BlitzNetworkDeployer.distribute(modules, mapper, options)
-        elif args.phase == "cache":
-            if args.system_id:
+        elif command.phase == "cache":
+            if command.system_ids:
                 BlitzNetworkDeployer._remember_system_ids(
-                    options, [SystemId.from_build_key(key) for key in args.system_id]
+                    options, [SystemId.from_build_key(key) for key in command.system_ids]
                 )
             BlitzNetworkDeployer.cache_dependencies(modules, options)
         else:

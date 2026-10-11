@@ -8,9 +8,8 @@ GETTERS_BP = Blueprint("getter_routes", __name__)
 
 
 @GETTERS_BP.route("/get/system/catalog", methods=["GET"])
-@GETTERS_BP.route("/get/system/identity", methods=["GET"])
-def get_system_identity():
-    """Both routes expose the same periodically refreshed catalog contract."""
+def get_system_catalog():
+    """Expose the periodically refreshed catalog contract."""
     return jsonify(system_catalog_cache.get())
 
 

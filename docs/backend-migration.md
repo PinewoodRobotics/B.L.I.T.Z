@@ -290,10 +290,12 @@ directory.
 .venv/bin/python backend/deploy.py cache
 ```
 
-When a profile or dependency is uncached, the deployment cannot complete its
-normal offline build. Prepare it with `cache`, reconnect to the devices, and
-rerun deployment. An offered override can reuse older dependencies, but does not
-make them satisfy new requirements. Source/resource edits normally reuse the
+When a profile or dependency is uncached, deployment checks for internet access
+and attempts online preparation if it is detected, then builds offline. Failed
+preparation stops deployment. Without detected internet access, prepare it with
+`cache` online, reconnect to the devices, and rerun deployment. An offered
+override can reuse older dependencies, but does not make them satisfy new
+requirements. Source/resource edits normally reuse the
 dependency image; dependency changes require cache preparation.
 
 Generated Dockerfiles, contexts, bundles, inventory, and logs belong under

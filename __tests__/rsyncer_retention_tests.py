@@ -8,7 +8,7 @@ import pytest
 
 from backend.deployment.network_api.system_api import System
 from backend.deployment.network_api.utils import FilePath, FolderPath
-from backend.deployment.network_api.zeroconf import DiscoveredNetworkSystem
+from backend.deployment.network_api.catalog import SystemCatalog
 from backend.deployment.rsyncer import Rsyncer
 
 
@@ -23,7 +23,7 @@ class LocalTarget(System):
 
 
 def target(root: Path) -> LocalTarget:
-    return LocalTarget(DiscoveredNetworkSystem(
+    return LocalTarget(SystemCatalog(
         hostname='test.local', system_name='test', watchdog_port=9999, autobahn_port=8080,
         blitz_path=FolderPath(str(root)), machine_architecture='aarch64',
         platform_description='Linux-with-glibc2.36', python_major_version=3, python_minor_version=11,
