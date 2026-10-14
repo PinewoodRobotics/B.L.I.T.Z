@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
+import os
+from pathlib import Path
 import posixpath
 import shlex
 import subprocess
+import tempfile
 import time
 
 from backend.deployment.network_api.utils import FilePath, FolderPath
@@ -23,6 +27,32 @@ SSH_OPTIONS = (
 
 SSH_RETRY_ATTEMPTS = 3
 SSH_RETRY_DELAY_SECONDS = 0.5
+
+
+@contextmanager
+def _ssh_password_environment(password: str) -> Iterator[dict[str, str]]:
+    """Supply passwords through OpenSSH without relying on sshpass's PTY.
+
+    macOS can intermittently lose sshpass's controlling terminal. Force the
+    native helper for both SSH and rsync's SSH child, independent of DISPLAY.
+    The helper contains no credentials and rejects non-password prompts.
+    """
+    with tempfile.TemporaryDirectory(prefix="blitz-ssh-") as directory:
+        helper = Path(directory) / "askpass"
+        helper.write_text(
+            '#!/bin/sh\n'
+            'case "$1" in\n'
+            '  *assword:*) printf "%s\\n" "$BLITZ_SSH_PASSWORD" ;;\n'
+            '  *) exit 1 ;;\n'
+            'esac\n'
+        )
+        helper.chmod(0o700)
+        yield {
+            **os.environ,
+            "SSH_ASKPASS": str(helper),
+            "SSH_ASKPASS_REQUIRE": "force",
+            "BLITZ_SSH_PASSWORD": password,
+        }
 
 
 @dataclass(slots=True)
@@ -106,7 +136,6 @@ class System:
 
         rsync_proc = self._run_with_retries(
             [
-                *self._sshpass_command_prefix(),
                 "rsync",
                 "-av",
                 "--progress",
@@ -126,7 +155,6 @@ class System:
     def run_command(self, command: str) -> bool:
         ssh_proc = self._run_with_retries(
             [
-                *self._sshpass_command_prefix(),
                 "ssh",
                 "-o",
                 "StrictHostKeyChecking=no",
@@ -145,9 +173,6 @@ class System:
         )
         return ssh_proc.returncode == 0
 
-    def _sshpass_command_prefix(self) -> list[str]:
-        return ["sshpass", "-p", self.password]
-
     def _run_with_retries(
         self,
         command: list[str],
@@ -156,23 +181,26 @@ class System:
         attempts: int = SSH_RETRY_ATTEMPTS,
     ) -> subprocess.CompletedProcess[str]:
         last_proc: subprocess.CompletedProcess[str] | None = None
-        for attempt in range(1, attempts + 1):
-            proc = subprocess.run(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-            last_proc = proc
-            print(proc.stdout)
-            if proc.returncode == 0:
-                return proc
-
-            if attempt < attempts:
-                print(
-                    f"{label} failed on attempt {attempt}/{attempts}; retrying..."
+        with _ssh_password_environment(self.password) as environment:
+            for attempt in range(1, attempts + 1):
+                proc = subprocess.run(
+                    command,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    env=environment,
                 )
-                time.sleep(SSH_RETRY_DELAY_SECONDS)
+                last_proc = proc
+                print(proc.stdout)
+                if proc.returncode == 0:
+                    return proc
+
+                if attempt < attempts:
+                    print(
+                        f"{label} failed on attempt {attempt}/{attempts}; retrying..."
+                    )
+                    time.sleep(SSH_RETRY_DELAY_SECONDS)
 
         assert last_proc is not None
         return last_proc

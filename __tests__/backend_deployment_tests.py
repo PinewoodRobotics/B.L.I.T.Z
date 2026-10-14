@@ -16,8 +16,8 @@ import pytest
 from backend.deployment.bundler import CodeBundler
 from backend.deployment.compilation.util.systems import SystemId
 from backend.deployment.module.supported import SupportedModules
-from backend.deployment.network_api.system_api import System
-from backend.deployment.network_api.utils import FolderPath
+from backend.deployment.network_api.system_api import System, _ssh_password_environment
+from backend.deployment.network_api.utils import FilePath, FolderPath
 from backend.deployment.processes import WeightedProcess
 from backend.deployment.rsyncer import Rsyncer
 from __tests__.deploy_script_tests import INSTALLED_REPO
@@ -129,15 +129,24 @@ def test_system_run_command_retries_transient_ssh_auth_failure(
     )
     system = System(general_info=discovered_system)
     calls: list[list[str]] = []
+    helpers: list[Path] = []
 
     def fake_run(
         command: list[str],
         *,
+        stdin: int,
         stdout: int,
         stderr: int,
         text: bool,
+        env: dict[str, str],
     ) -> subprocess.CompletedProcess[str]:
         calls.append(command)
+        assert stdin == subprocess.DEVNULL
+        assert env["SSH_ASKPASS_REQUIRE"] == "force"
+        assert env["BLITZ_SSH_PASSWORD"] == system.password
+        helper = Path(env["SSH_ASKPASS"])
+        assert helper.is_file()
+        helpers.append(helper)
         if len(calls) == 1:
             return subprocess.CompletedProcess(
                 command,
@@ -151,8 +160,69 @@ def test_system_run_command_retries_transient_ssh_auth_failure(
 
     assert system.run_command("mkdir -p /tmp/blitz")
     assert len(calls) == 2
-    assert calls[0][:3] == ["sshpass", "-p", "ubuntu"]
+    assert calls[0][0] == "ssh"
     assert "NumberOfPasswordPrompts=1" in calls[0]
+    assert all(not helper.exists() for helper in helpers)
+
+
+@pytest.mark.parametrize("prompt,accepted", [
+    ("ubuntu@target's password: ", True), ("Password: ", True),
+    ("Enter passphrase for key: ", False), ("Confirm host key?", False),
+])
+def test_ssh_password_helper_only_answers_password_prompts(prompt: str, accepted: bool):
+    password = "literal ' \" $() password"
+    with _ssh_password_environment(password) as environment:
+        helper = Path(environment["SSH_ASKPASS"])
+        assert helper.stat().st_mode & 0o777 == 0o700
+        assert password not in helper.read_text()
+        result = subprocess.run([str(helper), prompt], env=environment, capture_output=True, text=True)
+        assert (result.returncode == 0) is accepted
+        assert result.stdout == (password + "\n" if accepted else "")
+    assert not helper.exists()
+
+
+def test_ssh_password_helper_cleanup_on_exception(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("SSH_ASKPASS_REQUIRE", "never")
+    with pytest.raises(RuntimeError, match="transport failed"):
+        with _ssh_password_environment("test password") as environment:
+            helper = Path(environment["SSH_ASKPASS"])
+            assert environment["SSH_ASKPASS_REQUIRE"] == "force"
+            raise RuntimeError("transport failed")
+    assert not helper.exists()
+    import os
+    assert os.environ["SSH_ASKPASS_REQUIRE"] == "never"
+
+
+def test_system_file_transfer_uses_same_password_environment_for_rsync(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    catalog = SystemCatalog(
+        hostname="target.local", system_name="target", watchdog_port=5000,
+        autobahn_port=8080, blitz_path=FolderPath("/opt/blitz/B.L.I.T.Z"),
+        machine_architecture="aarch64", platform_description="Linux-with-glibc2.39",
+        python_major_version=3, python_minor_version=12,
+        os_distribution_id="ubuntu", os_distribution_version_id="24.04",
+    )
+    system = System(catalog, password="transfer password")
+    calls: list[list[str]] = []
+    helpers: list[Path] = []
+
+    def fake_run(command: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        environment = kwargs["env"]
+        helper = Path(environment["SSH_ASKPASS"])
+        assert helper.is_file()
+        assert environment["SSH_ASKPASS_REQUIRE"] == "force"
+        assert environment["BLITZ_SSH_PASSWORD"] == system.password
+        assert system.password not in command
+        helpers.append(helper)
+        return subprocess.CompletedProcess(command, 0, stdout="ok")
+
+    monkeypatch.setattr("backend.deployment.network_api.system_api.subprocess.run", fake_run)
+    assert system.deploy_file(FilePath("bundle.zip"), FilePath("/tmp/bundle.zip"))
+    assert [command[0] for command in calls] == ["ssh", "rsync"]
+    assert "ssh -p 22" in calls[1][calls[1].index("-e") + 1]
+    assert all(not helper.exists() for helper in helpers)
 
 
 def test_backend_deploy_py_is_valid_and_bundled(tmp_path: Path):

@@ -246,6 +246,12 @@ Legacy bundles without `deployment/` preserve the installed library. The root
 package marker is always preserved.
 Declared resources also retain their relative paths in the runnable module.
 
+SSH commands and rsync use OpenSSH's native password helper. Each operation
+supplies credentials through its child environment and a temporary helper that
+contains no password; the helper is removed after retries finish. This avoids
+sshpass's intermittent controlling-terminal failures on macOS and does not
+require a graphical password dialog.
+
 Replacement runs as the SSH deployment user and never escalates to sudo. The
 watchdog, module processes, and post-provisioning Python validation must run as
 the configured login user, who owns the runtime tree. Incorrect ownership stops
