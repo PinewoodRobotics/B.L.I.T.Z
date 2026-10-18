@@ -80,6 +80,9 @@ from backend.deployment.deployer import BlitzNetworkDeployer
 from backend.deployment.module.supported import SupportedModules
 from backend.deployment.processes import ProcessPlan, WeightedProcess
 from backend.deployment.fleet import ExpectedSystemType
+from backend.deployment.module.catalog import BackendModules
+
+modules = BackendModules(__file__)
 
 SIMULATION_ENABLED = False
 SIMULATION_DEVICES: tuple[str, ...] = ()

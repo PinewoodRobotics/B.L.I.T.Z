@@ -608,6 +608,35 @@ deploy_backend() {
     )
 }
 
+add_module() {
+    local name="$1"
+    local language="$2"
+    local scaffold_path="${BLITZ_PROJECT}/${BLITZ_BACKEND_DIR}/deployment/module/scaffold.py"
+
+    if [ ! -f "${scaffold_path}" ]; then
+        error "Module scaffolding is missing; check for updates to install it."
+        exit 1
+    fi
+
+    python3 "${scaffold_path}" \
+        --backend "${BLITZ_PROJECT}/${BLITZ_BACKEND_DIR}" \
+        --deploy-file "${BLITZ_DEPLOY_SCRIPT}" \
+        --name "${name}" \
+        --language "${language}"
+}
+
+add_module_menu() {
+    local module_name=""
+    local languages=("python" "rust" "cpp")
+
+    prompt_text "Add module" module_name "Module name (letters, digits, _ or -)" "" true
+    select_menu "Language for ${module_name}" "Python" "Rust" "C++" "Cancel"
+    if [ "${selected_menu_index}" -ge "${#languages[@]}" ]; then
+        return
+    fi
+    add_module "${module_name}" "${languages[${selected_menu_index}]}" || true
+}
+
 settings_menu() {
     local new_backend_dir
 
@@ -645,6 +674,7 @@ main_menu() {
             "Detected BLITZ backend: ${BLITZ_BACKEND_DIR}" \
             "Deploy" \
             "Cache dependencies (internet required)" \
+            "Add module" \
             "Check for updates" \
             "Settings" \
             "Setup integration" \
@@ -661,15 +691,19 @@ main_menu() {
                 pause
                 ;;
             2)
+                add_module_menu
+                pause
+                ;;
+            3)
                 check_updates
                 pause
                 require_initialized_project
                 ;;
-            3)
+            4)
                 settings_menu
                 require_initialized_project
                 ;;
-            4)
+            5)
                 setup_menu
                 ;;
             *)
@@ -689,6 +723,13 @@ run_non_interactive_action() {
             ;;
         check-updates)
             check_updates
+            ;;
+        add-module)
+            if [ -z "${BLITZ_MODULE_NAME:-}" ] || [ -z "${BLITZ_MODULE_LANGUAGE:-}" ]; then
+                error "BLITZ_MODULE_NAME and BLITZ_MODULE_LANGUAGE (python, rust, or cpp) are required for add-module."
+                exit 1
+            fi
+            add_module "${BLITZ_MODULE_NAME}" "${BLITZ_MODULE_LANGUAGE}"
             ;;
         set-backend-dir)
             if [ -z "${BLITZ_BACKEND_DIR_VALUE:-}" ]; then

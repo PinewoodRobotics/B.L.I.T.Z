@@ -28,8 +28,16 @@ This installs `backend/deployment`, `backend/deploy.py`, and
 `scripts/backend.sh`. The version stamp at
 `backend/deployment/.blitz-build-version` identifies the backend folder: the
 backend folder is the parent of `deployment/`. Reinstalling preserves your
-`deploy.py`. Run `scripts/backend.sh` to deploy, check updates, or see the
-detected backend location. The local tool no longer creates language modules.
+`deploy.py`. Run `scripts/backend.sh` to deploy, check updates, add a module,
+or see the detected backend location.
+
+**Add module** asks for a name and a language (Python, Rust, or C++), creates
+`backend/<language>/<name>` with a runnable sample program, and registers it in
+`deploy.py`: a `ProcessType` member, a `modules.<language>(...)` declaration,
+and one fleet-wide `ProcessPlan` placement. If `deploy.py` has been customized
+beyond recognition, the files are still created and the declarations to add are
+printed instead. For automation:
+`BLITZ_BACKEND_ACTION=add-module BLITZ_MODULE_NAME=vision BLITZ_MODULE_LANGUAGE=cpp bash scripts/backend.sh`.
 
 For a non-interactive installation into another project, set `BLITZ_PROJECT`
 to its root. Set `BLITZ_BACKEND_DIR` to choose a different backend folder; the
