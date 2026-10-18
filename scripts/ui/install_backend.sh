@@ -47,7 +47,7 @@ detect_backend_dir() {
         deployment_path="${candidate}"
     done < <(
         find "${BLITZ_PROJECT}" \
-            \( -name .git -o -name .venv -o -name node_modules -o \
+            \( -name .git -o -name .venv -o -name node_modules -o -path "${BLITZ_PROJECT}/*" -name build -o \
                -path "${BLITZ_PROJECT}/${BLITZ_BIN_DIR:-bin}/B.L.I.T.Z" \) -prune -o \
             -type f \( -path '*/deployment/.blitz-build-version' -o \
                         -path '*/deployment/.build-version' \) -print

@@ -234,3 +234,21 @@ def test_multiple_backend_stamps_are_rejected(tmp_path: Path) -> None:
     )
     assert status.returncode != 0
     assert "multiple BLITZ backend stamps" in status.stderr
+
+
+def test_build_output_stamps_are_ignored(tmp_path: Path) -> None:
+    project = tmp_path / "plain-app"
+    project.mkdir()
+    assert_success(run_script(INSTALLER, project, {"BLITZ_SETUP": "none"}))
+    # Built bundles contain their own deployment stamp; they are not a second backend.
+    bundled_deployment = project / "build" / "backend-bundle" / "artifacts" / "profile" / "deployment"
+    bundled_deployment.mkdir(parents=True)
+    (bundled_deployment / ".blitz-build-version").write_text("1.0.0\n")
+
+    status = run_script(
+        project / "scripts" / "backend.sh",
+        project,
+        {"BLITZ_BACKEND_ACTION": "status"},
+    )
+    assert_success(status)
+    assert "Deployment:     backend/deployment" in status.stdout

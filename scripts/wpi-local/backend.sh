@@ -209,7 +209,7 @@ find_version_stamps() {
     local project_path="$1"
 
     find "${project_path}" \
-        \( -name .git -o -name .venv -o -name node_modules -o \
+        \( -name .git -o -name .venv -o -name node_modules -o -path "${project_path}/*" -name build -o \
            -path "${project_path}/${BLITZ_BIN_DIR:-bin}/B.L.I.T.Z" \) -prune -o \
         -type f \( -path '*/deployment/.blitz-build-version' -o \
                     -path '*/deployment/.build-version' \) -print
