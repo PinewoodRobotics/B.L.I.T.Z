@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from backend.deployment.misc.report import profile, stage
+
 import argparse
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -85,7 +87,7 @@ class BlitzNetworkDeployer:
         system_ids = BlitzNetworkDeployer._unique_system_ids(systems)
         BlitzNetworkDeployer._remember_systems(config, systems)
         BlitzNetworkDeployer.prepare_systems(modules, system_ids, config)
-        print(f"found {len(systems)} systems")
+        print(f"[ OK ] Selected {len(systems)} target(s)")
         return system_ids
 
     @staticmethod
@@ -102,10 +104,8 @@ class BlitzNetworkDeployer:
         for system_id in system_ids:
             BlitzNetworkDeployer._bundler(modules, config, system_id).prepare()
         build_root = Path(config.build_folder_path) / config.bundle_name / "contexts"
-        print(f"prepared {len(system_ids)} Dockerfiles:")
-        for system_id in system_ids:
-            context = build_root / system_id.to_build_key()
-            print(f"  {context / 'Dockerfile'}")
+        print(f"[ OK ] Prepared {len(system_ids)} build profile(s)")
+        print(f"       Build contexts: {build_root}")
 
     @staticmethod
     def build_bundles(
@@ -124,7 +124,7 @@ class BlitzNetworkDeployer:
             archive = bundler.bundle(prepared=True, dependency_image=image)
             bundles[system_id.to_build_key()] = Path(archive)
         save_bundle_index(BlitzNetworkDeployer._index_path(config), bundles)
-        print(f"built {len(bundles)} bundles in {config.output_folder_path}")
+        print(f"[ OK ] Built {len(bundles)} bundle(s): {config.output_folder_path}")
         return bundles
 
     @staticmethod
@@ -179,19 +179,15 @@ class BlitzNetworkDeployer:
                 process_mapping.get(system.general_info.system_name, ()),
             )
 
-            successfully_set_config = system.set_config(config.base64_supplier())
-            if not successfully_set_config:
-                raise RuntimeError(
-                    f"Failed to set config on {system.general_info.hostname}"
-                )
+            with stage(f"{system.general_info.hostname}: send runtime configuration"):
+                if not system.set_config(config.base64_supplier()):
+                    raise RuntimeError(f"Failed to set config on {system.general_info.hostname}")
 
-            print(f"Setting processes on {system.general_info.hostname}: {processes}")
-            successfully_set_processes = system.set_processes(processes)
-            if not successfully_set_processes:
-                raise RuntimeError(
-                    f"Failed to set processes on {system.general_info.hostname}"
-                )
-        print(f"Deployed on {len(systems)} Pis")
+            names = ', '.join(p.get_name() for p in processes) or '(none)'
+            with stage(f"{system.general_info.hostname}: assign processes: {names}"):
+                if not system.set_processes(processes):
+                    raise RuntimeError(f"Failed to set processes on {system.general_info.hostname}")
+        print(f"\n[ OK ] Deployment complete: {len(systems)} target(s). Configuration and process plans accepted.\n       Process health is reported by the watchdog/dashboard.")
 
     @staticmethod
     def deploy(
@@ -224,7 +220,9 @@ class BlitzNetworkDeployer:
         modules = list(context.modules)
         config = context.options
         systems = set(context.systems)
-        print(f"found {len(systems)} systems")
+        print(f"[ OK ] Selected {len(systems)} target(s)")
+        for system in sorted(systems, key=BlitzNetworkDeployer._system_label):
+            print(f"       {BlitzNetworkDeployer._system_label(system)} | {profile(system.general_info.to_system_id())}")
         BlitzNetworkDeployer._remember_systems(config, systems)
         system_ids = BlitzNetworkDeployer._unique_system_ids(systems)
         BlitzNetworkDeployer.prepare_systems(modules, system_ids, config)
@@ -234,7 +232,7 @@ class BlitzNetworkDeployer:
             key = system_id.to_build_key()
             builder = BlitzNetworkDeployer._builder(config, system_id)
             cached = builder.dependencies_cached()
-            print(f"Docker dependencies for {key}: {'cached' if cached else 'missing'}")
+            print(f"[{' OK ' if cached else 'WAIT'}] Dependencies: {profile(system_id)} — {'cached' if cached else 'build required'}")
             if not cached:
                 missing[key] = builder
         cache_instruction = (
@@ -360,7 +358,8 @@ class BlitzNetworkDeployer:
         config_factory: Callable[[bool], BlitzNetworkDeployer.Options] | None = None,
     ) -> None:
         command = BlitzNetworkDeployer.parse_cli(argv, config, config_factory=config_factory)
-        BlitzNetworkDeployer.execute_cli(command, modules, mapper)
+        with stage(f"BLITZ {command.phase}"):
+            BlitzNetworkDeployer.execute_cli(command, modules, mapper)
 
     @staticmethod
     def execute_cli(command: DeploymentCommand, modules: list[Module], mapper: ProcessMapper) -> None:

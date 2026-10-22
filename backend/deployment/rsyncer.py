@@ -1,7 +1,10 @@
 import os
 import posixpath
 import shlex
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+import re
+
+from backend.deployment.misc.report import stage
 
 from backend.deployment.module.graph import ModuleGraph
 from backend.deployment.module.base import DependencyInstallation, Module, matches_module_type
@@ -35,12 +38,18 @@ class Rsyncer:
     def deploy(self) -> None:
         for system in sorted(self.systems, key=self._system_label):
             self._apply_system_credentials(system)
-            name, remote_zip_path = self.rsync_bundle_zip(system)
-            self.install_bundle(system, name, FilePath(remote_zip_path))
-
+            label = self._system_label(system)
+            log_dir = Path(self.local_bundler_output_path) / "logs" / re.sub(r"[^a-zA-Z0-9_.-]", "_", label)
+            with stage(f"{label}: transfer bundle", log_dir / "transfer.log"):
+                name, remote_zip_path = self.rsync_bundle_zip(system)
+            with stage(f"{label}: install bundle", log_dir / "install.log"):
+                self.install_bundle(system, name, FilePath(remote_zip_path))
             if self.are_deps_bundled:
-                self.install_dependencies(system)
-            self.cleanup_bundle_transfers(system)
+                with stage(f"{label}: install dependencies", log_dir / "dependencies.log"):
+                    self.install_dependencies(system)
+            with stage(f"{label}: clean transfer files", log_dir / "cleanup.log"):
+                self.cleanup_bundle_transfers(system)
+            print(f"       Remote command logs: {log_dir}")
 
     def install_dependencies(self, system: System) -> None:
         installed_deps_lang_names: set[str] = set()

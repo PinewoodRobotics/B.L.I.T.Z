@@ -24,8 +24,10 @@ def test_docker_progress_is_visible_and_full_output_is_saved(
     )
 
     visible = capsys.readouterr().out
-    assert "#1 [build] RUN compile" in visible
-    assert "[blitz] START step=cpp-build:motor" in visible
+    assert "#1 [build] RUN compile" not in visible
+    assert "run  cpp-build:motor" in visible
+    assert "[RUN ] Build target bundle" in visible
+    assert "[ OK ] Build target bundle" in visible
     assert "compiler detail" not in visible
     assert "compiler detail" in output
     assert "compiler detail" in log_path.read_text()
@@ -88,3 +90,58 @@ def test_docker_unavailable_is_not_reported_as_a_cache_miss(
 
     with pytest.raises(DockerCacheInspectionError, match="Docker daemon"):
         builder.dependencies_cached()
+
+
+def test_remote_stage_preserves_logs_and_surfaces_warnings(tmp_path, capsys, monkeypatch):
+    from backend.deployment.misc.report import remote_output, stage
+    monkeypatch.delenv("BLITZ_VERBOSE", raising=False)
+    path = tmp_path / "install.log"
+    with stage("tripoli: install dependencies", path):
+        assert remote_output("inflating hundreds of files\nWARNING: package conflict\n", 0, 1)
+    visible = capsys.readouterr().out
+    assert "inflating" not in visible
+    assert "[WARN] WARNING: package conflict" in visible
+    assert "[ OK ] tripoli: install dependencies" in visible
+    assert "inflating hundreds of files" in path.read_text()
+    assert not remote_output("outside deployment", 0, 1)
+
+
+def test_failed_remote_stage_keeps_tail_and_restores_context(tmp_path, capsys):
+    from backend.deployment.misc.report import remote_output, stage
+    path = tmp_path / "failed.log"
+    with pytest.raises(RuntimeError, match="install failed"):
+        with stage("tripoli: install bundle", path):
+            assert remote_output("\n".join(f"line {i}" for i in range(40)), 7, 3)
+            raise RuntimeError("install failed")
+    visible = capsys.readouterr().out
+    assert "[FAIL] tripoli: install bundle" in visible
+    assert "Remote command exited 7" in visible
+    assert "line 39" in visible
+    assert "       line 0\n" not in visible
+    assert str(path) in visible
+    assert "line 0\n" in path.read_text()
+    assert not remote_output("outside deployment", 0, 1)
+
+
+def test_verbose_commands_keep_raw_output(tmp_path, capsys, monkeypatch):
+    monkeypatch.setenv("BLITZ_VERBOSE", "1")
+    run_command([sys.executable, "-c", "print('raw compiler detail')"],
+                "Compile", log_path=tmp_path / "compile.log")
+    assert "raw compiler detail" in capsys.readouterr().out
+
+
+def test_docker_warning_details_are_visible(tmp_path, capsys):
+    warning = " - FromPlatformFlagConstDisallowed: constant platform (line 1)"
+    run_command([sys.executable, "-c", f"print({warning!r})"], "Build",
+                log_path=tmp_path / "build.log", show_progress=True)
+    assert warning.strip() in capsys.readouterr().out
+
+
+def test_build_log_path_is_short_and_profile_specific(tmp_path):
+    first = SystemId("2.36", LinuxDistro.DEBIAN_12, Architecture.AMD64, PythonVersion(3, 11))
+    builder = SystemBuilder(first, FolderPath(str(tmp_path / "artifacts")),
+                            FolderPath(str(tmp_path / "contexts" / first.to_build_key())))
+    path = builder._log_path("compile")
+    assert len(path.parent.name) < 80
+    assert "debian-12" in path.parent.name
+    assert path.name == "compile.log"

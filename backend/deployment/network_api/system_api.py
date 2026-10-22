@@ -16,6 +16,7 @@ from backend.deployment.network_api.utils import FilePath, FolderPath
 from backend.deployment.network_api.catalog import SystemCatalog
 from backend.deployment.network_api.zeroconf import http_authority
 from backend.deployment.processes import Process
+from backend.deployment.misc.report import remote_output
 
 
 SSH_OPTIONS = (
@@ -169,7 +170,7 @@ class System:
                 self.remote_host,
                 command,
             ],
-            f"ssh {command}",
+            f"SSH on {self.general_info.hostname}",
         )
         return ssh_proc.returncode == 0
 
@@ -192,13 +193,14 @@ class System:
                     env=environment,
                 )
                 last_proc = proc
-                print(proc.stdout)
+                if not remote_output(proc.stdout, proc.returncode, attempt):
+                    print(proc.stdout)
                 if proc.returncode == 0:
                     return proc
 
                 if attempt < attempts:
                     print(
-                        f"{label} failed on attempt {attempt}/{attempts}; retrying..."
+                        f"[WARN] {label}: attempt {attempt}/{attempts} failed; retrying..."
                     )
                     time.sleep(SSH_RETRY_DELAY_SECONDS)
 

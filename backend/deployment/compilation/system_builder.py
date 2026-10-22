@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.deployment.misc.report import profile
+
 from dataclasses import asdict, dataclass
 import hashlib
 import json
@@ -420,7 +422,7 @@ class SystemBuilder:
         pattern = re.compile(re.escape(prefix) + r"[0-9a-f]{16}")
         stale = [image for image in self.stale_dependency_images() if pattern.fullmatch(image)]
         if not stale:
-            print(f"Docker cache cleanup for {self.system_id.to_build_key()}: no stale dependency images")
+            print(f"Docker cache cleanup for {profile(self.system_id)}: no stale dependency images")
             return []
         removed: list[str] = []
         for image in stale:
@@ -439,14 +441,16 @@ class SystemBuilder:
         return removed
 
     def _log_path(self, phase: str) -> Path:
-        return self.context.parents[1] / "logs" / self.context.name / f"{phase}.log"
+        profile_name = re.sub(r"[^a-zA-Z0-9_.-]", "-", profile(self.system_id))
+        digest = hashlib.sha256(self.context.name.encode()).hexdigest()[:12]
+        return self.context.parents[1] / "logs" / f"{profile_name}-{digest}" / f"{phase}.log"
 
     def cache_dependencies(self) -> None:
         run_command(
             ["docker", "build", "--progress=plain", "--platform", self.system_id.docker_image,
              "--target", "dependencies", "-f", str(self.dockerfile),
              "-t", self.dependency_image(), str(self.context)],
-            f"Cache dependencies for {self.system_id.to_build_key()}",
+            f"Cache dependencies for {profile(self.system_id)}",
             log_path=self._log_path("dependencies"), show_progress=True,
         )
 
@@ -466,7 +470,7 @@ class SystemBuilder:
              "--build-arg", f"DEPENDENCY_IMAGE={image}",
              "--platform", platform,
              "-f", str(self.dockerfile), "-t", image_name, str(self.context)],
-            f"Build target bundle for {self.system_id.to_build_key()}",
+            f"Build target bundle for {profile(self.system_id)}",
             log_path=self._log_path("compile"), show_progress=True,
         )
         container_id = run_command(

@@ -113,17 +113,31 @@ def test_advertised_mdns_system_generates_dockerfile(tmp_path: Path, monkeypatch
     system = make_system("advertised", "advertised.local.")
     properties = {key: str(getattr(system, key)) for key in ("hostname", "system_name", "watchdog_port", "autobahn_port", "ssh_port")}
     properties["schema_version"] = "3"
-    monkeypatch.setattr("backend.deployment.network_api.zeroconf.requests.get", lambda *_args, **_kwargs: SimpleNamespace(status_code=200, raise_for_status=lambda: None, json=lambda: {"schema_version": 3, "system": vars(system)}))
+    requested: list[str] = []
+
+    def local_catalog(url: str, **_kwargs):
+        assert url.startswith("http://127.0.0.1:5000/"), url
+        requested.append(url)
+        return SimpleNamespace(status_code=200, raise_for_status=lambda: None,
+                               json=lambda: {"schema_version": 3, "system": vars(system)})
+
+    monkeypatch.setattr("backend.deployment.network_api.zeroconf.requests.get", local_catalog)
     service = ServiceInfo(
         SERVICE, "blitz-dockerfile-test." + SERVICE,
         addresses=[socket.inet_aton("127.0.0.1")], port=5000,
         server=system.hostname, properties=properties,
     )
-    zeroconf = Zeroconf()
+    # Keep both multicast sockets off the developer's physical networks.
+    monkeypatch.setattr(
+        "backend.deployment.network_api.zeroconf.Zeroconf",
+        lambda: Zeroconf(interfaces=["127.0.0.1"]),
+    )
+    zeroconf = Zeroconf(interfaces=["127.0.0.1"])
     try:
         zeroconf.register_service(service)
         BlitzNetworkDeployer.discover([], config)
-        # Other watchdogs may be advertising on the developer's network.
+        assert requested
+        # Only the loopback advertisement may contribute a profile.
         dockerfile = (
             Path(config.build_folder_path) / config.bundle_name / "contexts"
             / system.to_system_id().to_build_key() / "Dockerfile"
