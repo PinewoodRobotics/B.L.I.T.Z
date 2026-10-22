@@ -212,6 +212,8 @@ while IFS= read -r step; do
             if [[ "$phase" == compile ]]; then continue; fi
             python_binary="python${python_major}.${python_minor}"
             "$python_binary" -m venv /tmp/blitz-wheel-venv
+            # Older ensurepip versions need wheel installed to build legacy sdists.
+            /tmp/blitz-wheel-venv/bin/python -m pip install --upgrade pip setuptools wheel
             mkdir -p /artifacts/deps/python
             cd /work/dependency-inputs/python
             /tmp/blitz-wheel-venv/bin/python -m pip wheel --wheel-dir /artifacts/deps/python --requirement requirements.txt
