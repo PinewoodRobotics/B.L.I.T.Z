@@ -7,6 +7,13 @@ settings:
 overrides:
   zod: 4.6.7
   undici: 7.30.1
+  systeminformation@<5.33.16: 5.33.16
+  '@modelcontextprotocol/sdk@>=1.10.0 <1.30.1': 1.30.1
+  body-parser@>=2.0.0 <2.4.0: 2.4.0
+  '@hono/node-server@>=2.0.0 <2.1.3': 2.1.3
+  qs@>=6.7.0 <6.16.1: 6.16.1
+  postcss-selector-parser@>=7.0.0 <7.1.6: 7.1.6
+  fast-uri@>=3.0.0 <3.1.9: 3.1.9
 
 importers:
 
@@ -363,8 +370,8 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@hono/node-server@2.0.12':
-    resolution: {integrity: sha512-eWpQYr67tqJLeaSUl0Q+TquuYfUdTibpOJlUMV2FfUP7+KqCC5TufnwnlXL6mobZBJbGAYRd7ZvEBDCbLInjhg==}
+  '@hono/node-server@2.1.3':
+    resolution: {integrity: sha512-TA//nWMqPhbfdfneACk6t5a9eqbS9lABEPyKn0/xZTah3H3U2XaVg85rJFl0/Fyit0I552YDHgXGVSf3GwqbUw==}
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4
@@ -645,8 +652,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@modelcontextprotocol/sdk@1.30.0':
-    resolution: {integrity: sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==}
+  '@modelcontextprotocol/sdk@1.30.1':
+    resolution: {integrity: sha512-H2HxLvC3HDNybePJaLdSrU1hhUK5iQw+WvV1b01myFyI7sdVGe1u/IPTE5D9fGCiJDVtgMV/lmFkQXLmQyIFYA==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
@@ -1391,8 +1398,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  body-parser@2.3.0:
-    resolution: {integrity: sha512-2cGmJupaNgg+QUwVLAucDuWuoMZ6EX9iHDRswZ5lsNYEmwPaRknMPCLZz07yTzVq/83p4o/wzbDZbBrTvGGTIw==}
+  body-parser@2.4.0:
+    resolution: {integrity: sha512-Ifk1KcLrxaGt1occQagQNFNNOqRt1LFuehEnHHzB8Z6cRgIxRU1TBaiIsUiCdA+gy5PL7Y1IX31DNKkRmxtXjQ==}
     engines: {node: '>=18'}
 
   brace-expansion@1.1.16:
@@ -1505,6 +1512,10 @@ packages:
 
   content-type@2.0.0:
     resolution: {integrity: sha512-j/O/d7GcZCyNl7/hwZAb606rzqkyvaDctLmckbxLzHvFBzTJHuGEdodATcP3yIRoDrLHkIATJuvzbFlp/ki2cQ==}
+    engines: {node: '>=18'}
+
+  content-type@2.1.0:
+    resolution: {integrity: sha512-mj7UPXE0jaqaOsukNZRUEfEi2AcL7C/vwmwcHV0O97eO1E1pxBZuyjlZrx5seTaNBg1U6+o35wpa35Qfcc+7ag==}
     engines: {node: '>=18'}
 
   convert-source-map@2.0.0:
@@ -1968,8 +1979,8 @@ packages:
   fast-levenshtein@2.0.6:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
 
-  fast-uri@3.1.4:
-    resolution: {integrity: sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw==}
+  fast-uri@3.1.9:
+    resolution: {integrity: sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==}
 
   fastq@1.20.1:
     resolution: {integrity: sha512-GGToxJ/w1x32s/D2EKND7kTil4n8OVk/9mycTc4VDza13lOvpUZTGX3mFSCtV9ksdGBVzvsyAVLM6mHFThxXxw==}
@@ -2895,8 +2906,8 @@ packages:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
     engines: {node: '>= 0.4'}
 
-  postcss-selector-parser@7.1.4:
-    resolution: {integrity: sha512-HeP7D2wyhkR+XaK6v4W8oRF62Dsz4flyuczALJp61GckGm42u1saSSJ/0auvcBqxs3jMRFEcPK34At/0JBKdOg==}
+  postcss-selector-parser@7.1.6:
+    resolution: {integrity: sha512-7qASPzhKF2l2KLboRZux8CCTRMdGiV08vWmyKzPz22qZ7ZjQBOeY7rNzNoCLSUiftJ7HUq0GERHmxw/t0dCdMw==}
     engines: {node: '>=4'}
 
   postcss@8.5.23:
@@ -2990,8 +3001,8 @@ packages:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
 
-  qs@6.15.3:
-    resolution: {integrity: sha512-O9gl3zCl5h5blw1KGUzQKhA5oUXSl8rwUIM5o0S3nCXMliSvy5Dzx7/DJcI+SwgICv+IneSZwhBh1oSyEHA71A==}
+  qs@6.16.1:
+    resolution: {integrity: sha512-5Px6J7rfHBAGUhNQ3es4YzcOdBBw0SDcVtThJml4RdnKw4tKs2epA0kPZ+K8X+WiHktT93RHVcQ/3ym5aTCgtg==}
     engines: {node: '>=0.6'}
 
   queue-microtask@1.2.3:
@@ -3344,8 +3355,8 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
-  systeminformation@5.33.1:
-    resolution: {integrity: sha512-DEN6ICHk3Tk0Uf/hrAHh7xlt7iL5CJFBtPZinA0H62DrGG/KPKqq/Nzj6lCXPS4Ay/sf/14zNnk9LpqKzBIc+w==}
+  systeminformation@5.33.16:
+    resolution: {integrity: sha512-R+Lh69IJXfJj6bfyH1In5cIR9FTr4hBS39YvlZHZjsK1p9cuELPq7hplZZIb56ZESMMb+DzdKqqE6Iomi01Mvg==}
     engines: {node: '>=10.0.0'}
     os: [darwin, linux, win32, freebsd, openbsd, netbsd, sunos, android]
     hasBin: true
@@ -3824,7 +3835,7 @@ snapshots:
       object-treeify: 1.1.33
       open: 8.4.2
       picomatch: 4.0.5
-      systeminformation: 5.33.1
+      systeminformation: 5.33.16
       undici: 7.30.1
       which: 4.0.0
       yocto-spinner: 1.2.2
@@ -3920,7 +3931,7 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@hono/node-server@2.0.12(hono@4.12.32)':
+  '@hono/node-server@2.1.3(hono@4.12.32)':
     dependencies:
       hono: 4.12.32
 
@@ -4076,9 +4087,9 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@modelcontextprotocol/sdk@1.30.0(zod@4.6.7)':
+  '@modelcontextprotocol/sdk@1.30.1(zod@4.6.7)':
     dependencies:
-      '@hono/node-server': 2.0.12(hono@4.12.32)
+      '@hono/node-server': 2.1.3(hono@4.12.32)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -4631,7 +4642,7 @@ snapshots:
   ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.4
+      fast-uri: 3.1.9
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -4744,15 +4755,15 @@ snapshots:
 
   baseline-browser-mapping@2.11.5: {}
 
-  body-parser@2.3.0:
+  body-parser@2.4.0:
     dependencies:
       bytes: 3.1.2
-      content-type: 2.0.0
+      content-type: 2.1.0
       debug: 4.4.3
       http-errors: 2.0.1
       iconv-lite: 0.7.3
       on-finished: 2.4.1
-      qs: 6.15.3
+      qs: 6.16.1
       raw-body: 3.0.2
       type-is: 2.1.0
     transitivePeerDependencies:
@@ -4871,6 +4882,8 @@ snapshots:
   content-type@1.0.5: {}
 
   content-type@2.0.0: {}
+
+  content-type@2.1.0: {}
 
   convert-source-map@2.0.0: {}
 
@@ -5441,7 +5454,7 @@ snapshots:
   express@5.2.1:
     dependencies:
       accepts: 2.0.0
-      body-parser: 2.3.0
+      body-parser: 2.4.0
       content-disposition: 1.1.0
       content-type: 1.0.5
       cookie: 0.7.2
@@ -5460,7 +5473,7 @@ snapshots:
       once: 1.4.0
       parseurl: 1.3.3
       proxy-addr: 2.0.7
-      qs: 6.15.3
+      qs: 6.16.1
       range-parser: 1.3.0
       router: 2.2.0
       send: 1.2.1
@@ -5493,7 +5506,7 @@ snapshots:
 
   fast-levenshtein@2.0.6: {}
 
-  fast-uri@3.1.4: {}
+  fast-uri@3.1.9: {}
 
   fastq@1.20.1:
     dependencies:
@@ -6322,7 +6335,7 @@ snapshots:
 
   possible-typed-array-names@1.1.0: {}
 
-  postcss-selector-parser@7.1.4:
+  postcss-selector-parser@7.1.6:
     dependencies:
       cssesc: 3.0.0
       util-deprecate: 1.0.2
@@ -6365,7 +6378,7 @@ snapshots:
 
   punycode@2.3.1: {}
 
-  qs@6.15.3:
+  qs@6.16.1:
     dependencies:
       es-define-property: 1.0.1
       side-channel: 1.1.1
@@ -6615,7 +6628,7 @@ snapshots:
       '@babel/plugin-transform-typescript': 7.29.7(@babel/core@7.29.7)
       '@babel/preset-typescript': 7.29.7(@babel/core@7.29.7)
       '@dotenvx/dotenvx': 1.75.1
-      '@modelcontextprotocol/sdk': 1.30.0(zod@4.6.7)
+      '@modelcontextprotocol/sdk': 1.30.1(zod@4.6.7)
       '@types/validate-npm-package-name': 4.0.2
       browserslist: 4.28.7
       commander: 14.0.3
@@ -6631,7 +6644,7 @@ snapshots:
       open: 11.0.0
       ora: 8.2.0
       postcss: 8.5.23
-      postcss-selector-parser: 7.1.4
+      postcss-selector-parser: 7.1.6
       prompts: 2.4.2
       recast: 0.23.12
       stringify-object: 5.0.0
@@ -6834,7 +6847,7 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  systeminformation@5.33.1: {}
+  systeminformation@5.33.16: {}
 
   tailwind-merge@3.6.0: {}
 
