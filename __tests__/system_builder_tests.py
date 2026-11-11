@@ -196,3 +196,32 @@ def test_cleanup_keeps_in_use_images_and_continues(tmp_path, monkeypatch, capsys
     monkeypatch.setattr('backend.deployment.compilation.system_builder.run_command', remove)
     assert builder.prune_stale_dependency_images() == [second]
     assert f'Kept stale Docker image {first}' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("qualified_found", "listed", "expected"),
+    [(True, "", True), (False, "db1d5c2830b8\n", True), (False, "", False)],
+)
+def test_dependency_cache_survives_intermittent_short_name_misses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    qualified_found: bool, listed: str, expected: bool,
+) -> None:
+    """Docker Desktop can miss a short name that its image store still holds."""
+    system_id = SystemId("2.36", LinuxDistro.DEBIAN_12, Architecture.AMD64, PythonVersion(3, 11))
+    builder = SystemBuilder(system_id, FolderPath(str(tmp_path / "artifacts")), FolderPath(str(tmp_path / "context")))
+    monkeypatch.setattr(builder, "dependency_image", lambda: "blitz-deps-test")
+    commands: list[list[str]] = []
+
+    def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        if command[:3] == ["docker", "image", "inspect"]:
+            if command[-1] == "docker.io/library/blitz-deps-test:latest" and qualified_found:
+                return subprocess.CompletedProcess(command, 0, "sha256:abc\n", "")
+            return subprocess.CompletedProcess(command, 1, "", f"Error: No such image: {command[-1]}")
+        return subprocess.CompletedProcess(command, 0, listed, "")
+
+    monkeypatch.setattr("backend.deployment.compilation.system_builder.subprocess.run", fake_run)
+    assert builder.dependencies_cached() is expected
+    assert commands[0][-1] == "blitz-deps-test:latest"
+    if not qualified_found:
+        assert commands[-1] == ["docker", "image", "ls", "--quiet", "--filter", "reference=blitz-deps-test"]

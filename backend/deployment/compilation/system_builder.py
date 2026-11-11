@@ -40,6 +40,49 @@ class DockerCacheInspectionError(RuntimeError):
     """Docker could not report whether a dependency image is present."""
 
 
+def _docker_query(arguments: list[str]) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            ["docker", *arguments], capture_output=True, text=True, check=False,
+        )
+    except OSError as error:
+        raise DockerCacheInspectionError(f"Cannot inspect Docker dependency cache: {error}") from error
+
+
+def _image_references(image: str) -> tuple[str, ...]:
+    """Spell a local image name the ways Docker image stores resolve it."""
+    tagged = image if ":" in image.rsplit("/", 1)[-1] else f"{image}:latest"
+    if "/" in image:
+        return (tagged,)
+    return (tagged, f"docker.io/library/{tagged}")
+
+
+def _image_present(image: str) -> bool:
+    """Report whether a local image exists, without trusting one name lookup.
+
+    Docker Desktop's containerd image store can intermittently answer "No such
+    image" for a short name while the fully qualified name, and the image list,
+    still contain it. A false miss makes deployment rebuild dependencies online,
+    so only report a miss when every lookup agrees.
+    """
+    for reference in _image_references(image):
+        result = _docker_query(["image", "inspect", "--format", "{{.Id}}", reference])
+        if result.returncode == 0:
+            return True
+        if "No such image" not in result.stderr and "No such object" not in result.stderr:
+            raise DockerCacheInspectionError(
+                "Cannot inspect Docker dependency cache. Check that Docker is running: "
+                + result.stderr.strip()
+            )
+    listed = _docker_query(["image", "ls", "--quiet", "--filter", f"reference={image}"])
+    if listed.returncode != 0:
+        raise DockerCacheInspectionError(
+            "Cannot list Docker dependency images. Check that Docker is running: "
+            + listed.stderr.strip()
+        )
+    return bool(listed.stdout.strip())
+
+
 @dataclass(frozen=True)
 class BuildStep:
     """One ordered node in the per-system dependency and compilation graph."""
@@ -377,32 +420,12 @@ class SystemBuilder:
         return f"blitz-deps-{self.system_id.to_build_key()}-{digest.hexdigest()[:16]}".lower()
 
     def dependencies_cached(self) -> bool:
-        try:
-            result = subprocess.run(
-                ["docker", "image", "inspect", self.dependency_image()],
-                capture_output=True, text=True, check=False,
-            )
-        except OSError as error:
-            raise DockerCacheInspectionError(f"Cannot inspect Docker dependency cache: {error}") from error
-        if result.returncode == 0:
-            return True
-        if "No such image" in result.stderr or "No such object" in result.stderr:
-            return False
-        raise DockerCacheInspectionError(
-            "Cannot inspect Docker dependency cache. Check that Docker is running: "
-            + result.stderr.strip()
-        )
+        return _image_present(self.dependency_image())
 
     def stale_dependency_images(self) -> list[str]:
         """Find older cached dependency images for this exact system profile."""
         prefix = f"blitz-deps-{self.system_id.to_build_key()}-".lower()
-        try:
-            result = subprocess.run(
-                ["docker", "image", "ls", "--format", "{{.Repository}}"],
-                capture_output=True, text=True, check=False,
-            )
-        except OSError as error:
-            raise DockerCacheInspectionError(f"Cannot inspect Docker dependency cache: {error}") from error
+        result = _docker_query(["image", "ls", "--format", "{{.Repository}}"])
         if result.returncode != 0:
             raise DockerCacheInspectionError(
                 "Cannot list Docker dependency images. Check that Docker is running: "

@@ -186,7 +186,10 @@ ahead of time, connect the build computer to the internet:
 
 Reconnect to the device network and rerun deployment. New target profiles or
 changed dependencies require matching cache preparation. Source and resource
-edits reuse dependency images. An older cached dependency image may be offered
+edits reuse dependency images. A dependency image counts as missing only when
+its short name, its fully qualified `docker.io/library/` name, and Docker's
+image list all lack it, because some Docker image stores intermittently miss
+short names. An older cached dependency image may be offered
 through an explicit override; it may lack newly requested dependencies and does
 not bypass target compatibility checks.
 
