@@ -148,10 +148,13 @@ flowchart TD
     C -->|Yes| E["Compile compatible modules offline in Docker"]
     M -->|Older image accepted| E
     E --> F["Export artifacts, wheels, resources, and runtime manifest"]
-    F --> G["Transfer target-specific bundle"]
-    G --> H["Replace installed backend and remove obsolete files"]
-    H --> I["Install bundled Python dependencies offline"]
-    I --> J["Remove transfer archives"]
+    F --> G["Compare with the target's installed bundle manifest"]
+    G --> H["Transfer the complete bundle, or only changed files"]
+    H --> I["Install files and remove obsolete ones"]
+    I --> N{"Bundled dependencies changed?"}
+    N -->|Yes| O["Install bundled Python dependencies offline"]
+    N -->|No| J["Remove transfer archives"]
+    O --> J
     J --> K["Watchdog launches assigned programs"]
 ```
 
@@ -186,7 +189,10 @@ ahead of time, connect the build computer to the internet:
 
 Reconnect to the device network and rerun deployment. New target profiles or
 changed dependencies require matching cache preparation. Source and resource
-edits reuse dependency images. An older cached dependency image may be offered
+edits reuse dependency images. A dependency image counts as missing only when
+its short name, its fully qualified `docker.io/library/` name, and Docker's
+image list all lack it, because some Docker image stores intermittently miss
+short names. An older cached dependency image may be offered
 through an explicit override; it may lack newly requested dependencies and does
 not bypass target compatibility checks.
 
@@ -201,15 +207,19 @@ each module's installation commands directly.
 build/backend-bundle/
 ├── contexts/<system-id>/         Dockerfile, scripts, plans, staged sources
 ├── systems.json                 Recorded build profiles; no device identities
-├── artifacts/<system-id>/        Extracted build outputs
-├── logs/<system-id>/             Dependency, compilation, and extraction logs
+├── artifacts/<system-id>/        Build outputs exported by Docker
+├── logs/<system-id>/             Dependency and compilation logs
 └── outputs/
     ├── <system-id>.zip           Target-specific bundle
     └── bundle-index.json         Bundle checksums
 ```
 
 These are local generated artifacts, not source modules. Docker's dependency
-images remain cached locally for future deployments.
+images remain cached locally for future deployments. Compilation exports the
+final `artifacts` stage directly into `artifacts/<system-id>/` and creates no
+Docker image, so repeated builds do not accumulate images. A `blitz-build-*`
+image left by an older BLITZ version is removed after the next build of its
+profile unless a container still uses it.
 
 ## Installed layout and single-bundle retention
 
@@ -223,6 +233,7 @@ For an example installation root of `/opt/blitz`:
     ├── deployment/               BLITZ API matching the bundle's deploy.py
     ├── deploy.py
     ├── build-plan.json
+    ├── bundle-manifest.json      Installed file checksums for incremental updates
     ├── runtime-manifest.json
     ├── python/control/
     │   ├── main.py
@@ -245,6 +256,31 @@ watchdog discards cached deployment definitions when `.blitz-runtime-id` changes
 Legacy bundles without `deployment/` preserve the installed library. The root
 package marker is always preserved.
 Declared resources also retain their relative paths in the runnable module.
+
+### Incremental transfer
+
+Each bundle archive contains `bundle-manifest.json`, recording the SHA-256,
+mode, and size of every file plus the directory list. A successful installation
+leaves it at `backend/bundle-manifest.json`. On the next deployment, BLITZ reads
+that manifest over SSH and compares it with the new bundle:
+
+- An identical bundle transfers nothing.
+- Otherwise a delta archive carries only changed files, the lists of removed
+  files and directories, the new manifest, and the installed manifest it was
+  compared against. The target applies it only if its manifest still matches
+  that comparison exactly, then writes the new manifest last.
+- A missing, unreadable, or other-profile manifest, or a bundle from an older
+  BLITZ version, transfers the complete bundle as before.
+
+Installation removes the installed manifest before changing any file, so an
+interrupted install makes the next deployment transfer everything. Like a
+complete install, every incremental or unchanged deployment removes runtime
+`__pycache__` folders, because installed files keep archive timestamps. Python
+dependencies are reinstalled only when the bundled `deps/` content changes; the
+record of the installed set lives in the target `.venv`, so a recreated
+environment reinstalls them. Pass `--full-transfer` (or
+`Options.set_incremental_transfer(False)`) to send complete bundles and reinstall
+dependencies, for example after files on the target were edited by hand.
 
 SSH commands and rsync use OpenSSH's native password helper. Each operation
 supplies credentials through its child environment and a temporary helper that

@@ -40,6 +40,49 @@ class DockerCacheInspectionError(RuntimeError):
     """Docker could not report whether a dependency image is present."""
 
 
+def _docker_query(arguments: list[str]) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            ["docker", *arguments], capture_output=True, text=True, check=False,
+        )
+    except OSError as error:
+        raise DockerCacheInspectionError(f"Cannot inspect Docker dependency cache: {error}") from error
+
+
+def _image_references(image: str) -> tuple[str, ...]:
+    """Spell a local image name the ways Docker image stores resolve it."""
+    tagged = image if ":" in image.rsplit("/", 1)[-1] else f"{image}:latest"
+    if "/" in image:
+        return (tagged,)
+    return (tagged, f"docker.io/library/{tagged}")
+
+
+def _image_present(image: str) -> bool:
+    """Report whether a local image exists, without trusting one name lookup.
+
+    Docker Desktop's containerd image store can intermittently answer "No such
+    image" for a short name while the fully qualified name, and the image list,
+    still contain it. A false miss makes deployment rebuild dependencies online,
+    so only report a miss when every lookup agrees.
+    """
+    for reference in _image_references(image):
+        result = _docker_query(["image", "inspect", "--format", "{{.Id}}", reference])
+        if result.returncode == 0:
+            return True
+        if "No such image" not in result.stderr and "No such object" not in result.stderr:
+            raise DockerCacheInspectionError(
+                "Cannot inspect Docker dependency cache. Check that Docker is running: "
+                + result.stderr.strip()
+            )
+    listed = _docker_query(["image", "ls", "--quiet", "--filter", f"reference={image}"])
+    if listed.returncode != 0:
+        raise DockerCacheInspectionError(
+            "Cannot list Docker dependency images. Check that Docker is running: "
+            + listed.stderr.strip()
+        )
+    return bool(listed.stdout.strip())
+
+
 @dataclass(frozen=True)
 class BuildStep:
     """One ordered node in the per-system dependency and compilation graph."""
@@ -354,6 +397,8 @@ class SystemBuilder:
             "COPY sources /work/sources",
             "COPY workspace /work/workspace",
             "RUN --network=none /bin/bash /work/build_system.sh compile",
+            "FROM scratch AS artifacts",
+            "COPY --from=build /artifacts/ /",
         ]
         content = "\n".join(dockerfile_lines) + "\n"
         if not self.dockerfile.is_file() or self.dockerfile.read_text() != content:
@@ -377,32 +422,12 @@ class SystemBuilder:
         return f"blitz-deps-{self.system_id.to_build_key()}-{digest.hexdigest()[:16]}".lower()
 
     def dependencies_cached(self) -> bool:
-        try:
-            result = subprocess.run(
-                ["docker", "image", "inspect", self.dependency_image()],
-                capture_output=True, text=True, check=False,
-            )
-        except OSError as error:
-            raise DockerCacheInspectionError(f"Cannot inspect Docker dependency cache: {error}") from error
-        if result.returncode == 0:
-            return True
-        if "No such image" in result.stderr or "No such object" in result.stderr:
-            return False
-        raise DockerCacheInspectionError(
-            "Cannot inspect Docker dependency cache. Check that Docker is running: "
-            + result.stderr.strip()
-        )
+        return _image_present(self.dependency_image())
 
     def stale_dependency_images(self) -> list[str]:
         """Find older cached dependency images for this exact system profile."""
         prefix = f"blitz-deps-{self.system_id.to_build_key()}-".lower()
-        try:
-            result = subprocess.run(
-                ["docker", "image", "ls", "--format", "{{.Repository}}"],
-                capture_output=True, text=True, check=False,
-            )
-        except OSError as error:
-            raise DockerCacheInspectionError(f"Cannot inspect Docker dependency cache: {error}") from error
+        result = _docker_query(["image", "ls", "--format", "{{.Repository}}"])
         if result.returncode != 0:
             raise DockerCacheInspectionError(
                 "Cannot list Docker dependency images. Check that Docker is running: "
@@ -463,30 +488,34 @@ class SystemBuilder:
                 "Connect to the internet and run: python backend/deploy.py cache"
             )
         image = dependency_image or self.dependency_image()
-        image_name = f"blitz-build-{self.system_id.to_build_key()}".lower()
-        platform = self.system_id.docker_image
+        # Export only the artifacts stage straight into the build folder. No
+        # image is created, so nothing accumulates in Docker between builds.
         run_command(
             ["docker", "build", "--progress=plain", "--network", "none", "--pull=false",
              "--build-arg", f"DEPENDENCY_IMAGE={image}",
-             "--platform", platform,
-             "-f", str(self.dockerfile), "-t", image_name, str(self.context)],
+             "--platform", self.system_id.docker_image,
+             "--target", "artifacts",
+             "--output", f"type=local,dest={self.build_path}",
+             "-f", str(self.dockerfile), str(self.context)],
             f"Build target bundle for {profile(self.system_id)}",
             log_path=self._log_path("compile"), show_progress=True,
         )
-        container_id = run_command(
-            ["docker", "create", "--platform", platform, image_name],
-            "Create artifact extraction container",
-            log_path=self._log_path("create"), show_progress=True,
-        ).strip()
+        self._remove_legacy_build_image()
+
+    def _remove_legacy_build_image(self) -> None:
+        """Retire the per-profile image that BLITZ before 3.1.4 tagged on every build."""
+        legacy = f"blitz-build-{self.system_id.to_build_key()}".lower()
         try:
-            run_command(
-                ["docker", "cp", f"{container_id}:/artifacts/.", str(self.build_path)],
-                "Extract target artifacts",
-                log_path=self._log_path("extract"), show_progress=True,
-            )
-        finally:
-            run_command(["docker", "rm", container_id], "Remove artifact extraction container",
-                        log_path=self._log_path("cleanup"), show_progress=True)
+            if not run_command(
+                ["docker", "image", "ls", "--quiet", "--filter", f"reference={legacy}"],
+                "List legacy build image",
+            ).strip():
+                return
+            run_command(["docker", "image", "rm", legacy], f"Remove legacy build image {legacy}",
+                        log_path=self._log_path("cleanup"))
+        except (subprocess.CalledProcessError, OSError) as error:
+            # A container may still use it. Never force removal or fail the build.
+            print(f"WARNING: Kept legacy build image {legacy}: {error}")
 
     def build(self, modules: list[Module], bundle_dependencies: bool) -> BuildPlan:
         plan = self.prepare(modules, bundle_dependencies)

@@ -2,7 +2,7 @@
 from pathlib import Path
 import shutil
 import subprocess
-from zipfile import ZipFile
+from zipfile import BadZipFile, ZipFile
 
 import pytest
 
@@ -13,13 +13,27 @@ from backend.deployment.rsyncer import Rsyncer
 
 
 class LocalTarget(System):
+    transfers: list[list[str]]
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.transfers = []
+
     def run_command(self, command: str) -> bool:
         return subprocess.run(['bash', '-c', command], capture_output=True).returncode == 0
 
     def deploy_file(self, local_file_path: FilePath, remote_file_path: FilePath) -> bool:
         Path(remote_file_path).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(local_file_path, remote_file_path)
+        try:
+            self.transfers.append(ZipFile(local_file_path).namelist())
+        except BadZipFile:
+            self.transfers.append([])
         return True
+
+    def read_file(self, remote_file_path: FilePath) -> str | None:
+        path = Path(remote_file_path)
+        return path.read_text() if path.is_file() else None
 
 
 def target(root: Path) -> LocalTarget:

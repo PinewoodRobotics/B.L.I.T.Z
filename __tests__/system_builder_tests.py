@@ -58,8 +58,8 @@ def test_one_system_graph_builds_every_declared_module(tmp_path: Path, monkeypat
     )
     builder.build(modules, bundle_dependencies=True)
 
-    assert [call[1] for call in calls] == ["build", "create", "cp", "rm"]
-    assert calls[1][2:4] == ["--platform", "linux/amd64"]
+    assert [call[1:3] for call in calls] == [["build", "--progress=plain"], ["image", "ls"]]
+    assert calls[0][calls[0].index("--platform") + 1] == "linux/amd64"
     dockerfile = builder.dockerfile.read_text()
     assert dockerfile.startswith("ARG DEPENDENCY_IMAGE=scratch\n# dependency-cache: blitz-deps-")
     assert (
@@ -76,7 +76,7 @@ def test_one_system_graph_builds_every_declared_module(tmp_path: Path, monkeypat
         "COPY workspace /work/workspace\n"
     ) in dockerfile
     assert "RUN --network=none /bin/bash /work/build_system.sh compile\n" in dockerfile
-    assert dockerfile.endswith("/bin/bash /work/build_system.sh compile\n")
+    assert dockerfile.endswith("/bin/bash /work/build_system.sh compile\nFROM scratch AS artifacts\nCOPY --from=build /artifacts/ /\n")
     provision = json.loads((builder.context / "provision-plan.json").read_text())
     assert [step["kind"] for step in provision["steps"]] == [
         "system-packages", "cpp-dependencies", "cpp-dependencies", "rust-toolchain", "rust-fetch", "python-wheels"
@@ -127,14 +127,25 @@ def test_one_system_graph_builds_every_declared_module(tmp_path: Path, monkeypat
 
     prepared_dockerfile = builder.dockerfile.read_bytes()
     monkeypatch.setattr(builder, "create_plan", lambda *_args: pytest.fail("regenerated Dockerfile"))
+    calls.clear()
     builder.build_prepared()
-    assert [call[1] for call in calls[-4:]] == ["build", "create", "cp", "rm"]
+    build = calls[0]
+    assert build[:2] == ["docker", "build"]
+    assert build[build.index("--target") + 1] == "artifacts"
+    assert build[build.index("--output") + 1] == f"type=local,dest={builder.build_path}"
+    # Artifacts are exported directly: no image is tagged or extracted from.
+    assert "-t" not in build
+    assert [call[:3] for call in calls[1:]] == [["docker", "image", "ls"]]
+    assert builder.dockerfile.read_text().endswith(
+        "FROM scratch AS artifacts\nCOPY --from=build /artifacts/ /\n"
+    )
     assert builder.dockerfile.read_bytes() == prepared_dockerfile
 
     old_image = f"blitz-deps-{system_id.to_build_key()}-older"
     monkeypatch.setattr(SystemBuilder, "dependencies_cached", lambda _self: pytest.fail("checked current image"))
+    calls.clear()
     builder.build_prepared(dependency_image=old_image)
-    assert f"DEPENDENCY_IMAGE={old_image}" in calls[-4]
+    assert f"DEPENDENCY_IMAGE={old_image}" in calls[0]
 
 
 def test_stale_dependency_images_match_only_the_current_system(
@@ -196,3 +207,54 @@ def test_cleanup_keeps_in_use_images_and_continues(tmp_path, monkeypatch, capsys
     monkeypatch.setattr('backend.deployment.compilation.system_builder.run_command', remove)
     assert builder.prune_stale_dependency_images() == [second]
     assert f'Kept stale Docker image {first}' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("qualified_found", "listed", "expected"),
+    [(True, "", True), (False, "db1d5c2830b8\n", True), (False, "", False)],
+)
+def test_dependency_cache_survives_intermittent_short_name_misses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    qualified_found: bool, listed: str, expected: bool,
+) -> None:
+    """Docker Desktop can miss a short name that its image store still holds."""
+    system_id = SystemId("2.36", LinuxDistro.DEBIAN_12, Architecture.AMD64, PythonVersion(3, 11))
+    builder = SystemBuilder(system_id, FolderPath(str(tmp_path / "artifacts")), FolderPath(str(tmp_path / "context")))
+    monkeypatch.setattr(builder, "dependency_image", lambda: "blitz-deps-test")
+    commands: list[list[str]] = []
+
+    def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        if command[:3] == ["docker", "image", "inspect"]:
+            if command[-1] == "docker.io/library/blitz-deps-test:latest" and qualified_found:
+                return subprocess.CompletedProcess(command, 0, "sha256:abc\n", "")
+            return subprocess.CompletedProcess(command, 1, "", f"Error: No such image: {command[-1]}")
+        return subprocess.CompletedProcess(command, 0, listed, "")
+
+    monkeypatch.setattr("backend.deployment.compilation.system_builder.subprocess.run", fake_run)
+    assert builder.dependencies_cached() is expected
+    assert commands[0][-1] == "blitz-deps-test:latest"
+    if not qualified_found:
+        assert commands[-1] == ["docker", "image", "ls", "--quiet", "--filter", "reference=blitz-deps-test"]
+
+
+@pytest.mark.parametrize("in_use", [False, True])
+def test_build_retires_legacy_build_image_without_forcing(tmp_path, monkeypatch, capsys, in_use):
+    system = SystemId("2.36", LinuxDistro.DEBIAN_12, Architecture.AMD64, PythonVersion(3, 11))
+    builder = SystemBuilder(system, FolderPath(str(tmp_path / "artifacts")), FolderPath(str(tmp_path / "context")))
+    builder.prepare([], bundle_dependencies=False)
+    legacy = f"blitz-build-{system.to_build_key()}".lower()
+    calls: list[list[str]] = []
+
+    def fake_run(command, *_args, **_kwargs):
+        calls.append(list(command))
+        if command[:3] == ["docker", "image", "ls"]:
+            return "799a4e6eb657\n"
+        if command[:3] == ["docker", "image", "rm"] and in_use:
+            raise subprocess.CalledProcessError(1, command, output="image is being used by a container")
+        return ""
+
+    monkeypatch.setattr("backend.deployment.compilation.system_builder.run_command", fake_run)
+    builder.build_prepared(dependency_image="blitz-deps-cached")
+    assert calls[-1] == ["docker", "image", "rm", legacy]
+    assert ("Kept legacy build image" in capsys.readouterr().out) is in_use
