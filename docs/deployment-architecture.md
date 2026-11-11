@@ -148,10 +148,13 @@ flowchart TD
     C -->|Yes| E["Compile compatible modules offline in Docker"]
     M -->|Older image accepted| E
     E --> F["Export artifacts, wheels, resources, and runtime manifest"]
-    F --> G["Transfer target-specific bundle"]
-    G --> H["Replace installed backend and remove obsolete files"]
-    H --> I["Install bundled Python dependencies offline"]
-    I --> J["Remove transfer archives"]
+    F --> G["Compare with the target's installed bundle manifest"]
+    G --> H["Transfer the complete bundle, or only changed files"]
+    H --> I["Install files and remove obsolete ones"]
+    I --> N{"Bundled dependencies changed?"}
+    N -->|Yes| O["Install bundled Python dependencies offline"]
+    N -->|No| J["Remove transfer archives"]
+    O --> J
     J --> K["Watchdog launches assigned programs"]
 ```
 
@@ -230,6 +233,7 @@ For an example installation root of `/opt/blitz`:
     ├── deployment/               BLITZ API matching the bundle's deploy.py
     ├── deploy.py
     ├── build-plan.json
+    ├── bundle-manifest.json      Installed file checksums for incremental updates
     ├── runtime-manifest.json
     ├── python/control/
     │   ├── main.py
@@ -252,6 +256,31 @@ watchdog discards cached deployment definitions when `.blitz-runtime-id` changes
 Legacy bundles without `deployment/` preserve the installed library. The root
 package marker is always preserved.
 Declared resources also retain their relative paths in the runnable module.
+
+### Incremental transfer
+
+Each bundle archive contains `bundle-manifest.json`, recording the SHA-256,
+mode, and size of every file plus the directory list. A successful installation
+leaves it at `backend/bundle-manifest.json`. On the next deployment, BLITZ reads
+that manifest over SSH and compares it with the new bundle:
+
+- An identical bundle transfers nothing.
+- Otherwise a delta archive carries only changed files, the lists of removed
+  files and directories, the new manifest, and the installed manifest it was
+  compared against. The target applies it only if its manifest still matches
+  that comparison exactly, then writes the new manifest last.
+- A missing, unreadable, or other-profile manifest, or a bundle from an older
+  BLITZ version, transfers the complete bundle as before.
+
+Installation removes the installed manifest before changing any file, so an
+interrupted install makes the next deployment transfer everything. Like a
+complete install, every incremental or unchanged deployment removes runtime
+`__pycache__` folders, because installed files keep archive timestamps. Python
+dependencies are reinstalled only when the bundled `deps/` content changes; the
+record of the installed set lives in the target `.venv`, so a recreated
+environment reinstalls them. Pass `--full-transfer` (or
+`Options.set_incremental_transfer(False)`) to send complete bundles and reinstall
+dependencies, for example after files on the target were edited by hand.
 
 SSH commands and rsync use OpenSSH's native password helper. Each operation
 supplies credentials through its child environment and a temporary helper that

@@ -153,26 +153,58 @@ class System:
         host = self.general_info.ssh_host or self.general_info.hostname
         return f"{self.user}@[{host}]" if ":" in host else f"{self.user}@{host}"
 
+    def _ssh_argv(self, command: str) -> list[str]:
+        return [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "-o",
+            "GlobalKnownHostsFile=/dev/null",
+            "-o",
+            "NumberOfPasswordPrompts=1",
+            "-p",
+            str(self.ssh_port),
+            self.remote_host,
+            command,
+        ]
+
     def run_command(self, command: str) -> bool:
         ssh_proc = self._run_with_retries(
-            [
-                "ssh",
-                "-o",
-                "StrictHostKeyChecking=no",
-                "-o",
-                "UserKnownHostsFile=/dev/null",
-                "-o",
-                "GlobalKnownHostsFile=/dev/null",
-                "-o",
-                "NumberOfPasswordPrompts=1",
-                "-p",
-                str(self.ssh_port),
-                self.remote_host,
-                command,
-            ],
+            self._ssh_argv(command),
             f"SSH on {self.general_info.hostname}",
         )
         return ssh_proc.returncode == 0
+
+    def read_file(self, remote_file_path: FilePath) -> str | None:
+        """Return a remote text file, or None when it is absent or unreadable.
+
+        Standard output is kept apart from SSH diagnostics, and a marker line
+        separates the file from anything a remote shell profile prints.
+        """
+        remote_file, _ = self._clean_path(remote_file_path)
+        quoted = shlex.quote(remote_file)
+        marker = "BLITZ-FILE-CONTENTS"
+        command = f"if [ -f {quoted} ]; then printf '%s\\n' {marker}; cat -- {quoted}; fi"
+        error = ""
+        with _ssh_password_environment(self.password) as environment:
+            for attempt in range(1, SSH_RETRY_ATTEMPTS + 1):
+                proc = subprocess.run(
+                    self._ssh_argv(command),
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    text=True,
+                    env=environment,
+                )
+                if proc.returncode == 0:
+                    _, found, contents = proc.stdout.partition(f"{marker}\n")
+                    return contents if found else None
+                error = proc.stderr.strip()
+                if attempt < SSH_RETRY_ATTEMPTS:
+                    time.sleep(SSH_RETRY_DELAY_SECONDS)
+        print(f"[WARN] Could not read {remote_file} on {self.general_info.hostname}: {error[-300:]}")
+        return None
 
     def _run_with_retries(
         self,

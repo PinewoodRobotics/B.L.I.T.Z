@@ -8,6 +8,7 @@ import re
 import shutil
 import hashlib
 from pathlib import Path
+from backend.deployment.bundle_manifest import add_manifest
 from backend.deployment.compilation.util.systems import (
     Architecture,
     LinuxDistro,
@@ -142,6 +143,8 @@ class CodeBundler:
             root_dir=bundle_root_path,
             base_dir=self.system_key,
         )
+        # Lets redeployments transfer only files that differ from the target.
+        add_manifest(Path(archive_path), self.system_key)
 
         return FilePath(archive_path)
 

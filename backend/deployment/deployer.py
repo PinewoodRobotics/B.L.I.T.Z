@@ -170,6 +170,7 @@ class BlitzNetworkDeployer:
             systems=systems,
             system_host_to_pass_user=config.host_to_pass_user_mapper,
             are_deps_bundled=config.bundle_dependencies,
+            incremental=config.incremental_transfer,
         ).deploy()
 
         for system in sorted(systems, key=BlitzNetworkDeployer._system_label):
@@ -329,6 +330,10 @@ class BlitzNetworkDeployer:
         parser.add_argument("--blacklist", action="append", default=[], metavar="HOST_OR_IP", help="Exclude a hostname or IP before catalog requests (repeatable)")
         parser.add_argument("--sim", "--simulation", action="store_true", dest="simulation", help="Use the simulation watchdog addresses configured in deploy.py, bypassing mDNS")
         parser.add_argument("--expected-systems", type=int, metavar="COUNT", help="Require exactly this many devices after exclusions")
+        parser.add_argument(
+            "--full-transfer", action="store_true",
+            help="Send complete bundles and reinstall dependencies instead of only changed files",
+        )
         args = parser.parse_args(argv)
         if args.system_id and (args.phase not in ("discover", "cache") or args.device or args.simulation):
             parser.error("--system-id is only valid for discover/cache and cannot be combined with --device or --simulation")
@@ -346,6 +351,8 @@ class BlitzNetworkDeployer:
                 options.set_pinned_devices(args.device)
         if args.output_dir is not None:
             options.set_output_folder_path(FolderPath(str(args.output_dir)))
+        if args.full_transfer:
+            options.set_incremental_transfer(False)
         return DeploymentCommand(args.phase, options, tuple(args.system_id))
 
     @staticmethod
@@ -526,6 +533,7 @@ class BlitzNetworkDeployer:
         expected_system_types: tuple[ExpectedSystemType, ...] = ()
         blacklist: tuple[str, ...] = ()
         bundle_dependencies: bool = True
+        incremental_transfer: bool = True
         host_to_pass_user_mapper: dict[str, tuple[str, str]] = field(
             default_factory=dict
         )
@@ -612,6 +620,14 @@ class BlitzNetworkDeployer:
             dependencies: bool,
         ) -> "BlitzNetworkDeployer.Options":
             self.bundle_dependencies = dependencies
+            return self
+
+        def set_incremental_transfer(
+            self,
+            enabled: bool = True,
+        ) -> "BlitzNetworkDeployer.Options":
+            """Send only files that differ from each target's installed bundle."""
+            self.incremental_transfer = enabled
             return self
 
         def set_build_folder_path(
