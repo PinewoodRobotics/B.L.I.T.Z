@@ -48,9 +48,12 @@ class DockerTestResources:
     def build(self, arguments: Sequence[str], label: str, **kwargs: object) -> str:
         self._ensure_builder()
         arguments = list(arguments)
-        tag = arguments[arguments.index("-t") + 1]
-        extra = ["--builder", self.name, "--load", "--provenance=false",
+        tag = arguments[arguments.index("-t") + 1] if "-t" in arguments else None
+        extra = ["--builder", self.name, "--provenance=false",
                  "--label", f"blitz.pytest.session={self.name}"]
+        # Builds that export files with --output create no image to load.
+        if tag is not None:
+            extra.append("--load")
         # BuildKit runs separately from Docker's image store. Export dependencies
         # as a local OCI layout too, then supply that exact image to offline builds.
         # This preserves the real Dockerfile and never needs a local registry.
@@ -80,9 +83,13 @@ class DockerTestResources:
         """Adapt SystemBuilder commands only while a Docker test fixture is active."""
         command = list(command)
         if command[:2] == ["docker", "build"]:
-            index = command.index("-t") + 1
-            command[index] = self.image_name(command[index])
+            if "-t" in command:
+                index = command.index("-t") + 1
+                command[index] = self.image_name(command[index])
             return self.build(command[2:], label, **kwargs)
+        if command[:3] in (["docker", "image", "ls"], ["docker", "image", "rm"]):
+            # Never list or remove the developer's own images from tests.
+            return ""
         if command[:2] == ["docker", "create"]:
             command = [self.images.get(argument, argument) for argument in command]
             command[2:2] = ["--label", f"blitz.pytest.session={self.name}"]

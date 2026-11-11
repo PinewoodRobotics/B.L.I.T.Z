@@ -397,6 +397,8 @@ class SystemBuilder:
             "COPY sources /work/sources",
             "COPY workspace /work/workspace",
             "RUN --network=none /bin/bash /work/build_system.sh compile",
+            "FROM scratch AS artifacts",
+            "COPY --from=build /artifacts/ /",
         ]
         content = "\n".join(dockerfile_lines) + "\n"
         if not self.dockerfile.is_file() or self.dockerfile.read_text() != content:
@@ -486,30 +488,34 @@ class SystemBuilder:
                 "Connect to the internet and run: python backend/deploy.py cache"
             )
         image = dependency_image or self.dependency_image()
-        image_name = f"blitz-build-{self.system_id.to_build_key()}".lower()
-        platform = self.system_id.docker_image
+        # Export only the artifacts stage straight into the build folder. No
+        # image is created, so nothing accumulates in Docker between builds.
         run_command(
             ["docker", "build", "--progress=plain", "--network", "none", "--pull=false",
              "--build-arg", f"DEPENDENCY_IMAGE={image}",
-             "--platform", platform,
-             "-f", str(self.dockerfile), "-t", image_name, str(self.context)],
+             "--platform", self.system_id.docker_image,
+             "--target", "artifacts",
+             "--output", f"type=local,dest={self.build_path}",
+             "-f", str(self.dockerfile), str(self.context)],
             f"Build target bundle for {profile(self.system_id)}",
             log_path=self._log_path("compile"), show_progress=True,
         )
-        container_id = run_command(
-            ["docker", "create", "--platform", platform, image_name],
-            "Create artifact extraction container",
-            log_path=self._log_path("create"), show_progress=True,
-        ).strip()
+        self._remove_legacy_build_image()
+
+    def _remove_legacy_build_image(self) -> None:
+        """Retire the per-profile image that BLITZ before 3.1.4 tagged on every build."""
+        legacy = f"blitz-build-{self.system_id.to_build_key()}".lower()
         try:
-            run_command(
-                ["docker", "cp", f"{container_id}:/artifacts/.", str(self.build_path)],
-                "Extract target artifacts",
-                log_path=self._log_path("extract"), show_progress=True,
-            )
-        finally:
-            run_command(["docker", "rm", container_id], "Remove artifact extraction container",
-                        log_path=self._log_path("cleanup"), show_progress=True)
+            if not run_command(
+                ["docker", "image", "ls", "--quiet", "--filter", f"reference={legacy}"],
+                "List legacy build image",
+            ).strip():
+                return
+            run_command(["docker", "image", "rm", legacy], f"Remove legacy build image {legacy}",
+                        log_path=self._log_path("cleanup"))
+        except (subprocess.CalledProcessError, OSError) as error:
+            # A container may still use it. Never force removal or fail the build.
+            print(f"WARNING: Kept legacy build image {legacy}: {error}")
 
     def build(self, modules: list[Module], bundle_dependencies: bool) -> BuildPlan:
         plan = self.prepare(modules, bundle_dependencies)

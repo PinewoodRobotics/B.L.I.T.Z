@@ -204,15 +204,19 @@ each module's installation commands directly.
 build/backend-bundle/
 ├── contexts/<system-id>/         Dockerfile, scripts, plans, staged sources
 ├── systems.json                 Recorded build profiles; no device identities
-├── artifacts/<system-id>/        Extracted build outputs
-├── logs/<system-id>/             Dependency, compilation, and extraction logs
+├── artifacts/<system-id>/        Build outputs exported by Docker
+├── logs/<system-id>/             Dependency and compilation logs
 └── outputs/
     ├── <system-id>.zip           Target-specific bundle
     └── bundle-index.json         Bundle checksums
 ```
 
 These are local generated artifacts, not source modules. Docker's dependency
-images remain cached locally for future deployments.
+images remain cached locally for future deployments. Compilation exports the
+final `artifacts` stage directly into `artifacts/<system-id>/` and creates no
+Docker image, so repeated builds do not accumulate images. A `blitz-build-*`
+image left by an older BLITZ version is removed after the next build of its
+profile unless a container still uses it.
 
 ## Installed layout and single-bundle retention
 
